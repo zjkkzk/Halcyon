@@ -23,6 +23,7 @@ class LyriconBridge(private val context: Context) {
     private var displayTranslation = true
 
     private var lastSongId: String? = null
+    private var lastSong: Song? = null
     private var lastLyrics: List<LyricLine> = emptyList()
 
     fun initialize() {
@@ -33,8 +34,14 @@ class LyriconBridge(private val context: Context) {
                 logo = ProviderLogo.fromDrawable(context, R.drawable.ic_launcher)
             )
             provider?.service?.addConnectionListener {
-                onConnected { Log.i(TAG, "Lyricon connected") }
-                onReconnected { Log.i(TAG, "Lyricon reconnected") }
+                onConnected {
+                    Log.i(TAG, "Lyricon connected")
+                    resendLastSong()
+                }
+                onReconnected {
+                    Log.i(TAG, "Lyricon reconnected")
+                    resendLastSong()
+                }
                 onDisconnected { Log.w(TAG, "Lyricon disconnected") }
                 onConnectTimeout { Log.w(TAG, "Lyricon connection timeout") }
             }
@@ -50,6 +57,7 @@ class LyriconBridge(private val context: Context) {
         provider?.destroy()
         provider = null
         lastSongId = null
+        lastSong = null
         lastLyrics = emptyList()
     }
 
@@ -61,6 +69,9 @@ class LyriconBridge(private val context: Context) {
             provider?.unregister()
             provider?.destroy()
             provider = null
+            lastSongId = null
+            lastSong = null
+            lastLyrics = emptyList()
         }
     }
 
@@ -75,8 +86,8 @@ class LyriconBridge(private val context: Context) {
         if (!enabled) return
         val p = provider ?: return
 
-        if (song.id.toString() == lastSongId && lyrics === lastLyrics) return
         lastSongId = song.id.toString()
+        lastSong = song
         lastLyrics = lyrics
 
         try {
@@ -192,11 +203,17 @@ class LyriconBridge(private val context: Context) {
     fun clearSong() {
         if (!enabled) return
         lastSongId = null
+        lastSong = null
         lastLyrics = emptyList()
         try {
             provider?.player?.setSong(null)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear song", e)
         }
+    }
+
+    private fun resendLastSong() {
+        val song = lastSong ?: return
+        sendSong(song, lastLyrics)
     }
 }

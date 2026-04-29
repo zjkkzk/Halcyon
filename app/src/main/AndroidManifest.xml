@@ -21,15 +21,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Ella">
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-        android:theme="@style/Theme.Ella">
-
         <meta-data android:name="lyricon_module" android:value="true" />
         <meta-data android:name="lyricon_module_author" android:value="Ella Music" />
         <meta-data android:name="lyricon_module_description" android:value="本地音乐播放器词幕适配" />
         <meta-data android:name="lyricon_module_tags" android:resource="@array/lyricon_module_tags" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+        android:theme="@style/Theme.Ella">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

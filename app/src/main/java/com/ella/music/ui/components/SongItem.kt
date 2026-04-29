@@ -1,5 +1,6 @@
 package com.ella.music.ui.components
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.ella.music.data.model.Song
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -36,9 +41,15 @@ fun SongItem(
     isPlaying: Boolean = false,
     isCurrent: Boolean = false,
     albumArtUri: Uri? = null,
+    loadCoverArt: ((Song) -> Bitmap?)? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val embeddedCover by produceState<Bitmap?>(initialValue = null, song.id, loadCoverArt) {
+        value = withContext(Dispatchers.IO) { loadCoverArt?.invoke(song) }
+    }
+    val coverModel = embeddedCover ?: if (loadCoverArt == null) albumArtUri else null
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -53,9 +64,9 @@ fun SongItem(
                 .background(MiuixTheme.colorScheme.surfaceContainer),
             contentAlignment = Alignment.Center
         ) {
-            if (albumArtUri != null) {
+            if (coverModel != null) {
                 AsyncImage(
-                    model = albumArtUri,
+                    model = coverModel,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
                     contentScale = ContentScale.Crop

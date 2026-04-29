@@ -112,6 +112,7 @@ fun FolderDetailScreen(
                         song = song,
                         isCurrent = currentSong?.id == song.id,
                         albumArtUri = mainViewModel.getAlbumArtUri(song.albumId),
+                        loadCoverArt = mainViewModel::getCoverArtBitmap,
                         onClick = {
                             playerViewModel.setPlaylist(folderSongs, index)
                             onNavigateToPlayer()

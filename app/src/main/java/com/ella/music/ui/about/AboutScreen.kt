@@ -263,56 +263,88 @@ private fun AboutContent(
             }
 
             item {
+                SmallTitle(text = "项目")
+                FrostedCard(backdrop = backdrop, blurEnable = blurEnable, cardBlendColors = cardBlendColors) {
+                    BasicComponent(
+                        title = "版本",
+                        summary = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    )
+                    BasicComponent(
+                        title = "Ella Music",
+                        summary = "github.com/Kifranei/Ella",
+                        onClick = { uriHandler.openUri("https://github.com/Kifranei/Ella") },
+                    )
+                }
+            }
+
+            item {
                 SmallTitle(text = "致谢")
                 FrostedCard(backdrop = backdrop, blurEnable = blurEnable, cardBlendColors = cardBlendColors) {
                     BasicComponent(
                         title = "Mimo-V2.5-Pro",
                         summary = "主要开发",
-                        onClick = { uriHandler.openUri("https://github.com/Kifranei/Ella") },
                     )
+                    BasicComponent(
+                        title = "GPT-5.5",
+                        summary = "代码协作与问题修复",
+                    )
+                }
+            }
+
+            item {
+                SmallTitle(text = "开源项目")
+                FrostedCard(backdrop = backdrop, blurEnable = blurEnable, cardBlendColors = cardBlendColors) {
                     BasicComponent(
                         title = "Miuix",
                         summary = "MIUI/HyperOS 风格 Compose UI 组件库",
                         onClick = { uriHandler.openUri("https://github.com/miuix-kmp/miuix") },
                     )
                     BasicComponent(
-                        title = "ExoPlayer (Media3)",
-                        summary = "Google 开源媒体播放库",
+                        title = "AndroidX Media3",
+                        summary = "播放、媒体会话与 ExoPlayer 扩展",
                         onClick = { uriHandler.openUri("https://github.com/androidx/media") },
                     )
                     BasicComponent(
-                        title = "Lyricon",
-                        summary = "状态栏歌词扩展模块",
-                        onClick = { uriHandler.openUri("https://github.com/proify/lyricon") },
+                        title = "FFmpeg",
+                        summary = "ALAC 等音频格式软件解码",
+                        onClick = { uriHandler.openUri("https://ffmpeg.org") },
                     )
                     BasicComponent(
                         title = "TagLib",
-                        summary = "音频标签读写库",
+                        summary = "音频标签、内嵌封面与内嵌歌词读取",
                         onClick = { uriHandler.openUri("https://github.com/taglib/taglib") },
                     )
                     BasicComponent(
-                        title = "FFmpeg",
-                        summary = "音视频编解码框架",
-                        onClick = { uriHandler.openUri("https://ffmpeg.org") },
+                        title = "Kyant TagLib",
+                        summary = "Android/Kotlin TagLib 绑定",
+                        onClick = { uriHandler.openUri("https://github.com/Kyant0/TagLib") },
+                    )
+                    BasicComponent(
+                        title = "Lyricon",
+                        summary = "词幕 Provider API 与状态栏歌词",
+                        onClick = { uriHandler.openUri("https://github.com/proify/lyricon") },
+                    )
+                    BasicComponent(
+                        title = "Kyant Backdrop",
+                        summary = "液态玻璃与背景模糊效果",
+                        onClick = { uriHandler.openUri("https://github.com/Kyant0/AndroidLiquidGlass") },
                     )
                     BasicComponent(
                         title = "Coil",
                         summary = "Kotlin 图片加载库",
                         onClick = { uriHandler.openUri("https://github.com/coil-kt/coil") },
                     )
+                    BasicComponent(
+                        title = "AndroidX DataStore",
+                        summary = "设置持久化",
+                        onClick = { uriHandler.openUri("https://developer.android.com/jetpack/androidx/releases/datastore") },
+                    )
+                    BasicComponent(
+                        title = "Kotlinx Coroutines",
+                        summary = "异步任务与 Flow 状态流",
+                        onClick = { uriHandler.openUri("https://github.com/Kotlin/kotlinx.coroutines") },
+                    )
                 }
-            }
-
-            item {
-                Text(
-                    text = "© 2026 Ella Music. All rights reserved.",
-                    fontSize = 12.sp,
-                    color = colorScheme.onSurfaceVariantSummary.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                )
             }
 
             item {

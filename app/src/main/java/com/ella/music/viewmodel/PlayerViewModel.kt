@@ -91,6 +91,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             playerManager.currentSong.collect { song ->
                 if (song != null) {
+                    lastTickerLine = null
                     val songLyrics = repository.getLyrics(song)
                     _lyrics.value = songLyrics
                     _currentLyricIndex.value = -1
@@ -165,6 +166,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleShuffle() = playerManager.toggleShuffle()
     fun toggleRepeat() = playerManager.toggleRepeat()
 
+    fun getCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song)
+
     fun toggleLyrics() {
         _showLyrics.value = !_showLyrics.value
     }
@@ -193,6 +196,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             settingsManager.setTickerEnabled(enabled)
             tickerBridge.setEnabled(enabled)
+            lastTickerLine = null
+            if (enabled) {
+                val index = _currentLyricIndex.value
+                val currentLyrics = _lyrics.value
+                if (index in currentLyrics.indices) {
+                    val line = currentLyrics[index].text
+                    lastTickerLine = line
+                    tickerBridge.sendLyric(line)
+                }
+            }
         }
     }
 

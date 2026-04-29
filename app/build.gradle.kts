@@ -16,8 +16,8 @@ android {
         applicationId = "com.ella.music"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         val buildTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
@@ -69,9 +69,10 @@ dependencies {
     implementation(libs.lyricon.provider)
     implementation(libs.backdrop)
     implementation(libs.taglib)
-    // implementation(project(":ffmpeg-decoder"))  // TODO: build FFmpeg first
+    implementation(project(":ffmpeg-decoder"))
 
     implementation("top.yukonga.miuix.kmp:miuix-ui")
     implementation("top.yukonga.miuix.kmp:miuix-icons")
     implementation("top.yukonga.miuix.kmp:miuix-blur-android")
+    implementation("top.yukonga.miuix.kmp:miuix-preference")
 }

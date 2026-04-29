@@ -1,5 +1,6 @@
 package com.ella.music.ui.components
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,9 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +30,15 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.ella.music.R
 import com.ella.music.data.model.Song
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -40,17 +53,51 @@ fun MiniPlayer(
     song: Song,
     isPlaying: Boolean,
     albumArtUri: Uri? = null,
+    loadCoverArt: ((Song) -> Bitmap?)? = null,
+    backdrop: Backdrop? = null,
+    liquidGlass: Boolean = false,
     onClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipPrevious: () -> Unit = {},
     onSkipNext: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val embeddedCover by produceState<Bitmap?>(initialValue = null, song.id, loadCoverArt) {
+        value = withContext(Dispatchers.IO) { loadCoverArt?.invoke(song) }
+    }
+    val coverModel = embeddedCover ?: if (loadCoverArt == null) albumArtUri else null
+    val shape = RoundedCornerShape(if (liquidGlass) 24.dp else 0.dp)
+    val glassBackdrop = if (liquidGlass) backdrop else null
+    val isGlass = glassBackdrop != null
+    val surfaceContainer = MiuixTheme.colorScheme.surfaceContainer
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = if (isGlass) 16.dp else 0.dp, vertical = if (isGlass) 6.dp else 0.dp)
             .clickable(onClick = onClick)
-            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .then(
+                if (isGlass) {
+                    Modifier
+                        .clip(shape)
+                        .drawBackdrop(
+                            backdrop = glassBackdrop,
+                            shape = { shape },
+                            effects = {
+                                vibrancy()
+                                blur(10f.dp.toPx())
+                                lens(18f.dp.toPx(), 18f.dp.toPx())
+                            },
+                            highlight = { Highlight.Default.copy(alpha = 0.55f) },
+                            shadow = { Shadow.Default.copy(color = Color.Black.copy(alpha = 0.18f)) },
+                            onDrawSurface = {
+                                drawRect(surfaceContainer.copy(alpha = 0.45f))
+                            }
+                        )
+                } else {
+                    Modifier.background(surfaceContainer)
+                }
+            )
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -61,9 +108,9 @@ fun MiniPlayer(
                 .background(MiuixTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
-            if (albumArtUri != null) {
+            if (coverModel != null) {
                 AsyncImage(
-                    model = albumArtUri,
+                    model = coverModel,
                     contentDescription = null,
                     modifier = Modifier
                         .size(44.dp)

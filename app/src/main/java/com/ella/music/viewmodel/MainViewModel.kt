@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -30,13 +31,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+    private var scanJob: Job? = null
 
     fun selectTab(index: Int) {
         _selectedTab.value = index
     }
 
     fun scanMusic() {
-        viewModelScope.launch {
+        if (scanJob?.isActive == true || isScanning.value) return
+        scanJob = viewModelScope.launch {
             val minDuration = settingsManager.minDurationSec.first() * 1000L
             repository.scanMusic(minDuration)
         }
@@ -47,6 +50,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getAlbumArtUri(albumId: Long) = repository.getAlbumArtUri(albumId)
+
+    fun getCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song)
 
     fun getReplayGain(song: Song): Float? {
         return repository.getReplayGain(song)

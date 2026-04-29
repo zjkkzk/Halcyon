@@ -106,6 +106,7 @@ fun AlbumDetailScreen(
                     song = song,
                     isCurrent = currentSong?.id == song.id,
                     albumArtUri = albumArtUri,
+                    loadCoverArt = mainViewModel::getCoverArtBitmap,
                     onClick = {
                         playerViewModel.setPlaylist(albumSongs, index)
                         onNavigateToPlayer()
@@ -119,7 +120,7 @@ fun AlbumDetailScreen(
 @Composable
 private fun AlbumHeader(
     album: Album?,
-    albumArtUri: Uri,
+    albumArtUri: Uri?,
     songCount: Int,
     onPlayAll: () -> Unit
 ) {

@@ -68,38 +68,37 @@ class MusicScanner(private val context: Context) {
                 val file = File(path)
                 if (!file.exists()) continue
 
-                val needsTagLib = title.isBlank() || artist.isBlank() || album.isBlank() || duration <= 0
+                val needsTagLib = shouldReadTagsWithTagLib(file, title, artist, album, duration)
 
                 if (needsTagLib) {
                     try {
-                        val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-                        val audioProps = TagLib.getAudioProperties(fd.fd)
-                        val metadata = TagLib.getMetadata(fd.fd, false)
-                        val props = metadata?.propertyMap
+                        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                            val audioProps = TagLib.getAudioProperties(fd.dup().detachFd())
+                            val metadata = TagLib.getMetadata(fd.dup().detachFd(), false)
+                            val props = metadata?.propertyMap
 
-                        if (title.isBlank()) title = props?.get("TITLE")?.firstOrNull() ?: ""
-                        if (artist.isBlank()) artist = props?.get("ARTIST")?.firstOrNull() ?: ""
-                        if (album.isBlank()) album = props?.get("ALBUM")?.firstOrNull() ?: ""
-                        if (duration <= 0) duration = ((audioProps?.length ?: 0) * 1000L)
-
-                        fd.close()
+                            if (isMissingTag(title, fileName)) title = props.firstValue("TITLE", "INAM", "NAME", "TIT2")
+                            if (isMissingTag(artist)) artist = props.firstValue("ARTIST", "ALBUMARTIST", "IART", "PERFORMER", "TPE1")
+                            if (isMissingTag(album)) album = props.firstValue("ALBUM", "IPRD", "TALB")
+                            if (duration <= 0) duration = ((audioProps?.length ?: 0) * 1000L)
+                        }
                     } catch (e: Exception) {
                         Log.w(TAG, "TagLib failed for $path", e)
                         try {
                             val retriever = MediaMetadataRetriever()
                             retriever.setDataSource(path)
-                            if (title.isBlank()) title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
-                            if (artist.isBlank()) artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: ""
-                            if (album.isBlank()) album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: ""
+                            if (isMissingTag(title, fileName)) title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
+                            if (isMissingTag(artist)) artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: ""
+                            if (isMissingTag(album)) album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: ""
                             if (duration <= 0) duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                             retriever.release()
                         } catch (_: Exception) {}
                     }
                 }
 
-                if (title.isBlank()) title = fileName.substringBeforeLast('.')
-                if (artist.isBlank()) artist = "Unknown"
-                if (album.isBlank()) album = "Unknown"
+                if (isMissingTag(title, fileName)) title = fileName.substringBeforeLast('.')
+                if (isMissingTag(artist)) artist = "Unknown"
+                if (isMissingTag(album)) album = "Unknown"
 
                 if (duration > 0 && duration >= minDurationMs) {
                     songs.add(Song(id, title, artist, album, albumId, duration, path, fileName, size, mime))
@@ -137,10 +136,21 @@ class MusicScanner(private val context: Context) {
         return try {
             val file = File(path)
             if (!file.exists()) return null
-            val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            val lyrics = TagLib.getMetadataPropertyValues(fd.fd, "LYRICS")?.firstOrNull()
-            fd.close()
-            lyrics?.ifBlank { null }
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                val lyrics = firstMetadataValue(
+                    fd = fd,
+                    "LYRICS",
+                    "UNSYNCEDLYRICS",
+                    "UNSYNCED LYRICS",
+                    "SYNCEDLYRICS",
+                    "USLT",
+                    "SYLT",
+                    "©lyr",
+                    "\u00a9lyr",
+                    "LYRIC"
+                )
+                lyrics?.ifBlank { null }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "TagLib lyrics extraction failed for $path", e)
             null
@@ -151,9 +161,9 @@ class MusicScanner(private val context: Context) {
         return try {
             val file = File(path)
             if (!file.exists()) return null
-            val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            val gainStr = TagLib.getMetadataPropertyValues(fd.fd, "REPLAYGAIN_TRACK_GAIN")?.firstOrNull()
-            fd.close()
+            val gainStr = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                firstMetadataValue(fd, "REPLAYGAIN_TRACK_GAIN", "R128_TRACK_GAIN")
+            }
             if (!gainStr.isNullOrBlank()) {
                 Regex("([+-]?[0-9.]+)").find(gainStr)?.groupValues?.get(1)?.toFloatOrNull()
             } else null
@@ -167,11 +177,11 @@ class MusicScanner(private val context: Context) {
         return try {
             val file = File(path)
             if (!file.exists()) return null
-            val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            val pictures = TagLib.getPictures(fd.fd)
-            fd.close()
-            val frontCover = pictures?.firstOrNull { it.pictureType == "Front Cover" } ?: pictures?.firstOrNull()
-            frontCover?.data
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                val pictures = TagLib.getPictures(fd.dup().detachFd())
+                val frontCover = pictures.firstOrNull { it.pictureType == "Front Cover" } ?: pictures.firstOrNull()
+                frontCover?.data
+            }
         } catch (e: Exception) {
             Log.w(TAG, "TagLib cover art extraction failed for $path", e)
             null
@@ -180,4 +190,60 @@ class MusicScanner(private val context: Context) {
 
     fun getAlbumArtUri(albumId: Long): Uri =
         ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), albumId)
+
+    private fun shouldReadTagsWithTagLib(
+        file: File,
+        title: String,
+        artist: String,
+        album: String,
+        duration: Long
+    ): Boolean {
+        val extension = file.extension.lowercase()
+        val preferTagLib = extension in setOf("wav", "wave", "aif", "aiff", "flac", "ogg", "opus")
+        return preferTagLib || isMissingTag(title, file.name) || isMissingTag(artist) || isMissingTag(album) || duration <= 0
+    }
+
+    private fun isMissingTag(value: String?, fileName: String? = null): Boolean {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isBlank()) return true
+        if (normalized.equals("<unknown>", ignoreCase = true)) return true
+        if (normalized.equals("unknown", ignoreCase = true)) return true
+        if (normalized.equals("unknown artist", ignoreCase = true)) return true
+        if (normalized.equals("unknown album", ignoreCase = true)) return true
+        return fileName != null && normalized == fileName.substringBeforeLast('.')
+    }
+
+    private fun Map<String, Array<String>>?.firstValue(vararg keys: String): String {
+        if (this == null) return ""
+        for (key in keys) {
+            val value = get(key)?.firstOrNull()?.trim()
+            if (!value.isNullOrBlank()) return value
+        }
+        val normalizedKeys = keys.map { it.lowercase().replace(" ", "") }.toSet()
+        for ((propertyKey, values) in this) {
+            if (propertyKey.lowercase().replace(" ", "") in normalizedKeys) {
+                val value = values.firstOrNull()?.trim()
+                if (!value.isNullOrBlank()) return value
+            }
+        }
+        return ""
+    }
+
+    private fun firstMetadataValue(fd: ParcelFileDescriptor, vararg keys: String): String? {
+        for (key in keys) {
+            val value = TagLib.getMetadataPropertyValues(fd.dup().detachFd(), key)
+                ?.firstOrNull()
+                ?.trim()
+            if (!value.isNullOrBlank()) return value
+        }
+        val propertyMap = TagLib.getMetadata(fd.dup().detachFd(), false)?.propertyMap
+        val normalizedKeys = keys.map { it.lowercase().replace(" ", "") }.toSet()
+        propertyMap?.forEach { (propertyKey, values) ->
+            if (propertyKey.lowercase().replace(" ", "") in normalizedKeys) {
+                val value = values.firstOrNull()?.trim()
+                if (!value.isNullOrBlank()) return value
+            }
+        }
+        return null
+    }
 }

@@ -1,5 +1,6 @@
 package com.ella.music.ui.player
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -28,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,8 +44,11 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import com.ella.music.R
+import com.ella.music.data.model.Song
 import com.ella.music.ui.components.WordLyricView
 import com.ella.music.viewmodel.PlayerViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
@@ -109,7 +114,8 @@ fun PlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f)
+                .clickable { playerViewModel.toggleLyrics() },
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
@@ -125,7 +131,8 @@ fun PlayerScreen(
                     )
                 } else {
                     AlbumArtView(
-                        albumId = song?.albumId ?: 0L,
+                        song = song,
+                        loadCoverArt = playerViewModel::getCoverArtBitmap,
                         modifier = Modifier
                             .fillMaxWidth(0.7f)
                             .aspectRatio(1f)
@@ -139,7 +146,6 @@ fun PlayerScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { playerViewModel.toggleLyrics() }
                 .padding(horizontal = 24.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -266,12 +272,18 @@ fun PlayerScreen(
 
 @Composable
 private fun AlbumArtView(
-    albumId: Long,
+    song: Song?,
+    loadCoverArt: (Song) -> Bitmap?,
     modifier: Modifier = Modifier
 ) {
-    val uri = if (albumId > 0) {
-        Uri.parse("content://media/external/audio/albumart/$albumId")
+    val embeddedCover by produceState<Bitmap?>(initialValue = null, song?.id) {
+        value = withContext(Dispatchers.IO) { song?.let(loadCoverArt) }
+    }
+
+    val uri = if ((song?.albumId ?: 0L) > 0) {
+        Uri.parse("content://media/external/audio/albumart/${song?.albumId}")
     } else null
+    val coverModel = embeddedCover ?: if (song == null) uri else null
 
     Box(
         modifier = modifier
@@ -279,9 +291,9 @@ private fun AlbumArtView(
             .background(MiuixTheme.colorScheme.surfaceContainer),
         contentAlignment = Alignment.Center
     ) {
-        if (uri != null) {
+        if (coverModel != null) {
             AsyncImage(
-                model = uri,
+                model = coverModel,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()

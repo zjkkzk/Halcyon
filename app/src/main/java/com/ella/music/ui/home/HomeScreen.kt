@@ -139,6 +139,7 @@ fun HomeScreen(
                                 song = song,
                                 isCurrent = currentSong?.id == song.id,
                                 albumArtUri = mainViewModel.getAlbumArtUri(song.albumId),
+                                loadCoverArt = mainViewModel::getCoverArtBitmap,
                                 onClick = {
                                     playerViewModel.setPlaylist(filteredSongs, filteredSongs.indexOf(song))
                                     onNavigateToPlayer()

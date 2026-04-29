@@ -55,6 +55,12 @@ class MusicRepository(private val context: Context) {
 
         val embedded = scanner.extractEmbeddedLyrics(song.path)
         if (!embedded.isNullOrBlank()) {
+            val parsed = LrcParser.parse(embedded)
+            if (parsed.lyrics.isNotEmpty()) {
+                lyricsCache[song.id] = parsed.lyrics
+                return@withContext parsed.lyrics
+            }
+
             val result = mutableListOf<LyricLine>()
             val lines = embedded.lines()
             var timeOffset = 0L
@@ -94,7 +100,8 @@ class MusicRepository(private val context: Context) {
         return BitmapFactory.decodeByteArray(data, 0, data.size)
     }
 
-    fun getAlbumArtUri(albumId: Long): Uri {
+    fun getAlbumArtUri(albumId: Long): Uri? {
+        if (albumId <= 0L) return null
         return ContentUris.withAppendedId(
             Uri.parse("content://media/external/audio/albumart"),
             albumId

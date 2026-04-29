@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ella.music.BuildConfig
 import com.ella.music.data.SettingsManager
 import com.ella.music.ui.theme.THEME_DARK
 import com.ella.music.ui.theme.THEME_FOLLOW_SYSTEM
@@ -45,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -66,8 +68,8 @@ fun SettingsScreen(
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
     val liquidGlass by settingsManager.liquidGlass.collectAsState(initial = true)
 
-    var themeExpanded by remember { mutableStateOf(false) }
     val themeLabels = listOf("跟随系统", "浅色", "深色")
+    val selectedThemeMode = themeMode.coerceIn(themeLabels.indices)
 
     Column(
         modifier = Modifier
@@ -91,61 +93,17 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
             )
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = { themeExpanded = !themeExpanded }
-            ) {
-                BasicComponent(
+            Card(modifier = Modifier.padding(vertical = 4.dp)) {
+                OverlayDropdownPreference(
+                    items = themeLabels,
+                    selectedIndex = selectedThemeMode,
                     title = "主题模式",
-                    summary = themeLabels.getOrElse(themeMode) { "跟随系统" },
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    showValue = true,
+                    renderInRootScaffold = false,
+                    onSelectedIndexChange = { index ->
+                        scope.launch { settingsManager.setThemeMode(index) }
                     }
                 )
-            }
-
-            AnimatedVisibility(
-                visible = themeExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                Card(modifier = Modifier.padding(vertical = 2.dp)) {
-                    Column {
-                        themeLabels.forEachIndexed { index, label ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = themeMode == index,
-                                        onClick = {
-                                            scope.launch { settingsManager.setThemeMode(index) }
-                                            themeExpanded = false
-                                        }
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 15.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (themeMode == index) {
-                                    Text(
-                                        text = "✓",
-                                        color = MiuixTheme.colorScheme.primary,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -343,7 +301,7 @@ fun SettingsScreen(
             ) {
                 BasicComponent(
                     title = "关于",
-                    summary = "Ella Music v1.0.0",
+                    summary = "Ella Music v${BuildConfig.VERSION_NAME}",
                     startAction = {
                         Icon(
                             imageVector = MiuixIcons.Regular.Info,

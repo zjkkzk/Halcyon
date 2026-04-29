@@ -25,6 +25,7 @@ project(libffmpegJNI C CXX)
 
 set(ffmpeg_location "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg")
 set(ffmpeg_binaries "${ffmpeg_location}/android-libs/${ANDROID_ABI}")
+set(ffmpeg_headers "${ffmpeg_location}/include")
 
 foreach(ffmpeg_lib avutil swresample avcodec)
     set(ffmpeg_lib_filename lib${ffmpeg_lib}.a)
@@ -39,7 +40,7 @@ foreach(ffmpeg_lib avutil swresample avcodec)
             ${ffmpeg_lib_file_path})
 endforeach()
 
-include_directories(${ffmpeg_location})
+include_directories(${ffmpeg_headers})
 find_library(android_log_lib log)
 
 add_library(ffmpegJNI

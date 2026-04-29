@@ -12,5 +12,10 @@ local.properties
 /app/build
 /app/release
 /ffmpeg-decoder/build
+/ffmpeg-decoder/src/main/jni/ffmpeg/*
+!/ffmpeg-decoder/src/main/jni/ffmpeg/android-libs/
+!/ffmpeg-decoder/src/main/jni/ffmpeg/android-libs/**
+!/ffmpeg-decoder/src/main/jni/ffmpeg/include/
+!/ffmpeg-decoder/src/main/jni/ffmpeg/include/**
 *.jks
 *.keystore

@@ -47,8 +47,8 @@ fun LyricView(
     LaunchedEffect(currentIndex) {
         if (currentIndex >= 0 && currentIndex < lyrics.size) {
             listState.animateScrollToItem(
-                index = currentIndex,
-                scrollOffset = -200
+                index = currentIndex + 1,
+                scrollOffset = 0
             )
         }
     }
@@ -110,8 +110,8 @@ fun WordLyricView(
     LaunchedEffect(currentIndex) {
         if (currentIndex >= 0 && currentIndex < lyrics.size) {
             listState.animateScrollToItem(
-                index = currentIndex,
-                scrollOffset = -200
+                index = currentIndex + 1,
+                scrollOffset = 0
             )
         }
     }

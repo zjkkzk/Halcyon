@@ -2,12 +2,17 @@ package com.ella.music.data.parser
 
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.LyricWord
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
 
 object LrcParser {
 
-    private val timePattern = Regex("""\[(\d{2}):(\d{2})[.:](\d{2,3})]""")
-    private val wordTimePattern = Regex("""<(\d{2}):(\d{2})[.:](\d{2,3})>""")
-    private val metaDataPattern = Regex("""\[(ti|ar|al|by|offset|re|ve):(.+)]""")
+    private val timePattern = Regex("""\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?]""")
+    private val wordTimePattern = Regex("""<(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?>""")
+    private val metaDataPattern = Regex("""\[(ti|ar|al|by|offset|re|ve):\s*(.*)]""", RegexOption.IGNORE_CASE)
 
     data class LrcResult(
         val lyrics: List<LyricLine>,
@@ -56,7 +61,7 @@ object LrcParser {
                     val fullText = words.joinToString("") { it.text }
                     lyrics.add(LyricLine(timeMs, fullText, words))
                 } else {
-                    lyrics.add(LyricLine(timeMs, text))
+                    lyrics.add(LyricLine(timeMs, text.trim()))
                 }
             }
         }
@@ -72,15 +77,18 @@ object LrcParser {
 
     private fun parseEnhancedWords(text: String, lineStartMs: Long): List<LyricWord> {
         val words = mutableListOf<LyricWord>()
-        val tokens = wordTimePattern.split(text)
-        val times = wordTimePattern.findAll(text).map { parseTime(it.groupValues) }.toList()
+        val matches = wordTimePattern.findAll(text).toList()
 
-        for (i in times.indices) {
-            val wordText = tokens.getOrElse(i + 1) { "" }
+        for (i in matches.indices) {
+            val current = matches[i]
+            val next = matches.getOrNull(i + 1)
+            val wordText = text
+                .substring(current.range.last + 1, next?.range?.first ?: text.length)
+                .replace(wordTimePattern, "")
             if (wordText.isNotEmpty()) {
-                val startMs = times[i]
-                val endMs = if (i + 1 < times.size) {
-                    times[i + 1]
+                val startMs = parseTime(current.groupValues)
+                val endMs = if (next != null) {
+                    parseTime(next.groupValues)
                 } else {
                     startMs + estimateWordDuration(wordText)
                 }
@@ -102,8 +110,9 @@ object LrcParser {
     private fun parseTime(groups: List<String>): Long {
         val minutes = groups[1].toLongOrNull() ?: 0L
         val seconds = groups[2].toLongOrNull() ?: 0L
-        val millisStr = groups[3]
+        val millisStr = groups.getOrNull(3).orEmpty()
         val millis = when (millisStr.length) {
+            1 -> (millisStr.toLongOrNull() ?: 0L) * 100
             2 -> (millisStr.toLongOrNull() ?: 0L) * 10
             3 -> millisStr.toLongOrNull() ?: 0L
             else -> 0L
@@ -115,17 +124,33 @@ object LrcParser {
         val baseName = songPath.substringBeforeLast('.')
         val candidates = listOf("$baseName.lrc", "${baseName}.LRC")
         for (candidate in candidates) {
-            val file = java.io.File(candidate)
-            if (file.exists()) return file.readText()
+            val file = File(candidate)
+            if (file.exists()) return readTextWithFallback(file)
         }
 
-        val parentDir = java.io.File(songPath).parentFile ?: return null
-        val songName = java.io.File(songPath).nameWithoutExtension
+        val parentDir = File(songPath).parentFile ?: return null
+        val songName = File(songPath).nameWithoutExtension
         parentDir.listFiles()?.find {
             it.extension.equals("lrc", ignoreCase = true) &&
                 it.nameWithoutExtension.contains(songName, ignoreCase = true)
-        }?.let { return it.readText() }
+        }?.let { return readTextWithFallback(it) }
 
         return null
+    }
+
+    private fun readTextWithFallback(file: File): String {
+        val bytes = file.readBytes()
+        val charsets = listOf("UTF-8", "GB18030", "UTF-16LE", "UTF-16BE")
+        for (charsetName in charsets) {
+            val charset = Charset.forName(charsetName)
+            try {
+                val decoder = charset.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                return decoder.decode(ByteBuffer.wrap(bytes)).toString()
+            } catch (_: CharacterCodingException) {
+            }
+        }
+        return String(bytes, Charsets.UTF_8)
     }
 }

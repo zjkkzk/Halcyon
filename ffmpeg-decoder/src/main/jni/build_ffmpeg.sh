@@ -130,3 +130,9 @@ make clean
 make -j$JOBS
 make install-libs
 make clean
+
+rm -rf include
+mkdir -p include/libavcodec include/libavutil include/libswresample
+cp libavcodec/*.h include/libavcodec/
+cp libavutil/*.h include/libavutil/
+cp libswresample/*.h include/libswresample/
