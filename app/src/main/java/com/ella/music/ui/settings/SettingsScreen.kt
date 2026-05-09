@@ -68,6 +68,7 @@ fun SettingsScreen(
     val lyriconTranslation by settingsManager.lyriconTranslation.collectAsState(initial = true)
     val themeMode by settingsManager.themeMode.collectAsState(initial = 0)
     val tickerEnabled by settingsManager.tickerEnabled.collectAsState(initial = true)
+    val bluetoothLyricEnabled by settingsManager.bluetoothLyricEnabled.collectAsState(initial = false)
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
@@ -246,7 +247,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "词幕 (Lyricon)",
+                text = "歌词",
                 fontSize = 14.sp,
                 color = MiuixTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
@@ -255,7 +256,7 @@ fun SettingsScreen(
             Card(modifier = Modifier.padding(vertical = 4.dp)) {
                 BasicComponent(
                     title = "启用词幕",
-                    summary = "将歌词推送到 Lyricon 词幕悬浮窗",
+                    summary = "将歌词推送到词幕（Lyricon）",
                     endActions = {
                         Switch(
                             checked = lyriconEnabled,
@@ -270,8 +271,8 @@ fun SettingsScreen(
 
             Card(modifier = Modifier.padding(vertical = 4.dp)) {
                 BasicComponent(
-                    title = "传递翻译歌词",
-                    summary = "在词幕中同时显示翻译歌词",
+                    title = "传递翻译",
+                    summary = "在词幕中显示歌词翻译",
                     enabled = lyriconEnabled,
                     endActions = {
                         Switch(
@@ -286,18 +287,9 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "魅族 Ticker",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-
             Card(modifier = Modifier.padding(vertical = 4.dp)) {
                 BasicComponent(
-                    title = "启用 Ticker 歌词",
+                    title = "启用 FLYme 状态栏歌词",
                     summary = "在魅族设备上通过 Ticker 通知显示歌词",
                     endActions = {
                         Switch(
@@ -305,6 +297,22 @@ fun SettingsScreen(
                             onCheckedChange = { enabled ->
                                 scope.launch { settingsManager.setTickerEnabled(enabled) }
                                 playerViewModel?.setTickerEnabled(enabled)
+                            }
+                        )
+                    }
+                )
+            }
+
+            Card(modifier = Modifier.padding(vertical = 4.dp)) {
+                BasicComponent(
+                    title = "启用蓝牙车载歌词",
+                    summary = "将当前歌词写入媒体标题，供蓝牙设备或车机显示。",
+                    endActions = {
+                        Switch(
+                            checked = bluetoothLyricEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch { settingsManager.setBluetoothLyricEnabled(enabled) }
+                                playerViewModel?.setBluetoothLyricEnabled(enabled)
                             }
                         )
                     }
@@ -343,8 +351,8 @@ fun SettingsScreen(
                 onClick = onNavigateToLxOnline
             ) {
                 BasicComponent(
-                    title = "落雪源在线音乐",
-                    summary = "导入落雪 Music API 源并搜索在线播放",
+                    title = "LX Music 在线音乐",
+                    summary = "导入 LX Music API 源并搜索在线播放",
                     endActions = {
                         Icon(
                             imageVector = MiuixIcons.Basic.ArrowRight,
@@ -405,7 +413,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(160.dp))
         }
     }
 }

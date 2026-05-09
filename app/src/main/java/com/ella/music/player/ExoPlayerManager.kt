@@ -186,6 +186,48 @@ class ExoPlayerManager(private val context: Context) {
         _duration.value = mediaController?.duration?.coerceAtLeast(0) ?: 0L
     }
 
+    fun updateBluetoothLyric(text: String?) {
+        val controller = mediaController ?: return
+        val song = _currentSong.value ?: return
+        val index = controller.currentMediaItemIndex
+
+        if (index < 0 || index >= controller.mediaItemCount) return
+
+        val currentItem = controller.currentMediaItem ?: return
+        val lyricText = text?.takeIf { it.isNotBlank() }
+
+        val displayTitle = lyricText ?: song.title
+        val displayArtist = if (lyricText != null) {
+            "${song.title} · ${song.artist}"
+        } else {
+            song.artist
+        }
+
+        val metadata = MediaMetadata.Builder()
+            .setTitle(displayTitle)
+            .setArtist(displayArtist)
+            .setAlbumTitle(song.album)
+            .setArtworkUri(song.coverUrl.takeIf { it.isNotBlank() }?.toUri())
+            .setExtras(
+                Bundle().apply {
+                    putString(EXTRA_ONLINE_SOURCE, song.onlineSource)
+                    putString(EXTRA_ONLINE_ID, song.onlineId)
+                }
+            )
+            .build()
+
+        val newItem = currentItem.buildUpon()
+            .setMediaMetadata(metadata)
+            .build()
+
+        runCatching {
+            controller.replaceMediaItem(index, newItem)
+        }
+    }
+
+    fun clearBluetoothLyric() {
+        updateBluetoothLyric(null)
+    }
     fun refreshStateFromController() {
         val controller = mediaController ?: return
         _isPlaying.value = controller.isPlaying

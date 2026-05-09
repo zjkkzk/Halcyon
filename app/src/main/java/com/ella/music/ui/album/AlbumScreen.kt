@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -55,6 +56,8 @@ import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.floor
+import android.icu.text.Transliterator
+import java.util.Locale
 
 @Composable
 fun AlbumScreen(
@@ -81,8 +84,8 @@ fun AlbumScreen(
     }
     val sortedAlbums = remember(filteredAlbums, sortMode) {
         when (sortMode) {
-            AlbumSortMode.Name -> filteredAlbums.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-            AlbumSortMode.Artist -> filteredAlbums.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.artist })
+            AlbumSortMode.Name -> filteredAlbums.sortedBy { it.name.musicSortKey() }
+            AlbumSortMode.Artist -> filteredAlbums.sortedBy { it.artist.musicSortKey() }
             AlbumSortMode.SongCount -> filteredAlbums.sortedByDescending { it.songCount }
             AlbumSortMode.Year -> filteredAlbums.sortedByDescending { it.year }
         }
@@ -200,7 +203,8 @@ fun AlbumScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         state = gridState,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 160.dp)
                     ) {
                         items(
                             items = sortedAlbums,
@@ -312,6 +316,48 @@ private fun AlbumFastIndexBar(
 }
 
 private fun Album.indexLetter(): String {
-    val first = name.trim().firstOrNull()?.uppercaseChar()
+    val first = name.musicSortKey().firstOrNull()?.uppercaseChar()
     return if (first != null && first in 'A'..'Z') first.toString() else "#"
+}
+
+private fun String.musicSortKey(): String {
+    val text = trim()
+    if (text.isBlank()) return ""
+    if (text.isAsciiSortable()) return text.lowercase(Locale.ROOT)
+
+    AlbumSortKeyCache[text]?.let { return it }
+
+    val latin = runCatching {
+        AlbumSortTransliterator.value.transliterate(text)
+    }.getOrDefault(text)
+
+    return latin.lowercase(Locale.ROOT).also {
+        AlbumSortKeyCache[text] = it
+    }
+}
+
+private fun String.isAsciiSortable(): Boolean {
+    return all { it.code in 0x20..0x7E }
+}
+
+private object AlbumSortTransliterator {
+    val value: Transliterator by lazy {
+        Transliterator.getInstance("Any-Latin; Latin-ASCII; NFD; [:Nonspacing Mark:] Remove; NFC")
+    }
+}
+
+private object AlbumSortKeyCache {
+    private const val MaxSize = 4096
+
+    private val values = object : LinkedHashMap<String, String>(MaxSize, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+            return size > MaxSize
+        }
+    }
+
+    operator fun get(key: String): String? = synchronized(values) { values[key] }
+
+    operator fun set(key: String, value: String) {
+        synchronized(values) { values[key] = value }
+    }
 }

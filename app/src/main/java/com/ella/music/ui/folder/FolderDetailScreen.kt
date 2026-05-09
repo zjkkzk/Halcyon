@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -57,6 +58,8 @@ import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.floor
+import android.icu.text.Transliterator
+import java.util.Locale
 
 @Composable
 fun FolderDetailScreen(
@@ -88,8 +91,10 @@ fun FolderDetailScreen(
     }
     val sortedSongs = remember(filteredSongs, sortMode) {
         when (sortMode) {
-            FolderSongSortMode.Title -> filteredSongs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
-            FolderSongSortMode.FileName -> filteredSongs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.fileName.ifBlank { it.path.substringAfterLast('/') } })
+            FolderSongSortMode.Title -> filteredSongs.sortedBy { it.title.musicSortKey() }
+            FolderSongSortMode.FileName -> filteredSongs.sortedBy {
+                it.fileName.ifBlank { it.path.substringAfterLast('/') }.musicSortKey()
+            }
             FolderSongSortMode.DateAdded -> filteredSongs.sortedByDescending { it.dateAdded }
             FolderSongSortMode.DateModified -> filteredSongs.sortedByDescending { it.dateModified }
         }
@@ -235,7 +240,8 @@ fun FolderDetailScreen(
                     )
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
                         itemsIndexed(
                             items = sortedSongs,
@@ -351,6 +357,48 @@ private fun FolderFastIndexBar(
 }
 
 private fun Song.indexLetter(): String {
-    val first = title.trim().firstOrNull()?.uppercaseChar()
+    val first = title.musicSortKey().firstOrNull()?.uppercaseChar()
     return if (first != null && first in 'A'..'Z') first.toString() else "#"
+}
+
+private fun String.musicSortKey(): String {
+    val text = trim()
+    if (text.isBlank()) return ""
+    if (text.isAsciiSortable()) return text.lowercase(Locale.ROOT)
+
+    FolderSortKeyCache[text]?.let { return it }
+
+    val latin = runCatching {
+        FolderSortTransliterator.value.transliterate(text)
+    }.getOrDefault(text)
+
+    return latin.lowercase(Locale.ROOT).also {
+        FolderSortKeyCache[text] = it
+    }
+}
+
+private fun String.isAsciiSortable(): Boolean {
+    return all { it.code in 0x20..0x7E }
+}
+
+private object FolderSortTransliterator {
+    val value: Transliterator by lazy {
+        Transliterator.getInstance("Any-Latin; Latin-ASCII; NFD; [:Nonspacing Mark:] Remove; NFC")
+    }
+}
+
+private object FolderSortKeyCache {
+    private const val MaxSize = 4096
+
+    private val values = object : LinkedHashMap<String, String>(MaxSize, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+            return size > MaxSize
+        }
+    }
+
+    operator fun get(key: String): String? = synchronized(values) { values[key] }
+
+    operator fun set(key: String, value: String) {
+        synchronized(values) { values[key] = value }
+    }
 }

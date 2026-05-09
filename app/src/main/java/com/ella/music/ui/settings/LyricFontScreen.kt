@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -164,6 +165,29 @@ fun LyricFontScreen(
                             settingsManager.setLyricFont(font.name, font.path)
                             Toast.makeText(context, "已应用 ${font.name}", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    onDelete = if (font.source == "已导入") {
+                        {
+                            scope.launch {
+                                val deleted = withContext(Dispatchers.IO) {
+                                    deleteImportedFont(font)
+                                }
+
+                                if (selectedFontPath == font.path) {
+                                    settingsManager.clearLyricFont()
+                                }
+
+                                fonts = collectFontChoices(context)
+
+                                Toast.makeText(
+                                    context,
+                                    if (deleted) "字体已删除" else "字体删除失败",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    } else {
+                        null
                     }
                 )
             }
@@ -179,7 +203,8 @@ fun LyricFontScreen(
 private fun FontChoiceItem(
     font: FontChoice,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     val fontFamily = remember(font.path) { font.path.toFontFamilyOrNull() }
 
@@ -226,6 +251,16 @@ private fun FontChoiceItem(
                     contentDescription = null,
                     tint = MiuixTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
+                )
+            }
+
+            if (onDelete != null) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "删除",
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onDelete)
                 )
             }
         }
@@ -283,6 +318,17 @@ private fun Context.resolveDisplayName(uri: Uri): String {
     }.orEmpty().ifBlank {
         uri.lastPathSegment.orEmpty().substringAfterLast('/')
     }
+}
+
+private fun deleteImportedFont(font: FontChoice): Boolean {
+    if (font.source != "已导入") return false
+
+    val file = File(font.path)
+    if (!file.exists()) return true
+
+    return runCatching {
+        file.delete()
+    }.getOrDefault(false)
 }
 
 private fun String.sanitizeFileName(): String {

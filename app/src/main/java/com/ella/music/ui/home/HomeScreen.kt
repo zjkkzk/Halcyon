@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -113,7 +114,7 @@ fun HomeScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         SmallTopAppBar(
-            title = "Ella Music",
+            title = "音乐库",
             color = MiuixTheme.colorScheme.background,
             actions = {
                 if (selectionMode) {
@@ -265,7 +266,10 @@ fun HomeScreen(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
 
-                            LazyColumn(state = listState) {
+                            LazyColumn(
+                                state = listState,
+                                contentPadding = PaddingValues(bottom = 160.dp)
+                            ) {
                                 items(
                                     items = sortedSongs,
                                     key = { it.id }

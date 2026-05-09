@@ -35,6 +35,8 @@ class SettingsManager(private val context: Context) {
         val KEY_LX_SOURCE_SCRIPT = stringPreferencesKey("lx_source_script")
         val KEY_LYRIC_FONT_NAME = stringPreferencesKey("lyric_font_name")
         val KEY_LYRIC_FONT_PATH = stringPreferencesKey("lyric_font_path")
+
+        val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
     }
 
     val lyriconEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRICON_ENABLED] ?: true }
@@ -57,6 +59,8 @@ class SettingsManager(private val context: Context) {
     val lyricFontName: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_NAME] ?: "" }
     val lyricFontPath: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_PATH] ?: "" }
 
+    val bluetoothLyricEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_BLUETOOTH_LYRIC_ENABLED] ?: false }
     suspend fun setLyriconEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_LYRICON_ENABLED] = enabled }
     }
@@ -79,6 +83,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setTickerEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_TICKER_ENABLED] = enabled }
+    }
+
+    suspend fun setBluetoothLyricEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_BLUETOOTH_LYRIC_ENABLED] = enabled }
     }
 
     suspend fun setMinDurationSec(seconds: Int) {
