@@ -157,7 +157,7 @@ class MusicRepository(private val context: Context) {
                 if (!response.isSuccessful) return@use null
                 val root = JSONObject(response.body?.string().orEmpty())
                 val list = root.optJSONObject("data")?.optJSONArray("lrclist") ?: return@use null
-                val lyrics = List(list.length()) { index ->
+                val rawLines = List(list.length()) { index ->
                     val item = list.getJSONObject(index)
                     val timeMs = ((item.optString("time").toDoubleOrNull() ?: 0.0) * 1000).toLong()
                     LyricLine(
@@ -165,13 +165,43 @@ class MusicRepository(private val context: Context) {
                         text = item.optString("lineLyric").trim()
                     )
                 }.filter { it.text.isNotBlank() }
-                    .sortedBy { it.timeMs }
+                val lyrics = mergeKuwoTranslatedLyrics(rawLines)
                 lyrics.takeIf { it.isNotEmpty() }
             }
         }.getOrElse {
             Log.w("MusicRepo", "Failed to fetch online lyrics for ${song.title}", it)
             null
         }
+    }
+
+    private fun mergeKuwoTranslatedLyrics(lines: List<LyricLine>): List<LyricLine> {
+        val merged = mutableListOf<LyricLine>()
+        for (line in lines.sortedBy { it.timeMs }) {
+            val previous = merged.lastOrNull()
+            if (
+                previous != null &&
+                previous.translation.isNullOrBlank() &&
+                !previous.text.hasCjkOrHangul() &&
+                line.text.hasCjkOrHangul()
+            ) {
+                merged[merged.lastIndex] = previous.copy(translation = line.text)
+            } else {
+                merged += line
+            }
+        }
+        return merged
+    }
+
+    private fun String.hasCjkOrHangul(): Boolean = any { char ->
+        Character.UnicodeBlock.of(char) in setOf(
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B,
+            Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS,
+            Character.UnicodeBlock.HIRAGANA,
+            Character.UnicodeBlock.KATAKANA,
+            Character.UnicodeBlock.HANGUL_SYLLABLES
+        )
     }
 
     fun getReplayGain(song: Song): Float? {
