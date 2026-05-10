@@ -1,6 +1,8 @@
 package com.ella.music.data.lx
 
+import android.content.Context
 import com.ella.music.data.model.Song
+import com.ella.music.data.LxSourceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -17,7 +19,7 @@ data class LxOnlineSong(
     val coverUrl: String = ""
 )
 
-class LxOnlineService {
+class LxOnlineService(private val context: Context) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -36,11 +38,21 @@ class LxOnlineService {
     }
 
     fun importSourceScript(script: String): Pair<String, String> {
-        if (script.length !in 50..2_000_000) error("源脚本内容异常")
-        return extractSourceName(script) to script
+        if (script.length !in 50..9_000_000) error("源脚本内容异常")
+        val name = extractSourceName(script)
+        LxUserApiRuntime(context, client).use { runtime ->
+            runtime.load(script, script.hashCode().toString(), name, "")
+                ?: error("源初始化失败")
+        }
+        return name to script
     }
 
-    suspend fun search(keyword: String, page: Int = 1): List<LxOnlineSong> = withContext(Dispatchers.IO) {
+    suspend fun search(
+        keyword: String,
+        sourceConfig: LxSourceConfig?,
+        page: Int = 1
+    ): List<LxOnlineSong> = withContext(Dispatchers.IO) {
+        if (sourceConfig == null) error("请先选择一个 LX 源")
         val encoded = URLEncoder.encode(keyword.trim(), "UTF-8")
         val url = "http://search.kuwo.cn/r.s?client=kt&all=$encoded&pn=${(page - 1).coerceAtLeast(0)}&rn=30" +
             "&uid=794762570&ver=kwplayer_ar_9.2.2.1&vipver=1&show_copyright_off=1&newver=1" +
@@ -88,7 +100,9 @@ class LxOnlineService {
     }
 
     suspend fun resolvePlayableSong(item: LxOnlineSong, sourceScript: String = ""): Song = withContext(Dispatchers.IO) {
-        resolveByImportedSource(item, sourceScript)?.let { playableUrl ->
+        runCatching { resolveByImportedSource(item, sourceScript) }
+            .getOrNull()
+            ?.let { playableUrl ->
             val extension = playableUrl.substringBefore('?')
                 .substringAfterLast('.', missingDelimiterValue = "")
                 .takeIf { it.length in 2..5 }
@@ -114,6 +128,16 @@ class LxOnlineService {
     }
 
     private fun resolveByImportedSource(item: LxOnlineSong, sourceScript: String): String? {
+        if (sourceScript.isNotBlank()) {
+            runCatching {
+                return LxUserApiRuntime(context, client).use { runtime ->
+                    runtime.requestMusicUrl(item, sourceScript, extractSourceName(sourceScript))
+                }
+            }.onFailure { quickJsError ->
+                val config = extractRenderApiConfig(sourceScript)
+                if (config == null) throw quickJsError
+            }
+        }
         val config = extractRenderApiConfig(sourceScript) ?: return null
         val quality = config.bestQuality(item.source, item.quality)
         val url = "${config.apiUrl}/url/${item.source}/${item.songmid}/$quality"

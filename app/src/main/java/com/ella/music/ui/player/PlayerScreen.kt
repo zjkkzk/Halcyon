@@ -2,11 +2,13 @@ package com.ella.music.ui.player
 
 import android.content.ContentUris
 import android.content.Context
+import android.app.DownloadManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -125,6 +127,8 @@ fun PlayerScreen(
     val duration by playerViewModel.duration.collectAsState()
     val shuffleEnabled by playerViewModel.shuffleEnabled.collectAsState()
     val repeatMode by playerViewModel.repeatMode.collectAsState()
+    val playbackSpeed by playerViewModel.playbackSpeed.collectAsState()
+    val playbackPitch by playerViewModel.playbackPitch.collectAsState()
     val playlist by playerViewModel.playlist.collectAsState()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
@@ -277,7 +281,10 @@ fun PlayerScreen(
                             )
                         ) {
                             PlayerActionMenu(
-                                modifier = Modifier.width(168.dp),
+                                modifier = Modifier.width(196.dp),
+                                song = song,
+                                speed = playbackSpeed,
+                                pitch = playbackPitch,
                                 onAlbum = {
                                     menuExpanded = false
                                     val albumId = song?.albumId ?: 0L
@@ -297,6 +304,32 @@ fun PlayerScreen(
                                     menuExpanded = false
                                     val current = song
                                     if (current != null) openExternalTagEditor(context, current)
+                                },
+                                onDownload = {
+                                    menuExpanded = false
+                                    val current = song
+                                    if (current != null) {
+                                        enqueuePlayerDownload(context, current)
+                                        Toast.makeText(context, "已开始下载到 Music/Ella", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                onStopAfterCurrent = {
+                                    playerViewModel.stopAfterCurrentSong()
+                                    Toast.makeText(context, "当前歌曲播放完后暂停", Toast.LENGTH_SHORT).show()
+                                },
+                                onTimer = { minutes ->
+                                    playerViewModel.startSleepTimer(minutes)
+                                    Toast.makeText(context, "${minutes} 分钟后暂停播放", Toast.LENGTH_SHORT).show()
+                                },
+                                onCancelTimer = {
+                                    playerViewModel.cancelSleepTimer()
+                                    Toast.makeText(context, "已取消定时播放", Toast.LENGTH_SHORT).show()
+                                },
+                                onSpeed = {
+                                    playerViewModel.setPlaybackSpeed(playbackSpeed.nextPlaybackStep())
+                                },
+                                onPitch = {
+                                    playerViewModel.setPlaybackPitch(playbackPitch.nextPlaybackStep())
                                 }
                             )
                         }
@@ -635,7 +668,7 @@ private fun PlayerBlurBackground(
                     }
                     .blur(72.dp),
                 contentScale = ContentScale.Crop,
-                sizePx = 512
+                sizePx = 768
             )
         }
         Box(
@@ -813,9 +846,18 @@ private fun MiniLyricBlock(
 
 @Composable
 private fun PlayerActionMenu(
+    song: Song?,
+    speed: Float,
+    pitch: Float,
     onAlbum: () -> Unit,
     onArtist: () -> Unit,
     onEditTags: () -> Unit,
+    onDownload: () -> Unit,
+    onStopAfterCurrent: () -> Unit,
+    onTimer: (Int) -> Unit,
+    onCancelTimer: () -> Unit,
+    onSpeed: () -> Unit,
+    onPitch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -827,6 +869,16 @@ private fun PlayerActionMenu(
         PlayerActionMenuItem("查看专辑页", onAlbum)
         PlayerActionMenuItem("查看歌手页", onArtist)
         PlayerActionMenuItem("外部编辑标签", onEditTags)
+        if (song?.onlineSource == "kw" && song.path.startsWith("http")) {
+            PlayerActionMenuItem("下载 LX 歌曲", onDownload)
+        }
+        PlayerActionMenuItem("播放完当前歌曲后暂停", onStopAfterCurrent)
+        PlayerActionMenuItem("15 分钟后暂停", { onTimer(15) })
+        PlayerActionMenuItem("30 分钟后暂停", { onTimer(30) })
+        PlayerActionMenuItem("60 分钟后暂停", { onTimer(60) })
+        PlayerActionMenuItem("取消定时播放", onCancelTimer)
+        PlayerActionMenuItem("倍速 ${speed.formatPlaybackStep()}x", onSpeed)
+        PlayerActionMenuItem("变调 ${pitch.formatPlaybackStep()}x", onPitch)
     }
 }
 
@@ -1048,6 +1100,31 @@ private fun formatAudioInfo(info: AudioInfo): String {
     if (info.bitRate > 0) parts += "${(info.bitRate / 1000).coerceAtLeast(1)} kbps"
     if (info.channels > 0) parts += "${info.channels}ch"
     return parts.distinct().joinToString(" · ")
+}
+
+private fun Float.nextPlaybackStep(): Float {
+    val next = ((this * 4).toInt() + 1) / 4f
+    return if (next > 2f) 0.5f else next.coerceIn(0.5f, 2f)
+}
+
+private fun Float.formatPlaybackStep(): String = "%.2f".format(this.coerceIn(0.5f, 2f))
+
+private fun enqueuePlayerDownload(context: Context, song: Song) {
+    val fileName = song.fileName.ifBlank { "${song.title}-${song.artist}.mp3" }
+        .replace(Regex("""[\\/:*?"<>|]"""), "_")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+        .ifBlank { "Ella Music.mp3" }
+    val request = DownloadManager.Request(Uri.parse(song.path))
+        .setTitle(fileName)
+        .setDescription("${song.title} - ${song.artist}")
+        .setMimeType(song.mimeType.ifBlank { "audio/*" })
+        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Ella/$fileName")
+        .setAllowedOverMetered(true)
+        .setAllowedOverRoaming(true)
+    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    manager.enqueue(request)
 }
 
 private fun openExternalTagEditor(context: Context, song: Song) {

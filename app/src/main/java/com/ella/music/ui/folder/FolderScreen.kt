@@ -66,6 +66,7 @@ fun FolderScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
     onNavigateToPlayer: () -> Unit,
+    onNavigateToWebDav: () -> Unit,
     onFolderClick: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -151,7 +152,7 @@ fun FolderScreen(
 
         WebDavEntryCard(
             selectedUri = webDavTreeUri,
-            onOpenSettings = { showWebDavDialog = true },
+            onOpenSettings = onNavigateToWebDav,
             onOpenDocumentTree = { webDavPicker.launch(null) }
         )
 
@@ -227,61 +228,6 @@ fun FolderScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 160.dp)
             ) {
-                if (savedWebDavUrl.isNotBlank()) {
-                    item {
-                        WebDavBrowserCard(
-                            currentUrl = WebDavClient.displayUrl(webDavCurrentUrl.ifBlank { savedWebDavUrl }),
-                            loading = webDavLoading,
-                            error = webDavError,
-                            items = webDavItems,
-                            onRefresh = {
-                                scope.launch {
-                                    val config = WebDavConfig(webDavUrl, webDavUser, webDavPassword)
-                                    webDavLoading = true
-                                    webDavError = null
-                                    WebDavClient.clearListCache()
-                                    runCatching {
-                                        withContext(Dispatchers.IO) { WebDavClient.list(config, webDavCurrentUrl.ifBlank { webDavUrl }, forceRefresh = true) }
-                                    }.onSuccess {
-                                        webDavItems = it
-                                    }.onFailure {
-                                        webDavItems = emptyList()
-                                        webDavError = it.localizedMessage ?: "WebDAV 加载失败"
-                                    }
-                                    webDavLoading = false
-                                }
-                            },
-                            onItemClick = { item ->
-                                if (item.isDirectory) {
-                                    scope.launch {
-                                        webDavCurrentUrl = item.url
-                                        mainViewModel.settingsManager.setWebDavLastUrl(item.url)
-                                        val config = WebDavConfig(webDavUrl, webDavUser, webDavPassword)
-                                        webDavLoading = true
-                                        webDavError = null
-                                        runCatching {
-                                            withContext(Dispatchers.IO) { WebDavClient.list(config, item.url) }
-                                        }.onSuccess {
-                                            webDavItems = it
-                                        }.onFailure {
-                                            webDavItems = emptyList()
-                                            webDavError = it.localizedMessage ?: "WebDAV 加载失败"
-                                        }
-                                        webDavLoading = false
-                                    }
-                                } else {
-                                    val remoteSong = item.toRemoteSong()
-                                    playerViewModel.setPlaylist(listOf(remoteSong), 0)
-                                    onNavigateToPlayer()
-                                }
-                            },
-                            onAddToQueue = { item ->
-                                playerViewModel.addToPlaylist(item.toRemoteSong())
-                                Toast.makeText(context, "已加入播放列表", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-                }
                 items(
                     items = folderMap.entries.toList(),
                     key = { it.key }
@@ -334,7 +280,7 @@ fun FolderScreen(
 }
 
 @Composable
-private fun WebDavBrowserCard(
+internal fun WebDavBrowserCard(
     currentUrl: String,
     loading: Boolean,
     error: String?,
@@ -377,7 +323,7 @@ private fun WebDavBrowserCard(
 }
 
 @Composable
-private fun WebDavItemRow(
+internal fun WebDavItemRow(
     item: WebDavItem,
     onClick: () -> Unit,
     onAddToQueue: () -> Unit
@@ -428,7 +374,7 @@ private fun WebDavItemRow(
 }
 
 @Composable
-private fun WebDavEntryCard(
+internal fun WebDavEntryCard(
     selectedUri: Uri?,
     onOpenSettings: () -> Unit,
     onOpenDocumentTree: () -> Unit
@@ -492,7 +438,7 @@ private fun WebDavEntryCard(
 }
 
 @Composable
-private fun WebDavSettingsDialog(
+internal fun WebDavSettingsDialog(
     url: String,
     username: String,
     password: String,
@@ -540,7 +486,7 @@ private fun WebDavSettingsDialog(
 }
 
 @Composable
-private fun WebDavTextField(
+internal fun WebDavTextField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit
@@ -564,7 +510,7 @@ private fun WebDavTextField(
     }
 }
 
-private fun WebDavItem.toRemoteSong(): Song {
+internal fun WebDavItem.toRemoteSong(): Song {
     val title = name.substringBeforeLast('.', name)
     return Song(
         id = -url.hashCode().toLong().coerceAtLeast(1L),

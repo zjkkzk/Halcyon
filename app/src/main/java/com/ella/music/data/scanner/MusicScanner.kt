@@ -26,9 +26,13 @@ class MusicScanner(private val context: Context) {
 
     suspend fun scanAllSongs(
         minDurationMs: Long = 0,
+        includeFolders: List<String> = emptyList(),
+        excludeFolders: List<String> = emptyList(),
         onProgress: ((Int) -> Unit)? = null
     ): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
+        val normalizedIncludeFolders = includeFolders.mapNotNull { it.normalizedFolderPath() }
+        val normalizedExcludeFolders = excludeFolders.mapNotNull { it.normalizedFolderPath() }
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -78,6 +82,7 @@ class MusicScanner(private val context: Context) {
                 val dateModified = cursor.getLong(dateModifiedCol) * 1000L
 
                 if (path.isEmpty()) continue
+                if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
                 val file = File(path)
                 if (!file.exists()) continue
 
@@ -413,6 +418,26 @@ class MusicScanner(private val context: Context) {
 
     private fun String.normalizedPropertyKey(): String =
         lowercase().replace(" ", "").replace("_", "")
+
+    private fun String.normalizedFolderPath(): String? {
+        val normalized = trim().replace('\\', '/').trimEnd('/')
+        return normalized.takeIf { it.isNotBlank() }?.lowercase()
+    }
+
+    private fun String.isAllowedByFolderFilters(
+        includeFolders: List<String>,
+        excludeFolders: List<String>
+    ): Boolean {
+        val normalizedPath = replace('\\', '/').lowercase()
+        val included = includeFolders.isEmpty() || includeFolders.any { folder ->
+            normalizedPath == folder || normalizedPath.startsWith("$folder/")
+        }
+        if (!included) return false
+
+        return excludeFolders.none { folder ->
+            normalizedPath == folder || normalizedPath.startsWith("$folder/")
+        }
+    }
 
     private inline fun <T> MediaMetadataRetriever.useCompat(block: (MediaMetadataRetriever) -> T): T {
         return try {

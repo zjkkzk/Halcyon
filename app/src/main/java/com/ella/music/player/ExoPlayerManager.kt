@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -42,6 +43,12 @@ class ExoPlayerManager(private val context: Context) {
 
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+
+    private val _playbackSpeed = MutableStateFlow(1f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _playbackPitch = MutableStateFlow(1f)
+    val playbackPitch: StateFlow<Float> = _playbackPitch.asStateFlow()
 
     private var playlist = mutableListOf<Song>()
     private val _playlist = MutableStateFlow<List<Song>>(emptyList())
@@ -95,6 +102,11 @@ class ExoPlayerManager(private val context: Context) {
                 _repeatMode.value = repeatMode
             }
 
+            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+                _playbackSpeed.value = playbackParameters.speed
+                _playbackPitch.value = playbackParameters.pitch
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 skipToNext()
             }
@@ -129,6 +141,16 @@ class ExoPlayerManager(private val context: Context) {
         }
     }
 
+    fun addToPlaylist(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        playlist.addAll(songs)
+        _playlist.value = playlist.toList()
+        mediaController?.addMediaItems(songs.map(::songToMediaItem))
+        if ((mediaController?.mediaItemCount ?: 0) == songs.size) {
+            mediaController?.prepare()
+        }
+    }
+
     fun playQueueIndex(index: Int) {
         if (index !in playlist.indices) return
         mediaController?.seekToDefaultPosition(index)
@@ -150,6 +172,10 @@ class ExoPlayerManager(private val context: Context) {
         mediaController?.let {
             if (it.isPlaying) it.pause() else it.play()
         }
+    }
+
+    fun pause() {
+        mediaController?.pause()
     }
 
     fun skipToNext() {
@@ -176,6 +202,14 @@ class ExoPlayerManager(private val context: Context) {
             else -> Player.REPEAT_MODE_OFF
         }
         mediaController?.repeatMode = next
+    }
+
+    fun setPlaybackParameters(speed: Float, pitch: Float) {
+        val safeSpeed = speed.coerceIn(0.5f, 2f)
+        val safePitch = pitch.coerceIn(0.5f, 2f)
+        mediaController?.playbackParameters = PlaybackParameters(safeSpeed, safePitch)
+        _playbackSpeed.value = safeSpeed
+        _playbackPitch.value = safePitch
     }
 
     fun updatePosition() {
@@ -234,6 +268,8 @@ class ExoPlayerManager(private val context: Context) {
         _playbackState.value = controller.playbackState
         _shuffleEnabled.value = controller.shuffleModeEnabled
         _repeatMode.value = controller.repeatMode
+        _playbackSpeed.value = controller.playbackParameters.speed
+        _playbackPitch.value = controller.playbackParameters.pitch
         _currentPosition.value = controller.currentPosition.coerceAtLeast(0)
         _duration.value = controller.duration.coerceAtLeast(0)
 

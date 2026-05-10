@@ -57,8 +57,17 @@ class PlaybackService : MediaSessionService() {
         }
         val dataSourceFactory = DefaultDataSource.Factory(this, httpDataSourceFactory)
 
+        val decoderMode = runBlocking(Dispatchers.IO) {
+            settingsManager.decoderMode.first()
+        }
         val renderersFactory = DefaultRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(
+                if (decoderMode == 0) {
+                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
+                } else {
+                    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                }
+            )
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(

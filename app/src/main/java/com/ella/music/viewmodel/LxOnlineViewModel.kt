@@ -1,0 +1,21 @@
+package com.ella.music.viewmodel
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import com.ella.music.data.lx.LxOnlineSong
+
+class LxOnlineViewModel : ViewModel() {
+    var importUrl by mutableStateOf("")
+    var searchQuery by mutableStateOf("")
+    var importExpanded by mutableStateOf(true)
+    var isBusy by mutableStateOf(false)
+    var results by mutableStateOf<List<LxOnlineSong>>(emptyList())
+    var message by mutableStateOf("导入落雪源后可搜索在线歌曲")
+
+    fun clearResults(message: String) {
+        results = emptyList()
+        this.message = message
+    }
+}

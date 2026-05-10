@@ -10,8 +10,17 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ella_settings")
+
+data class LxSourceConfig(
+    val id: String,
+    val url: String,
+    val name: String,
+    val script: String
+)
 
 class SettingsManager(private val context: Context) {
 
@@ -33,8 +42,13 @@ class SettingsManager(private val context: Context) {
         val KEY_LX_SOURCE_URL = stringPreferencesKey("lx_source_url")
         val KEY_LX_SOURCE_NAME = stringPreferencesKey("lx_source_name")
         val KEY_LX_SOURCE_SCRIPT = stringPreferencesKey("lx_source_script")
+        val KEY_LX_SOURCES_JSON = stringPreferencesKey("lx_sources_json")
+        val KEY_LX_SELECTED_SOURCE_ID = stringPreferencesKey("lx_selected_source_id")
         val KEY_LYRIC_FONT_NAME = stringPreferencesKey("lyric_font_name")
         val KEY_LYRIC_FONT_PATH = stringPreferencesKey("lyric_font_path")
+        val KEY_SCAN_INCLUDE_FOLDERS = stringPreferencesKey("scan_include_folders")
+        val KEY_SCAN_EXCLUDE_FOLDERS = stringPreferencesKey("scan_exclude_folders")
+        val KEY_DECODER_MODE = intPreferencesKey("decoder_mode")
 
         val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
     }
@@ -53,11 +67,21 @@ class SettingsManager(private val context: Context) {
     val webDavUsername: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_USERNAME] ?: "" }
     val webDavPassword: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_PASSWORD] ?: "" }
     val webDavLastUrl: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_LAST_URL] ?: "" }
-    val lxSourceUrl: Flow<String> = context.dataStore.data.map { it[KEY_LX_SOURCE_URL] ?: "" }
-    val lxSourceName: Flow<String> = context.dataStore.data.map { it[KEY_LX_SOURCE_NAME] ?: "" }
-    val lxSourceScript: Flow<String> = context.dataStore.data.map { it[KEY_LX_SOURCE_SCRIPT] ?: "" }
+    val lxSources: Flow<List<LxSourceConfig>> = context.dataStore.data.map { prefs -> prefs.lxSources() }
+    val selectedLxSourceId: Flow<String> = context.dataStore.data.map { it[KEY_LX_SELECTED_SOURCE_ID] ?: "" }
+    val selectedLxSource: Flow<LxSourceConfig?> = context.dataStore.data.map { prefs ->
+        val sources = prefs.lxSources()
+        val selectedId = prefs[KEY_LX_SELECTED_SOURCE_ID].orEmpty()
+        sources.firstOrNull { it.id == selectedId } ?: sources.firstOrNull()
+    }
+    val lxSourceUrl: Flow<String> = selectedLxSource.map { it?.url.orEmpty() }
+    val lxSourceName: Flow<String> = selectedLxSource.map { it?.name.orEmpty() }
+    val lxSourceScript: Flow<String> = selectedLxSource.map { it?.script.orEmpty() }
     val lyricFontName: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_NAME] ?: "" }
     val lyricFontPath: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_PATH] ?: "" }
+    val scanIncludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_INCLUDE_FOLDERS] ?: "" }
+    val scanExcludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_EXCLUDE_FOLDERS] ?: "" }
+    val decoderMode: Flow<Int> = context.dataStore.data.map { it[KEY_DECODER_MODE] ?: 1 }
 
     val bluetoothLyricEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_BLUETOOTH_LYRIC_ENABLED] ?: false }
@@ -131,17 +155,58 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setLxSource(url: String, name: String, script: String) {
         context.dataStore.edit {
-            it[KEY_LX_SOURCE_URL] = url.trim()
-            it[KEY_LX_SOURCE_NAME] = name.ifBlank { "落雪源" }
-            it[KEY_LX_SOURCE_SCRIPT] = script
+            val source = LxSourceConfig(
+                id = url.toLxSourceId(script),
+                url = url.trim(),
+                name = name.ifBlank { "落雪源" },
+                script = script
+            )
+            val sources = it.lxSources().filterNot { existing -> existing.id == source.id } + source
+            it[KEY_LX_SOURCES_JSON] = sources.toJson()
+            it[KEY_LX_SELECTED_SOURCE_ID] = source.id
+            it[KEY_LX_SOURCE_URL] = source.url
+            it[KEY_LX_SOURCE_NAME] = source.name
+            it[KEY_LX_SOURCE_SCRIPT] = source.script
         }
     }
 
     suspend fun clearLxSource() {
         context.dataStore.edit {
+            it.remove(KEY_LX_SOURCES_JSON)
+            it.remove(KEY_LX_SELECTED_SOURCE_ID)
             it.remove(KEY_LX_SOURCE_URL)
             it.remove(KEY_LX_SOURCE_NAME)
             it.remove(KEY_LX_SOURCE_SCRIPT)
+        }
+    }
+
+    suspend fun selectLxSource(id: String) {
+        context.dataStore.edit { prefs ->
+            val source = prefs.lxSources().firstOrNull { it.id == id } ?: return@edit
+            prefs[KEY_LX_SELECTED_SOURCE_ID] = source.id
+            prefs[KEY_LX_SOURCE_URL] = source.url
+            prefs[KEY_LX_SOURCE_NAME] = source.name
+            prefs[KEY_LX_SOURCE_SCRIPT] = source.script
+        }
+    }
+
+    suspend fun removeLxSource(id: String) {
+        context.dataStore.edit { prefs ->
+            val sources = prefs.lxSources().filterNot { it.id == id }
+            if (sources.isEmpty()) {
+                prefs.remove(KEY_LX_SOURCES_JSON)
+                prefs.remove(KEY_LX_SELECTED_SOURCE_ID)
+                prefs.remove(KEY_LX_SOURCE_URL)
+                prefs.remove(KEY_LX_SOURCE_NAME)
+                prefs.remove(KEY_LX_SOURCE_SCRIPT)
+            } else {
+                val selected = sources.firstOrNull { it.id == prefs[KEY_LX_SELECTED_SOURCE_ID] } ?: sources.first()
+                prefs[KEY_LX_SOURCES_JSON] = sources.toJson()
+                prefs[KEY_LX_SELECTED_SOURCE_ID] = selected.id
+                prefs[KEY_LX_SOURCE_URL] = selected.url
+                prefs[KEY_LX_SOURCE_NAME] = selected.name
+                prefs[KEY_LX_SOURCE_SCRIPT] = selected.script
+            }
         }
     }
 
@@ -157,5 +222,70 @@ class SettingsManager(private val context: Context) {
             it.remove(KEY_LYRIC_FONT_NAME)
             it.remove(KEY_LYRIC_FONT_PATH)
         }
+    }
+
+    suspend fun setScanIncludeFolders(folders: String) {
+        context.dataStore.edit { it[KEY_SCAN_INCLUDE_FOLDERS] = folders.trim() }
+    }
+
+    suspend fun setScanExcludeFolders(folders: String) {
+        context.dataStore.edit { it[KEY_SCAN_EXCLUDE_FOLDERS] = folders.trim() }
+    }
+
+    suspend fun setDecoderMode(mode: Int) {
+        context.dataStore.edit { it[KEY_DECODER_MODE] = mode.coerceIn(0, 1) }
+    }
+
+    private fun Preferences.lxSources(): List<LxSourceConfig> {
+        val parsed = parseLxSources(this[KEY_LX_SOURCES_JSON].orEmpty())
+        if (parsed.isNotEmpty()) return parsed
+
+        val legacyUrl = this[KEY_LX_SOURCE_URL].orEmpty()
+        val legacyScript = this[KEY_LX_SOURCE_SCRIPT].orEmpty()
+        if (legacyUrl.isBlank() && legacyScript.isBlank()) return emptyList()
+
+        return listOf(
+            LxSourceConfig(
+                id = legacyUrl.toLxSourceId(legacyScript),
+                url = legacyUrl,
+                name = this[KEY_LX_SOURCE_NAME].orEmpty().ifBlank { "落雪源" },
+                script = legacyScript
+            )
+        )
+    }
+
+    private fun parseLxSources(json: String): List<LxSourceConfig> {
+        if (json.isBlank()) return emptyList()
+        return runCatching {
+            val array = JSONArray(json)
+            List(array.length()) { index ->
+                val item = array.getJSONObject(index)
+                LxSourceConfig(
+                    id = item.optString("id"),
+                    url = item.optString("url"),
+                    name = item.optString("name").ifBlank { "落雪源" },
+                    script = item.optString("script")
+                )
+            }.filter { it.id.isNotBlank() && it.script.isNotBlank() }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun List<LxSourceConfig>.toJson(): String {
+        val array = JSONArray()
+        forEach { source ->
+            array.put(
+                JSONObject()
+                    .put("id", source.id)
+                    .put("url", source.url)
+                    .put("name", source.name)
+                    .put("script", source.script)
+            )
+        }
+        return array.toString()
+    }
+
+    private fun String.toLxSourceId(script: String): String {
+        val source = trim().ifBlank { script.take(64) }
+        return "lx_${source.hashCode()}"
     }
 }

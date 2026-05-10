@@ -50,7 +50,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (scanJob?.isActive == true || isScanning.value) return
         scanJob = viewModelScope.launch {
             val minDuration = settingsManager.minDurationSec.first() * 1000L
-            repository.scanMusic(minDuration)
+            repository.scanMusic(
+                minDuration,
+                settingsManager.scanIncludeFolders.first().toFolderFilterList(),
+                settingsManager.scanExcludeFolders.first().toFolderFilterList()
+            )
         }
     }
 
@@ -59,7 +63,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         scanJob = viewModelScope.launch {
             if (!settingsManager.autoScan.first()) return@launch
             val minDuration = settingsManager.minDurationSec.first() * 1000L
-            repository.scanMusic(minDuration)
+            repository.scanMusic(
+                minDuration,
+                settingsManager.scanIncludeFolders.first().toFolderFilterList(),
+                settingsManager.scanExcludeFolders.first().toFolderFilterList()
+            )
         }
     }
 
@@ -121,5 +129,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteSongs(songs)
         }
+    }
+
+    private fun String.toFolderFilterList(): List<String> {
+        return split('\n', ';', '；')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
     }
 }

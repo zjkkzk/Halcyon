@@ -37,6 +37,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val duration: StateFlow<Long> = playerManager.duration
     val shuffleEnabled: StateFlow<Boolean> = playerManager.shuffleEnabled
     val repeatMode: StateFlow<Int> = playerManager.repeatMode
+    val playbackSpeed: StateFlow<Float> = playerManager.playbackSpeed
+    val playbackPitch: StateFlow<Float> = playerManager.playbackPitch
     val playlist: StateFlow<List<Song>> = playerManager.playlistFlow
 
     private val _lyrics = MutableStateFlow<List<LyricLine>>(emptyList())
@@ -62,6 +64,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var bluetoothLyricEnabled = false
     private var lastBluetoothLyricLine: String? = null
+    private var sleepTimerJob: Job? = null
+    private var stopAfterCurrentSongId: Long? = null
 
     init {
         playerManager.connect()
@@ -137,6 +141,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 playerManager.updatePosition()
                 updateCurrentLyricIndex()
                 updatePlaybackStats()
+                updateSleepTimer()
 
                 if (lyriconBridge.isEnabled()) {
                     lyriconBridge.sendPosition(playerManager.currentPosition.value)
@@ -308,6 +313,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleShuffle() = playerManager.toggleShuffle()
     fun toggleRepeat() = playerManager.toggleRepeat()
     fun addToPlaylist(song: Song) = playerManager.addToPlaylist(song)
+    fun addToPlaylist(songs: List<Song>) = playerManager.addToPlaylist(songs)
     fun playQueueIndex(index: Int) = playerManager.playQueueIndex(index)
 
     fun cyclePlaybackMode() {
@@ -343,6 +349,44 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setShowLyrics(show: Boolean) {
         _showLyrics.value = show
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        playerManager.setPlaybackParameters(speed, playbackPitch.value)
+    }
+
+    fun setPlaybackPitch(pitch: Float) {
+        playerManager.setPlaybackParameters(playbackSpeed.value, pitch)
+    }
+
+    fun startSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes <= 0) return
+        sleepTimerJob = viewModelScope.launch {
+            delay(minutes * 60_000L)
+            playerManager.pause()
+        }
+    }
+
+    fun stopAfterCurrentSong() {
+        stopAfterCurrentSongId = currentSong.value?.id
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        stopAfterCurrentSongId = null
+    }
+
+    private fun updateSleepTimer() {
+        val targetId = stopAfterCurrentSongId ?: return
+        val song = currentSong.value ?: return
+        val total = duration.value
+        val position = currentPosition.value
+        if (song.id != targetId || (total > 0L && total - position <= 850L)) {
+            stopAfterCurrentSongId = null
+            playerManager.pause()
+        }
     }
 
     fun setLyricPageTranslation(enabled: Boolean) {
@@ -421,6 +465,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
         super.onCleared()
         positionUpdateJob?.cancel()
+        sleepTimerJob?.cancel()
         tickerBridge.clearLyric()
         lyriconBridge.destroy()
         playerManager.disconnect()

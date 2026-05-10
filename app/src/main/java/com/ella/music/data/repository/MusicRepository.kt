@@ -65,14 +65,22 @@ class MusicRepository(private val context: Context) {
     private val libraryCacheFile = File(context.filesDir, "music_library_cache.json")
     private val remoteAudioCacheDir = File(context.cacheDir, "webdav_audio")
 
-    suspend fun scanMusic(minDurationMs: Long = 0) {
+    suspend fun scanMusic(
+        minDurationMs: Long = 0,
+        includeFolders: List<String> = emptyList(),
+        excludeFolders: List<String> = emptyList()
+    ) {
         _isScanning.value = true
         _scanProgress.value = 0
         try {
-            _songs.value = scanner.scanAllSongs(minDurationMs) { count ->
+            _songs.value = scanner.scanAllSongs(minDurationMs, includeFolders, excludeFolders) { count ->
                 _scanProgress.value = count
             }
-            _albums.value = scanner.scanAlbums()
+            _albums.value = if (includeFolders.isEmpty() && excludeFolders.isEmpty()) {
+                scanner.scanAlbums()
+            } else {
+                _songs.value.toAlbums()
+            }
             saveLibraryCache(_songs.value, _albums.value)
         } finally {
             _isScanning.value = false
@@ -181,8 +189,8 @@ class MusicRepository(private val context: Context) {
             if (
                 previous != null &&
                 previous.translation.isNullOrBlank() &&
-                !previous.text.hasCjkOrHangul() &&
-                line.text.hasCjkOrHangul()
+                previous.text.isLikelyDifferentLanguageFrom(line.text) &&
+                line.timeMs - previous.timeMs in 0L..KUWO_TRANSLATION_WINDOW_MS
             ) {
                 merged[merged.lastIndex] = previous.copy(translation = line.text)
             } else {
@@ -190,6 +198,11 @@ class MusicRepository(private val context: Context) {
             }
         }
         return merged
+    }
+
+    private fun String.isLikelyDifferentLanguageFrom(other: String): Boolean {
+        if (equals(other, ignoreCase = true)) return false
+        return hasCjkOrHangul() != other.hasCjkOrHangul()
     }
 
     private fun String.hasCjkOrHangul(): Boolean = any { char ->
@@ -202,6 +215,10 @@ class MusicRepository(private val context: Context) {
             Character.UnicodeBlock.KATAKANA,
             Character.UnicodeBlock.HANGUL_SYLLABLES
         )
+    }
+
+    private companion object {
+        private const val KUWO_TRANSLATION_WINDOW_MS = 8_000L
     }
 
     fun getReplayGain(song: Song): Float? {

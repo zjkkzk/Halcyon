@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,8 +39,10 @@ import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Switch
@@ -72,9 +75,19 @@ fun SettingsScreen(
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
+    val scanIncludeFolders by settingsManager.scanIncludeFolders.collectAsState(initial = "")
+    val scanExcludeFolders by settingsManager.scanExcludeFolders.collectAsState(initial = "")
+    val decoderMode by settingsManager.decoderMode.collectAsState(initial = 1)
     val themeLabels = listOf("跟随系统", "浅色", "深色")
     val selectedThemeMode = themeMode.coerceIn(themeLabels.indices)
+    val decoderLabels = listOf("系统解码", "FFmpeg 解码")
+    val selectedDecoderMode = decoderMode.coerceIn(decoderLabels.indices)
     var themeExpanded by remember { mutableStateOf(false) }
+    var scanIncludeExpanded by remember { mutableStateOf(false) }
+    var scanExcludeExpanded by remember { mutableStateOf(false) }
+    var scanIncludeDraft by remember(scanIncludeFolders) { mutableStateOf(scanIncludeFolders) }
+    var scanExcludeDraft by remember(scanExcludeFolders) { mutableStateOf(scanExcludeFolders) }
+    var decoderExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -205,6 +218,92 @@ fun SettingsScreen(
                 }
             }
 
+            Card(
+                modifier = Modifier.padding(vertical = 4.dp),
+                onClick = { scanIncludeExpanded = !scanIncludeExpanded }
+            ) {
+                Column {
+                    BasicComponent(
+                        title = "扫描文件夹",
+                        summary = scanIncludeFolders.ifBlank { "为空时扫描系统媒体库中的全部音乐" }
+                    )
+                    AnimatedVisibility(
+                        visible = scanIncludeExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                            InputField(
+                                query = scanIncludeDraft,
+                                onQueryChange = { scanIncludeDraft = it },
+                                onSearch = {},
+                                expanded = true,
+                                onExpandedChange = {},
+                                label = "/storage/emulated/0/Music；/sdcard/Download"
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Button(onClick = {
+                                    scope.launch { settingsManager.setScanIncludeFolders(scanIncludeDraft) }
+                                }) {
+                                    Text("保存")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = {
+                                    scanIncludeDraft = ""
+                                    scope.launch { settingsManager.setScanIncludeFolders("") }
+                                }) {
+                                    Text("清空")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.padding(vertical = 4.dp),
+                onClick = { scanExcludeExpanded = !scanExcludeExpanded }
+            ) {
+                Column {
+                    BasicComponent(
+                        title = "屏蔽文件夹",
+                        summary = scanExcludeFolders.ifBlank { "扫描时跳过指定目录，可用中文分号分隔多个路径" }
+                    )
+                    AnimatedVisibility(
+                        visible = scanExcludeExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                            InputField(
+                                query = scanExcludeDraft,
+                                onQueryChange = { scanExcludeDraft = it },
+                                onSearch = {},
+                                expanded = true,
+                                onExpandedChange = {},
+                                label = "/storage/emulated/0/Recordings；/sdcard/Notifications"
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Button(onClick = {
+                                    scope.launch { settingsManager.setScanExcludeFolders(scanExcludeDraft) }
+                                }) {
+                                    Text("保存")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = {
+                                    scanExcludeDraft = ""
+                                    scope.launch { settingsManager.setScanExcludeFolders("") }
+                                }) {
+                                    Text("清空")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
@@ -242,6 +341,46 @@ fun SettingsScreen(
                         )
                     }
                 )
+            }
+
+            Card(
+                modifier = Modifier.padding(vertical = 4.dp),
+                onClick = { decoderExpanded = !decoderExpanded }
+            ) {
+                Column {
+                    BasicComponent(
+                        title = "解码器",
+                        summary = "选择系统解码或 FFmpeg 扩展解码",
+                        endActions = {
+                            Text(
+                                text = decoderLabels[selectedDecoderMode],
+                                fontSize = 14.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
+                        }
+                    )
+                    AnimatedVisibility(
+                        visible = decoderExpanded,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        Column {
+                            decoderLabels.forEachIndexed { index, label ->
+                                BasicComponent(
+                                    title = label,
+                                    summary = when (index) {
+                                        0 -> "优先使用 Android 系统解码，适合 ALAC / Dolby Atmos M4A"
+                                        else -> "优先使用 FFmpeg 扩展解码，兼容更多本地格式"
+                                    },
+                                    onClick = {
+                                        decoderExpanded = false
+                                        scope.launch { settingsManager.setDecoderMode(index) }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

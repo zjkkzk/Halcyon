@@ -18,6 +18,7 @@ import com.ella.music.ui.album.AlbumScreen
 import com.ella.music.ui.artist.ArtistScreen
 import com.ella.music.ui.folder.FolderDetailScreen
 import com.ella.music.ui.folder.FolderScreen
+import com.ella.music.ui.folder.WebDavScreen
 import com.ella.music.ui.home.HomeScreen
 import com.ella.music.ui.online.LxOnlineScreen
 import com.ella.music.ui.player.PlayerScreen
@@ -36,6 +37,7 @@ sealed class Screen(val route: String) {
         fun createRoute(artistName: String) = "artist/${java.net.URLEncoder.encode(artistName, "UTF-8")}"
     }
     data object Folder : Screen("folder")
+    data object WebDav : Screen("webdav")
     data object FolderDetail : Screen("folder/{folderPath}") {
         fun createRoute(folderPath: String) = "folder/${java.net.URLEncoder.encode(folderPath, "UTF-8")}"
     }
@@ -109,9 +111,19 @@ fun AppNavigation(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 onNavigateToPlayer = { navController.navigate(Screen.Player.route) },
+                onNavigateToWebDav = { navController.navigate(Screen.WebDav.route) },
                 onFolderClick = { folderPath ->
                     navController.navigate(Screen.FolderDetail.createRoute(folderPath))
                 }
+            )
+        }
+
+        composable(Screen.WebDav.route) {
+            WebDavScreen(
+                mainViewModel = mainViewModel,
+                playerViewModel = playerViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToPlayer = { navController.navigate(Screen.Player.route) }
             )
         }
 

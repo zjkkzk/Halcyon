@@ -84,6 +84,7 @@ dependencies {
     implementation(libs.backdrop)
     implementation(libs.taglib)
     implementation(libs.jaudiotagger)
+    implementation("wang.harlon.quickjs:wrapper-android:2.4.0")
     implementation(project(":ffmpeg-decoder"))
 
     implementation("top.yukonga.miuix.kmp:miuix-ui")
