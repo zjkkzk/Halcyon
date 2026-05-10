@@ -668,7 +668,7 @@ private fun PlayerBlurBackground(
                     }
                     .blur(72.dp),
                 contentScale = ContentScale.Crop,
-                sizePx = 768
+                sizePx = 512
             )
         }
         Box(
@@ -1088,6 +1088,7 @@ private fun formatTime(ms: Long): String {
 
 private fun formatAudioInfo(info: AudioInfo): String {
     val parts = mutableListOf<String>()
+    audioQualityLabel(info)?.let { parts += it }
     parts += info.format
     if (info.bitDepth > 0) parts += "${info.bitDepth}-bit"
     if (info.sampleRate > 0) {
@@ -1100,6 +1101,15 @@ private fun formatAudioInfo(info: AudioInfo): String {
     if (info.bitRate > 0) parts += "${(info.bitRate / 1000).coerceAtLeast(1)} kbps"
     if (info.channels > 0) parts += "${info.channels}ch"
     return parts.distinct().joinToString(" · ")
+}
+
+private fun audioQualityLabel(info: AudioInfo): String? {
+    val format = info.format.uppercase()
+    return when {
+        info.channels >= 6 -> "Dolby"
+        format.contains("M4A") || format.contains("ALAC") -> "M4A"
+        else -> null
+    }
 }
 
 private fun Float.nextPlaybackStep(): Float {

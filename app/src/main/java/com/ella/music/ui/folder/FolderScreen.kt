@@ -1,11 +1,14 @@
 package com.ella.music.ui.folder
 
 import android.content.Intent
+import android.provider.DocumentsContract
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +29,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,26 +44,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.data.model.Song
 import com.ella.music.data.webdav.WebDavClient
-import com.ella.music.data.webdav.WebDavConfig
 import com.ella.music.data.webdav.WebDavItem
-import com.ella.music.data.webdav.WebDavTestResult
 import com.ella.music.viewmodel.MainViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.ella.music.viewmodel.PlayerViewModel
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import androidx.compose.ui.window.Dialog
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun FolderScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
@@ -72,51 +75,13 @@ fun FolderScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val songs by mainViewModel.songs.collectAsState()
-    val savedWebDavUrl by mainViewModel.settingsManager.webDavUrl.collectAsState(initial = "")
-    val savedWebDavUser by mainViewModel.settingsManager.webDavUsername.collectAsState(initial = "")
-    val savedWebDavPassword by mainViewModel.settingsManager.webDavPassword.collectAsState(initial = "")
-    val savedWebDavLastUrl by mainViewModel.settingsManager.webDavLastUrl.collectAsState(initial = "")
-    var webDavTreeUri by remember { mutableStateOf<Uri?>(null) }
-    var showWebDavDialog by remember { mutableStateOf(false) }
-    var webDavUrl by remember { mutableStateOf("") }
-    var webDavUser by remember { mutableStateOf("") }
-    var webDavPassword by remember { mutableStateOf("") }
-    var webDavCurrentUrl by remember { mutableStateOf("") }
-    var webDavItems by remember { mutableStateOf<List<WebDavItem>>(emptyList()) }
-    var webDavLoading by remember { mutableStateOf(false) }
-    var webDavError by remember { mutableStateOf<String?>(null) }
-    var webDavTestStatus by remember { mutableStateOf<String?>(null) }
-    var loadedWebDavKey by remember { mutableStateOf("") }
+    val scanIncludeFolders by mainViewModel.settingsManager.scanIncludeFolders.collectAsState(initial = "")
+    val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
+    val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
+    var folderToBlock by remember { mutableStateOf<String?>(null) }
+    var showBlockedDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(savedWebDavUrl, savedWebDavUser, savedWebDavPassword, savedWebDavLastUrl) {
-        webDavUrl = savedWebDavUrl
-        webDavUser = savedWebDavUser
-        webDavPassword = savedWebDavPassword
-        if (savedWebDavUrl.isNotBlank()) {
-            val startUrl = savedWebDavLastUrl.ifBlank { savedWebDavUrl }
-            val key = listOf(savedWebDavUrl, savedWebDavUser, savedWebDavPassword, startUrl).joinToString("|")
-            if (loadedWebDavKey == key && webDavItems.isNotEmpty()) return@LaunchedEffect
-            loadedWebDavKey = key
-            webDavCurrentUrl = startUrl
-            val config = WebDavConfig(savedWebDavUrl, savedWebDavUser, savedWebDavPassword)
-            webDavLoading = true
-            webDavError = null
-            runCatching {
-                withContext(Dispatchers.IO) { WebDavClient.list(config, startUrl) }
-            }.onSuccess {
-                webDavItems = it
-            }.onFailure {
-                webDavItems = emptyList()
-                webDavError = it.localizedMessage ?: "WebDAV 加载失败"
-            }
-            webDavLoading = false
-        } else {
-            webDavCurrentUrl = ""
-            webDavItems = emptyList()
-            webDavError = null
-        }
-    }
-    val webDavPicker = rememberLauncherForActivityResult(
+    val folderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
@@ -127,8 +92,18 @@ fun FolderScreen(
             }.recoverCatching {
                 context.contentResolver.takePersistableUriPermission(uri, readOnly)
             }
-            webDavTreeUri = uri
-            Toast.makeText(context, "已添加网络音乐目录", Toast.LENGTH_SHORT).show()
+            val folderPath = uri.toPrimaryStoragePath()
+            if (folderPath == null) {
+                Toast.makeText(context, "暂不支持该系统目录路径", Toast.LENGTH_SHORT).show()
+            } else {
+                scope.launch {
+                    mainViewModel.settingsManager.setScanIncludeFolders(
+                        (scanIncludeFolders.toFolderSettingList() + folderPath).distinct().joinToString("；")
+                    )
+                    mainViewModel.scanMusic()
+                }
+                Toast.makeText(context, "已添加扫描文件夹", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -147,64 +122,57 @@ fun FolderScreen(
     ) {
         SmallTopAppBar(
             title = "文件夹",
-            color = MiuixTheme.colorScheme.background
+            color = MiuixTheme.colorScheme.background,
+            actions = {
+                IconButton(onClick = { folderPicker.launch(null) }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Add,
+                        contentDescription = "添加文件夹"
+                    )
+                }
+            }
         )
 
-        WebDavEntryCard(
-            selectedUri = webDavTreeUri,
-            onOpenSettings = onNavigateToWebDav,
-            onOpenDocumentTree = { webDavPicker.launch(null) }
-        )
-
-        if (showWebDavDialog) {
-            WebDavSettingsDialog(
-                url = webDavUrl,
-                username = webDavUser,
-                password = webDavPassword,
-                onUrlChange = { webDavUrl = it },
-                onUsernameChange = { webDavUser = it },
-                onPasswordChange = { webDavPassword = it },
-                testStatus = webDavTestStatus,
-                onDismiss = { showWebDavDialog = false },
-                onTest = {
+        folderToBlock?.let { folderPath ->
+            FolderBlockDialog(
+                folderPath = folderPath,
+                onDismiss = { folderToBlock = null },
+                onBlock = {
                     scope.launch {
-                        webDavTestStatus = "正在测试 WebDAV 连接..."
-                        val result = runCatching {
-                            withContext(Dispatchers.IO) {
-                                WebDavClient.testDetailed(WebDavConfig(webDavUrl, webDavUser, webDavPassword))
-                            }
-                        }.getOrElse { WebDavTestResult(ok = false, message = it.localizedMessage ?: "WebDAV 连接失败") }
-                        webDavError = if (result.ok) null else result.message
-                        webDavTestStatus = result.message
-                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                        mainViewModel.settingsManager.setScanExcludeFolders(
+                            (blockedFolders + folderPath).distinct().joinToString("；")
+                        )
+                        mainViewModel.scanMusic()
                     }
-                },
-                onSave = {
-                    scope.launch {
-                        mainViewModel.settingsManager.setWebDavConfig(webDavUrl, webDavUser, webDavPassword)
-                    }
-                    webDavCurrentUrl = webDavUrl
-                    showWebDavDialog = false
-                    Toast.makeText(context, "WebDAV 配置已保存", Toast.LENGTH_SHORT).show()
-                },
-                onClear = {
-                    scope.launch {
-                        mainViewModel.settingsManager.clearWebDavConfig()
-                    }
-                    webDavUrl = ""
-                    webDavUser = ""
-                    webDavPassword = ""
-                    webDavCurrentUrl = ""
-                    webDavItems = emptyList()
-                    webDavError = null
-                    webDavTestStatus = null
-                    showWebDavDialog = false
-                    Toast.makeText(context, "WebDAV 配置已移除", Toast.LENGTH_SHORT).show()
+                    folderToBlock = null
+                    Toast.makeText(context, "已屏蔽该文件夹", Toast.LENGTH_SHORT).show()
                 }
             )
         }
 
-        if (folderMap.isEmpty() && savedWebDavUrl.isBlank()) {
+        if (showBlockedDialog) {
+            BlockedFoldersDialog(
+                folders = blockedFolders,
+                onDismiss = { showBlockedDialog = false },
+                onRemove = { folderPath ->
+                    scope.launch {
+                        mainViewModel.settingsManager.setScanExcludeFolders(
+                            blockedFolders.filterNot { it == folderPath }.joinToString("；")
+                        )
+                        mainViewModel.scanMusic()
+                    }
+                },
+                onClear = {
+                    scope.launch {
+                        mainViewModel.settingsManager.setScanExcludeFolders("")
+                        mainViewModel.scanMusic()
+                    }
+                    showBlockedDialog = false
+                }
+            )
+        }
+
+        if (folderMap.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -237,8 +205,11 @@ fun FolderScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        onClick = { onFolderClick(folderPath) }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .combinedClickable(
+                                onClick = { onFolderClick(folderPath) },
+                                onLongClick = { folderToBlock = folderPath }
+                            )
                     ) {
                         Row(
                             modifier = Modifier
@@ -274,6 +245,19 @@ fun FolderScreen(
                         }
                     }
                 }
+                if (blockedFolders.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "管理已屏蔽的文件夹",
+                            fontSize = 12.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .combinedClickable(onClick = { showBlockedDialog = true })
+                        )
+                    }
+                }
             }
         }
     }
@@ -282,10 +266,12 @@ fun FolderScreen(
 @Composable
 internal fun WebDavBrowserCard(
     currentUrl: String,
+    canGoParent: Boolean,
     loading: Boolean,
     error: String?,
     items: List<WebDavItem>,
     onRefresh: () -> Unit,
+    onGoParent: () -> Unit,
     onItemClick: (WebDavItem) -> Unit,
     onAddToQueue: (WebDavItem) -> Unit
 ) {
@@ -304,7 +290,15 @@ internal fun WebDavBrowserCard(
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
                 }
-                Button(onClick = onRefresh) { Text("刷新") }
+                if (canGoParent) {
+                    Button(onClick = onGoParent) { Text("上级") }
+                }
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Refresh,
+                        contentDescription = "刷新"
+                    )
+                }
             }
             when {
                 loading -> Text("正在读取远程目录...", color = MiuixTheme.colorScheme.primary)
@@ -365,73 +359,72 @@ internal fun WebDavItemRow(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
-            Button(onClick = onClick) { Text(if (item.isDirectory) "打开" else "播放") }
+            IconButton(onClick = onClick) {
+                Icon(
+                    imageVector = if (item.isDirectory) MiuixIcons.Basic.ArrowRight else MiuixIcons.Regular.Play,
+                    contentDescription = if (item.isDirectory) "打开" else "播放"
+                )
+            }
         }
         if (!item.isDirectory) {
-            Button(onClick = onAddToQueue) { Text("+") }
+            IconButton(onClick = onAddToQueue) {
+                Icon(
+                    imageVector = MiuixIcons.Regular.Add,
+                    contentDescription = "加入播放列表"
+                )
+            }
         }
     }
 }
 
 @Composable
-internal fun WebDavEntryCard(
-    selectedUri: Uri?,
-    onOpenSettings: () -> Unit,
-    onOpenDocumentTree: () -> Unit
+private fun FolderBlockDialog(
+    folderPath: String,
+    onDismiss: () -> Unit,
+    onBlock: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        onClick = onOpenSettings
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = MiuixIcons.Regular.Folder,
-                contentDescription = null,
-                tint = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "WebDAV 音乐库",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (selectedUri != null) {
-                        "已选择网络目录，后续接入索引和缓存"
-                    } else {
-                        "配置 WebDAV，或选择 rclone/RCX/rcloud sync 网络目录"
-                    },
-                    fontSize = 13.sp,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                )
+    Dialog(onDismissRequest = onDismiss) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(text = "屏蔽文件夹", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = folderPath, fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onDismiss) { Text("取消") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = onBlock) { Text("屏蔽") }
+                }
             }
-            Icon(
-                imageVector = MiuixIcons.Basic.ArrowRight,
-                contentDescription = null,
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.size(20.dp)
-            )
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 56.dp, end = 16.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(onClick = onOpenSettings) {
-                Text("手动配置")
-            }
-            Button(onClick = onOpenDocumentTree) {
-                Text("系统目录")
+    }
+}
+
+@Composable
+private fun BlockedFoldersDialog(
+    folders: List<String>,
+    onDismiss: () -> Unit,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(text = "已屏蔽的文件夹", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                folders.forEach { folder ->
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = folder,
+                            fontSize = 13.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(onClick = { onRemove(folder) }) { Text("移除") }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Button(onClick = onClear) { Text("清空") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = onDismiss) { Text("完成") }
+                }
             }
         }
     }
@@ -524,4 +517,21 @@ internal fun WebDavItem.toRemoteSong(): Song {
         fileSize = size,
         mimeType = mimeType
     )
+}
+
+private fun String.toFolderSettingList(): List<String> =
+    split('；', ';')
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+private fun Uri.toPrimaryStoragePath(): String? {
+    val documentId = runCatching { DocumentsContract.getTreeDocumentId(this) }.getOrNull() ?: return null
+    val parts = documentId.split(':', limit = 2)
+    val volume = parts.firstOrNull().orEmpty()
+    val path = parts.getOrNull(1).orEmpty().trim('/')
+    return when {
+        volume.equals("primary", ignoreCase = true) && path.isBlank() -> "/storage/emulated/0"
+        volume.equals("primary", ignoreCase = true) -> "/storage/emulated/0/$path"
+        else -> null
+    }
 }

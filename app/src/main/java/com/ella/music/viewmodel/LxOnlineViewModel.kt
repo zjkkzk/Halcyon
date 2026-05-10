@@ -12,7 +12,7 @@ class LxOnlineViewModel : ViewModel() {
     var importExpanded by mutableStateOf(true)
     var isBusy by mutableStateOf(false)
     var results by mutableStateOf<List<LxOnlineSong>>(emptyList())
-    var message by mutableStateOf("导入落雪源后可搜索在线歌曲")
+    var message by mutableStateOf("导入 LX 源后可搜索在线歌曲")
 
     fun clearResults(message: String) {
         results = emptyList()

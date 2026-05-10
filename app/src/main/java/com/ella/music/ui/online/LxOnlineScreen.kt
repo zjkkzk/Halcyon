@@ -126,7 +126,7 @@ fun LxOnlineScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         SmallTopAppBar(
-            title = "落雪源在线音乐",
+            title = "LX 在线音乐",
             color = MiuixTheme.colorScheme.background,
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -148,7 +148,7 @@ fun LxOnlineScreen(
             ) {
                 Column {
                     BasicComponent(
-                        title = selectedSource?.name ?: "导入落雪源",
+                        title = selectedSource?.name ?: "导入 LX 源",
                         summary = selectedSource?.url ?: "从本地 JS 文件或网络链接导入 Music API 脚本",
                     )
                     AnimatedVisibility(

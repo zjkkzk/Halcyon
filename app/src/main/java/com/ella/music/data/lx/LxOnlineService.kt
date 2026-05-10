@@ -166,7 +166,7 @@ class LxOnlineService(private val context: Context) {
     private fun extractSourceName(script: String): String {
         val currentInfoName = Regex("""name\s*:\s*['"]([^'"]+)['"]""").find(script)?.groupValues?.getOrNull(1)
         val commentName = Regex("""@name\s+(.+)""").find(script)?.groupValues?.getOrNull(1)?.trim()
-        return currentInfoName ?: commentName ?: "落雪源"
+        return currentInfoName ?: commentName ?: "LX源"
     }
 
     private fun pickQuality(raw: String): String {

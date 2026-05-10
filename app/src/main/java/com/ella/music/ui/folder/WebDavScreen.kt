@@ -32,6 +32,7 @@ import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URI
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
@@ -82,6 +83,15 @@ fun WebDavScreen(
             }
             loading = false
         }
+    }
+
+    fun goParent() {
+        val rootUrl = webDavUrl.trimEnd('/')
+        val current = currentUrl.ifBlank { rootUrl }.trimEnd('/')
+        val parent = parentWebDavUrl(current, rootUrl) ?: return
+        currentUrl = parent
+        scope.launch { mainViewModel.settingsManager.setWebDavLastUrl(parent) }
+        load(parent)
     }
 
     LaunchedEffect(savedUrl, savedUser, savedPassword, savedLastUrl) {
@@ -199,8 +209,13 @@ fun WebDavScreen(
                 item {
                     WebDavBrowserCard(
                         currentUrl = WebDavClient.displayUrl(currentUrl.ifBlank { savedUrl }),
+                        canGoParent = parentWebDavUrl(
+                            currentUrl.ifBlank { webDavUrl }.trimEnd('/'),
+                            webDavUrl.trimEnd('/')
+                        ) != null,
                         loading = loading,
                         error = error,
+                        onGoParent = ::goParent,
                         items = items,
                         onRefresh = { load(currentUrl.ifBlank { webDavUrl }, forceRefresh = true) },
                         onItemClick = { item ->
@@ -223,3 +238,22 @@ fun WebDavScreen(
         }
     }
 }
+
+private fun parentWebDavUrl(currentUrl: String, rootUrl: String): String? {
+    if (currentUrl.isBlank() || rootUrl.isBlank()) return null
+    val root = rootUrl.trimEnd('/')
+    val current = currentUrl.trimEnd('/')
+    if (current == root || !current.startsWith(root)) return null
+    return runCatching {
+        val uri = URI(current)
+        val path = uri.path.orEmpty().trimEnd('/')
+        val parentPath = path.substringBeforeLast('/', missingDelimiterValue = "")
+        if (parentPath.isBlank()) root else {
+            val rebuilt = URI(uri.scheme, uri.userInfo, uri.host, uri.port, parentPath + "/", uri.query, uri.fragment).toString()
+            if (rebuilt.length < root.length) root else rebuilt
+        }
+    }.getOrNull()?.trimEnd('/')?.coerceAtLeastUrl(root)
+}
+
+private fun String.coerceAtLeastUrl(rootUrl: String): String =
+    if (length < rootUrl.length || !startsWith(rootUrl)) rootUrl else this

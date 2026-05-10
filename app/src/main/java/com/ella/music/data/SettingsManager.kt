@@ -158,7 +158,7 @@ class SettingsManager(private val context: Context) {
             val source = LxSourceConfig(
                 id = url.toLxSourceId(script),
                 url = url.trim(),
-                name = name.ifBlank { "落雪源" },
+                name = name.ifBlank { "LX源" },
                 script = script
             )
             val sources = it.lxSources().filterNot { existing -> existing.id == source.id } + source
@@ -248,7 +248,7 @@ class SettingsManager(private val context: Context) {
             LxSourceConfig(
                 id = legacyUrl.toLxSourceId(legacyScript),
                 url = legacyUrl,
-                name = this[KEY_LX_SOURCE_NAME].orEmpty().ifBlank { "落雪源" },
+                name = this[KEY_LX_SOURCE_NAME].orEmpty().ifBlank { "LX源" },
                 script = legacyScript
             )
         )
@@ -263,7 +263,7 @@ class SettingsManager(private val context: Context) {
                 LxSourceConfig(
                     id = item.optString("id"),
                     url = item.optString("url"),
-                    name = item.optString("name").ifBlank { "落雪源" },
+                    name = item.optString("name").ifBlank { "LX源" },
                     script = item.optString("script")
                 )
             }.filter { it.id.isNotBlank() && it.script.isNotBlank() }

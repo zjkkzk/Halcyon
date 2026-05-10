@@ -217,10 +217,12 @@ fun HomeScreen(
         }
 
         PullToRefresh(
-            isRefreshing = isScanning,
+            isRefreshing = false,
             onRefresh = {
-                scope.launch {
-                    mainViewModel.scanMusic()
+                if (!isScanning) {
+                    scope.launch {
+                        mainViewModel.scanMusic()
+                    }
                 }
             },
         ) {

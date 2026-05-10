@@ -59,12 +59,33 @@ public final class LxUserApiRuntime implements AutoCloseable {
     public JSONObject load(String script, String id, String name, String url) throws Exception {
         QuickJSLoader.init();
         jsContext = QuickJSContext.create();
+        jsContext.setConsole(new QuickJSContext.Console() {
+            @Override
+            public void log(String message) {
+                Log.d(TAG, message);
+            }
+
+            @Override
+            public void info(String message) {
+                Log.i(TAG, message);
+            }
+
+            @Override
+            public void warn(String message) {
+                Log.w(TAG, message);
+            }
+
+            @Override
+            public void error(String message) {
+                Log.e(TAG, message);
+            }
+        });
         createEnv();
         jsContext.evaluate(readPreloadScript());
         jsContext.getGlobalObject().getJSFunction("lx_setup").call(
                 key,
                 id == null ? "" : id,
-                name == null || name.isEmpty() ? "落雪源" : name,
+                name == null || name.isEmpty() ? "LX源" : name,
                 url == null ? "" : url,
                 "",
                 "",

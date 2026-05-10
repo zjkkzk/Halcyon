@@ -1,8 +1,5 @@
 package com.ella.music.ui.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,18 +35,20 @@ import com.ella.music.ui.theme.THEME_LIGHT
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
 import android.widget.Toast
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.SpinnerEntry
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -76,18 +75,26 @@ fun SettingsScreen(
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val scanIncludeFolders by settingsManager.scanIncludeFolders.collectAsState(initial = "")
-    val scanExcludeFolders by settingsManager.scanExcludeFolders.collectAsState(initial = "")
     val decoderMode by settingsManager.decoderMode.collectAsState(initial = 2)
     val themeLabels = listOf("跟随系统", "浅色", "深色")
     val selectedThemeMode = themeMode.coerceIn(themeLabels.indices)
     val decoderLabels = listOf("系统解码", "FFmpeg 解码", "自动")
     val selectedDecoderMode = decoderMode.coerceIn(decoderLabels.indices)
-    var themeExpanded by remember { mutableStateOf(false) }
     var scanIncludeExpanded by remember { mutableStateOf(false) }
-    var scanExcludeExpanded by remember { mutableStateOf(false) }
     var scanIncludeDraft by remember(scanIncludeFolders) { mutableStateOf(scanIncludeFolders) }
-    var scanExcludeDraft by remember(scanExcludeFolders) { mutableStateOf(scanExcludeFolders) }
-    var decoderExpanded by remember { mutableStateOf(false) }
+    val themeEntries = remember { themeLabels.map { SpinnerEntry(title = it) } }
+    val decoderEntries = remember {
+        decoderLabels.mapIndexed { index, label ->
+            SpinnerEntry(
+                title = label,
+                summary = when (index) {
+                    0 -> "只使用 Android 系统解码；不支持的格式会播放失败"
+                    1 -> "优先使用 FFmpeg 扩展解码"
+                    else -> "系统不支持时才回落到 FFmpeg"
+                }
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -107,93 +114,40 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "外观",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
+            SmallTitle(text = "外观")
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = { themeExpanded = !themeExpanded }
-            ) {
+            Card(modifier = Modifier.padding(bottom = 12.dp)) {
                 Column {
-                    BasicComponent(
+                    WindowSpinnerPreference(
                         title = "主题模式",
                         summary = "选择应用明暗外观",
-                        endActions = {
-                            Text(
-                                text = themeLabels[selectedThemeMode],
-                                fontSize = 14.sp,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                            )
+                        items = themeEntries,
+                        selectedIndex = selectedThemeMode,
+                        onSelectedIndexChange = { index ->
+                            scope.launch { settingsManager.setThemeMode(index) }
                         }
                     )
-                    AnimatedVisibility(
-                        visible = themeExpanded,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
-                        Column {
-                            themeLabels.forEachIndexed { index, label ->
-                                BasicComponent(
-                                    title = label,
-                                    summary = if (index == selectedThemeMode) "当前使用" else null,
-                                    onClick = {
-                                        themeExpanded = false
-                                        scope.launch { settingsManager.setThemeMode(index) }
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    ArrowPreference(
+                        title = "歌词字体",
+                        summary = lyricFontName.ifBlank { "系统默认" },
+                        onClick = onNavigateToLyricFont
+                    )
                 }
             }
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = onNavigateToLyricFont
-            ) {
-                BasicComponent(
-                    title = "歌词字体",
-                    summary = lyricFontName.ifBlank { "系统默认" },
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
-            }
+            SmallTitle(text = "通用")
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "通用",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+            Card(modifier = Modifier.padding(bottom = 12.dp)) {
+                Column {
+                SwitchPreference(
                     title = "自动扫描",
                     summary = "启动时自动扫描音乐文件",
-                    endActions = {
-                        Switch(
-                            checked = autoScan,
-                            onCheckedChange = {
-                                scope.launch { settingsManager.setAutoScan(it) }
-                            }
-                        )
+                    checked = autoScan,
+                    onCheckedChange = {
+                        scope.launch { settingsManager.setAutoScan(it) }
                     }
                 )
-            }
 
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Text(text = "最短时长过滤", fontSize = 15.sp)
                     Text(
@@ -216,22 +170,13 @@ fun SettingsScreen(
                         Text(text = "60秒", fontSize = 11.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     }
                 }
-            }
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = { scanIncludeExpanded = !scanIncludeExpanded }
-            ) {
-                Column {
-                    BasicComponent(
+                    ArrowPreference(
                         title = "扫描文件夹",
-                        summary = scanIncludeFolders.ifBlank { "为空时扫描系统媒体库中的全部音乐" }
+                        summary = scanIncludeFolders.ifBlank { "在文件夹页右上角添加本地文件夹" },
+                        onClick = { scanIncludeExpanded = !scanIncludeExpanded }
                     )
-                    AnimatedVisibility(
-                        visible = scanIncludeExpanded,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
+                    if (scanIncludeExpanded) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                             InputField(
                                 query = scanIncludeDraft,
@@ -261,296 +206,125 @@ fun SettingsScreen(
                 }
             }
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = { scanExcludeExpanded = !scanExcludeExpanded }
-            ) {
+            SmallTitle(text = "音频")
+
+            Card(modifier = Modifier.padding(bottom = 12.dp)) {
                 Column {
-                    BasicComponent(
-                        title = "屏蔽文件夹",
-                        summary = scanExcludeFolders.ifBlank { "扫描时跳过指定目录，可用中文分号分隔多个路径" }
-                    )
-                    AnimatedVisibility(
-                        visible = scanExcludeExpanded,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                            InputField(
-                                query = scanExcludeDraft,
-                                onQueryChange = { scanExcludeDraft = it },
-                                onSearch = {},
-                                expanded = true,
-                                onExpandedChange = {},
-                                label = "/storage/emulated/0/Recordings；/sdcard/Notifications"
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Button(onClick = {
-                                    scope.launch { settingsManager.setScanExcludeFolders(scanExcludeDraft) }
-                                }) {
-                                    Text("保存")
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(onClick = {
-                                    scanExcludeDraft = ""
-                                    scope.launch { settingsManager.setScanExcludeFolders("") }
-                                }) {
-                                    Text("清空")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "音频",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+                SwitchPreference(
                     title = "无缝播放",
                     summary = "歌曲之间无间隙切换",
-                    endActions = {
-                        Switch(
-                            checked = gaplessPlayback,
-                            onCheckedChange = {
-                                scope.launch { settingsManager.setGaplessPlayback(it) }
-                            }
-                        )
+                    checked = gaplessPlayback,
+                    onCheckedChange = {
+                        scope.launch { settingsManager.setGaplessPlayback(it) }
                     }
                 )
-            }
 
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+                SwitchPreference(
                     title = "ReplayGain 音量均衡",
                     summary = "根据音频标签自动调整播放音量",
-                    endActions = {
-                        Switch(
-                            checked = replayGainEnabled,
-                            onCheckedChange = {
-                                scope.launch { settingsManager.setReplayGainEnabled(it) }
-                            }
-                        )
+                    checked = replayGainEnabled,
+                    onCheckedChange = {
+                        scope.launch { settingsManager.setReplayGainEnabled(it) }
                     }
                 )
-            }
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = { decoderExpanded = !decoderExpanded }
-            ) {
-                Column {
-                    BasicComponent(
+                    WindowSpinnerPreference(
                         title = "解码器",
-                        summary = "系统模式不会回落 FFmpeg，自动模式才会 fallback",
-                        endActions = {
-                            Text(
-                                text = decoderLabels[selectedDecoderMode],
-                                fontSize = 14.sp,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-                            )
+                        summary = "当前：${decoderLabels[selectedDecoderMode]}",
+                        items = decoderEntries,
+                        selectedIndex = selectedDecoderMode,
+                        onSelectedIndexChange = { index ->
+                            scope.launch { settingsManager.setDecoderMode(index) }
                         }
                     )
-                    AnimatedVisibility(
-                        visible = decoderExpanded,
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ) {
-                        Column {
-                            decoderLabels.forEachIndexed { index, label ->
-                                BasicComponent(
-                                    title = label,
-                                    summary = when (index) {
-                                        0 -> "只使用 Android 系统解码；不支持的格式会播放失败"
-                                        1 -> "优先使用 FFmpeg 扩展解码，兼容更多本地格式"
-                                        else -> "先使用系统解码，系统不支持时才回落到 FFmpeg"
-                                    },
-                                    onClick = {
-                                        decoderExpanded = false
-                                        scope.launch { settingsManager.setDecoderMode(index) }
-                                    }
-                                )
-                            }
-                        }
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            SmallTitle(text = "歌词")
 
-            Text(
-                text = "歌词",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+            Card(modifier = Modifier.padding(bottom = 12.dp)) {
+                Column {
+                SwitchPreference(
                     title = "启用词幕",
                     summary = "将歌词推送到词幕（Lyricon）",
-                    endActions = {
-                        Switch(
-                            checked = lyriconEnabled,
-                            onCheckedChange = { enabled ->
-                                scope.launch { settingsManager.setLyriconEnabled(enabled) }
-                                playerViewModel?.setLyriconEnabled(enabled)
-                            }
-                        )
+                    checked = lyriconEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsManager.setLyriconEnabled(enabled) }
+                        playerViewModel?.setLyriconEnabled(enabled)
                     }
                 )
-            }
 
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+                SwitchPreference(
                     title = "传递翻译",
                     summary = "在词幕中显示歌词翻译",
                     enabled = lyriconEnabled,
-                    endActions = {
-                        Switch(
-                            checked = lyriconTranslation,
-                            enabled = lyriconEnabled,
-                            onCheckedChange = { enabled ->
-                                scope.launch { settingsManager.setLyriconTranslation(enabled) }
-                                playerViewModel?.setLyriconTranslation(enabled)
-                            }
-                        )
+                    checked = lyriconTranslation,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsManager.setLyriconTranslation(enabled) }
+                        playerViewModel?.setLyriconTranslation(enabled)
                     }
                 )
-            }
 
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+                SwitchPreference(
                     title = "启用 FLYme 状态栏歌词",
                     summary = "在魅族设备上通过 Ticker 通知显示歌词",
-                    endActions = {
-                        Switch(
-                            checked = tickerEnabled,
-                            onCheckedChange = { enabled ->
-                                scope.launch { settingsManager.setTickerEnabled(enabled) }
-                                playerViewModel?.setTickerEnabled(enabled)
-                            }
-                        )
+                    checked = tickerEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsManager.setTickerEnabled(enabled) }
+                        playerViewModel?.setTickerEnabled(enabled)
                     }
                 )
-            }
 
-            Card(modifier = Modifier.padding(vertical = 4.dp)) {
-                BasicComponent(
+                SwitchPreference(
                     title = "启用蓝牙车载歌词",
                     summary = "将当前歌词写入媒体标题，供蓝牙设备或车机显示。",
-                    endActions = {
-                        Switch(
-                            checked = bluetoothLyricEnabled,
-                            onCheckedChange = { enabled ->
-                                scope.launch { settingsManager.setBluetoothLyricEnabled(enabled) }
-                                playerViewModel?.setBluetoothLyricEnabled(enabled)
-                            }
-                        )
+                    checked = bluetoothLyricEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsManager.setBluetoothLyricEnabled(enabled) }
+                        playerViewModel?.setBluetoothLyricEnabled(enabled)
                     }
                 )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "其他",
-                fontSize = 14.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-            )
-
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = onNavigateToAnalytics
-            ) {
-                BasicComponent(
-                    title = "歌曲库分析",
-                    summary = "查看音质占比、听歌时长和播放次数排行",
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
-            }
-
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = onNavigateToLxOnline
-            ) {
-                BasicComponent(
-                    title = "LX Music 在线音乐",
-                    summary = "导入 LX Music API 源并搜索在线播放",
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
-            }
-
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = {
-                    scope.launch {
-                        cacheRepository.clearRemoteMetadataCache()
-                        Toast.makeText(context, "封面歌词缓存已清除", Toast.LENGTH_SHORT).show()
-                    }
                 }
-            ) {
-                BasicComponent(
-                    title = "清除封面歌词缓存",
-                    summary = "清除 WebDAV 首次播放时缓存的封面和内嵌歌词文件",
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
             }
 
-            Card(
-                modifier = Modifier.padding(vertical = 4.dp),
-                onClick = onNavigateToAbout
-            ) {
-                BasicComponent(
-                    title = "关于",
-                    summary = "Ella Music v${BuildConfig.VERSION_NAME}",
-                    startAction = {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Info,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
-                    endActions = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.ArrowRight,
-                            contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
+            SmallTitle(text = "其他")
+
+            Card(modifier = Modifier.padding(bottom = 12.dp)) {
+                Column {
+                    ArrowPreference(
+                        title = "歌曲库分析",
+                        summary = "查看音质占比、听歌时长和播放次数排行",
+                        onClick = onNavigateToAnalytics
+                    )
+                    ArrowPreference(
+                        title = "LX Music 在线音乐",
+                        summary = "导入 LX Music API 源并搜索在线播放",
+                        onClick = onNavigateToLxOnline
+                    )
+                    ArrowPreference(
+                        title = "清除封面歌词缓存",
+                        summary = "清除 WebDAV 首次播放时缓存的封面和内嵌歌词文件",
+                        onClick = {
+                            scope.launch {
+                                cacheRepository.clearRemoteMetadataCache()
+                                Toast.makeText(context, "封面歌词缓存已清除", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    ArrowPreference(
+                        title = "关于",
+                        summary = "Ella Music v${BuildConfig.VERSION_NAME}",
+                        startAction = {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Info,
+                                contentDescription = null,
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = onNavigateToAbout
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(160.dp))
