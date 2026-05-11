@@ -33,9 +33,16 @@ android {
 
     splits {
         abi {
+            val abiIncludes = providers.gradleProperty("ellaAbi")
+                .orNull
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?: listOf("arm64-v8a", "armeabi-v7a")
+
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a")
+            include(*abiIncludes.toTypedArray())
             isUniversalApk = false
         }
     }
