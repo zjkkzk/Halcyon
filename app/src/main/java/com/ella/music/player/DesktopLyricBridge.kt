@@ -45,6 +45,7 @@ class DesktopLyricBridge(private val context: Context) {
                 .putExtra(DesktopLyricService.EXTRA_TRANSLATION, if (showTranslation) lyricLine.translation.orEmpty() else "")
                 .putExtra(DesktopLyricService.EXTRA_POSITION, positionMs)
                 .putExtra(DesktopLyricService.EXTRA_AGENT, lyricLine.agent.orEmpty())
+                .putExtra(DesktopLyricService.EXTRA_IS_TTML, lyricLine.isTtml)
                 .putExtra(DesktopLyricService.EXTRA_BACKGROUND_TEXT, lyricLine.backgroundText.orEmpty())
                 .putExtra(DesktopLyricService.EXTRA_BACKGROUND_TRANSLATION, if (showTranslation) lyricLine.backgroundTranslation.orEmpty() else "")
                 .putExtra(DesktopLyricService.EXTRA_WORD_TEXTS, lyricLine.words.map { it.text }.toTypedArray())
