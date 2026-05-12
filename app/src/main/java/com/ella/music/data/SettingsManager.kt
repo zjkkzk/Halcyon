@@ -31,6 +31,7 @@ class SettingsManager(private val context: Context) {
         val KEY_GAPLESS = booleanPreferencesKey("gapless_playback")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_TICKER_ENABLED = booleanPreferencesKey("ticker_enabled")
+        val KEY_SAMSUNG_FLOATING_LYRIC_TRANSLATION = booleanPreferencesKey("samsung_floating_lyric_translation")
         val KEY_DESKTOP_LYRIC_ENABLED = booleanPreferencesKey("desktop_lyric_enabled")
         val KEY_SUPER_LYRIC_ENABLED = booleanPreferencesKey("super_lyric_enabled")
         val KEY_SUPER_LYRIC_TRANSLATION = booleanPreferencesKey("super_lyric_translation")
@@ -63,6 +64,8 @@ class SettingsManager(private val context: Context) {
     val gaplessPlayback: Flow<Boolean> = context.dataStore.data.map { it[KEY_GAPLESS] ?: true }
     val themeMode: Flow<Int> = context.dataStore.data.map { it[KEY_THEME_MODE] ?: 0 }
     val tickerEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_TICKER_ENABLED] ?: false }
+    val samsungFloatingLyricTranslation: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_SAMSUNG_FLOATING_LYRIC_TRANSLATION] ?: false }
     val desktopLyricEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_DESKTOP_LYRIC_ENABLED] ?: false }
     val superLyricEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_SUPER_LYRIC_ENABLED] ?: false }
     val superLyricTranslation: Flow<Boolean> = context.dataStore.data.map { it[KEY_SUPER_LYRIC_TRANSLATION] ?: true }
@@ -116,6 +119,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setTickerEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_TICKER_ENABLED] = enabled }
+    }
+
+    suspend fun setSamsungFloatingLyricTranslation(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_SAMSUNG_FLOATING_LYRIC_TRANSLATION] = enabled }
     }
 
     suspend fun setDesktopLyricEnabled(enabled: Boolean) {

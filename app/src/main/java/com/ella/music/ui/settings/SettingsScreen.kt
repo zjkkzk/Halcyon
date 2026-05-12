@@ -82,6 +82,7 @@ fun SettingsScreen(
     val lyriconTranslation by settingsManager.lyriconTranslation.collectAsState(initial = true)
     val themeMode by settingsManager.themeMode.collectAsState(initial = 0)
     val tickerEnabled by settingsManager.tickerEnabled.collectAsState(initial = false)
+    val samsungFloatingLyricTranslation by settingsManager.samsungFloatingLyricTranslation.collectAsState(initial = false)
     val desktopLyricEnabled by settingsManager.desktopLyricEnabled.collectAsState(initial = false)
     val superLyricEnabled by settingsManager.superLyricEnabled.collectAsState(initial = false)
     val superLyricTranslation by settingsManager.superLyricTranslation.collectAsState(initial = true)
@@ -330,6 +331,17 @@ fun SettingsScreen(
                     onCheckedChange = { enabled ->
                         scope.launch { settingsManager.setTickerEnabled(enabled) }
                         playerViewModel?.setTickerEnabled(enabled)
+                    }
+                )
+
+                SwitchPreference(
+                    title = "Samsung 浮动歌词翻译",
+                    summary = "开启后把翻译写入通知正文，三星浮动通知可尝试双行显示。",
+                    enabled = tickerEnabled,
+                    checked = samsungFloatingLyricTranslation,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsManager.setSamsungFloatingLyricTranslation(enabled) }
+                        playerViewModel?.setSamsungFloatingLyricTranslation(enabled)
                     }
                 )
 

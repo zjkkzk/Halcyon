@@ -55,9 +55,16 @@ class SuperLyricBridge {
                     .setTitle(song?.title)
                     .setArtist(song?.artist)
                     .setAlbum(song?.album)
-                    .setLyric(SuperLyricLine(line.text.ifBlank { line.backgroundText.orEmpty() }, line.words.toSuperWords(), line.timeMs, end))
+                    .setLyric(
+                        SuperLyricLine(
+                            line.text.ifBlank { line.backgroundText.orEmpty() },
+                            line.words.toSuperWords(line.text),
+                            line.timeMs,
+                            end
+                        )
+                    )
                     .setSecondary(line.backgroundText?.takeIf { it.isNotBlank() }?.let {
-                        SuperLyricLine(it, line.backgroundWords.toSuperWords(), line.timeMs, end)
+                        SuperLyricLine(it, line.backgroundWords.toSuperWords(it), line.timeMs, end)
                     })
                     .setTranslation(
                         if (showTranslation) {
@@ -108,9 +115,37 @@ class SuperLyricBridge {
         registered = false
     }
 
-    private fun List<com.ella.music.data.model.LyricWord>.toSuperWords(): Array<SuperLyricWord>? {
+    private fun List<com.ella.music.data.model.LyricWord>.toSuperWords(lineText: String): Array<SuperLyricWord>? {
         if (isEmpty()) return null
-        return map { SuperLyricWord(it.text, it.startMs, it.endMs) }.toTypedArray()
+        return withLineSpacing(lineText)
+            .map { SuperLyricWord(it.text, it.startMs, it.endMs) }
+            .toTypedArray()
+    }
+
+    private fun List<com.ella.music.data.model.LyricWord>.withLineSpacing(
+        lineText: String
+    ): List<com.ella.music.data.model.LyricWord> {
+        if (isEmpty() || lineText.isBlank() || !lineText.any { it.isWhitespace() }) return this
+
+        val result = mutableListOf<com.ella.music.data.model.LyricWord>()
+        var cursor = 0
+
+        forEachIndexed { index, word ->
+            val start = lineText.indexOf(word.text, startIndex = cursor)
+            if (start < 0) {
+                result += word
+                return@forEachIndexed
+            }
+
+            val end = start + word.text.length
+            val nextText = getOrNull(index + 1)?.text
+            val nextStart = if (nextText != null) lineText.indexOf(nextText, startIndex = end) else -1
+            val suffix = if (nextStart > end) lineText.substring(end, nextStart) else ""
+            result += word.copy(text = word.text + suffix)
+            cursor = end + suffix.length
+        }
+
+        return result.takeIf { it.size == size } ?: this
     }
 
     private companion object {

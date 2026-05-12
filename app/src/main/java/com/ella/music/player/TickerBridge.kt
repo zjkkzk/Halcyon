@@ -24,7 +24,7 @@ class TickerBridge(private val context: Context) {
     }
 
     private var enabled = false
-    private var lastText: String? = null
+    private var lastPayload: Pair<String?, String?>? = null
 
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -44,10 +44,12 @@ class TickerBridge(private val context: Context) {
 
     fun isEnabled() = enabled
 
-    fun sendLyric(text: String?) {
+    fun sendLyric(text: String?, translation: String? = null) {
         if (!enabled) return
-        if (text == lastText) return
-        lastText = text
+        val cleanTranslation = translation?.takeIf { it.isNotBlank() }
+        val payload = text to cleanTranslation
+        if (payload == lastPayload) return
+        lastPayload = payload
 
         try {
             if (text.isNullOrEmpty()) {
@@ -67,7 +69,7 @@ class TickerBridge(private val context: Context) {
             }
 
             sendFlymeBroadcast(intent)
-            postTickerNotification(text)
+            postTickerNotification(text, cleanTranslation)
 
             Log.d(TAG, "Ticker lyric sent: $text")
         } catch (e: Exception) {
@@ -76,7 +78,7 @@ class TickerBridge(private val context: Context) {
     }
 
     fun clearLyric() {
-        lastText = null
+        lastPayload = null
 
         try {
             val intent = Intent(ACTION_CLEAR_LYRIC).apply {
@@ -96,7 +98,7 @@ class TickerBridge(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun postTickerNotification(text: String) {
+    private fun postTickerNotification(text: String, translation: String?) {
         ensureNotificationChannel()
 
         val flymeTickerSupported = isFlymeTickerSupported()
@@ -111,7 +113,7 @@ class TickerBridge(private val context: Context) {
         val notification = builder
             .setSmallIcon(R.drawable.ic_flyme_ticker)
             .setContentTitle(text)
-            .setContentText("")
+            .setContentText(translation.orEmpty())
             .setTicker(tickerText)
             .setOngoing(true)
             .setOnlyAlertOnce(false)

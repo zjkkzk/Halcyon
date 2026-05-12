@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlin.math.abs
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -66,7 +65,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var positionUpdateJob: Job? = null
     private var lastSentPlayingState: Boolean? = null
-    private var lastTickerLine: String? = null
+    private var lastTickerPayload: Pair<String, String?>? = null
     private var statsSongId: Long? = null
     private var statsSong: Song? = null
     private var playCountedSongId: Long? = null
@@ -75,6 +74,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var bluetoothLyricEnabled = false
     private var bluetoothLyricTranslationEnabled = false
+    private var samsungFloatingLyricTranslationEnabled = false
     private var superLyricTranslationEnabled = true
     private var lastBluetoothLyricPayload: Pair<String, String?>? = null
     private var sleepTimerJob: Job? = null
@@ -106,8 +106,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun initTicker() {
         viewModelScope.launch {
             val enabled = settingsManager.tickerEnabled.first()
+            samsungFloatingLyricTranslationEnabled = settingsManager.samsungFloatingLyricTranslation.first()
             tickerBridge.setEnabled(enabled)
             if (enabled) resendTickerLyric()
+        }
+        viewModelScope.launch {
+            settingsManager.samsungFloatingLyricTranslation.collect { enabled ->
+                samsungFloatingLyricTranslationEnabled = enabled
+                lastTickerPayload = null
+                if (tickerBridge.isEnabled()) resendTickerLyric()
+            }
         }
     }
 
@@ -199,7 +207,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             playerManager.currentSong.collect { song ->
                 if (song != null) {
-                    lastTickerLine = null
+                    lastTickerPayload = null
                     val songLyrics = repository.getLyrics(song)
                     repository.getCoverArt(song)
                     _lyrics.value = songLyrics
@@ -270,15 +278,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             _currentLyricIndex.value = index
 
             if (index >= 0 && index < currentLyrics.size) {
-                val currentLine = currentLyrics[index]
-                val line = currentLine.text.takeUnless { it.isMusicSymbolOnly() }
-                if (line != null && line != lastTickerLine) {
-                    lastTickerLine = line
-                    tickerBridge.sendLyric(line)
-                } else if (line != null && lastTickerLine == null && playerManager.isPlaying.value) {
-                    lastTickerLine = line
-                    tickerBridge.sendLyric(line)
-                }
+                sendTickerLyric(index, currentLyrics)
                 sendBluetoothLyric(index, currentLyrics)
                 sendSuperLyricAt(index, currentLyrics)
             }
@@ -341,13 +341,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         if (!tickerBridge.isEnabled() || !isPlaying.value) return
         val index = _currentLyricIndex.value
         val currentLyrics = _lyrics.value
-        val line = currentLyrics.getOrNull(index)?.text?.takeUnless { it.isMusicSymbolOnly() }
-        if (line != null) {
-            lastTickerLine = line
-            tickerBridge.sendLyric(line)
-        } else {
-            lastTickerLine = null
-        }
+        sendTickerLyric(index, currentLyrics)
     }
 
     private fun resendDesktopLyric() {
@@ -531,18 +525,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             settingsManager.setTickerEnabled(enabled)
             tickerBridge.setEnabled(enabled)
-            lastTickerLine = null
-            if (enabled) {
-                val index = _currentLyricIndex.value
-                val currentLyrics = _lyrics.value
-                if (index in currentLyrics.indices) {
-                    val line = currentLyrics[index].text.takeUnless { it.isMusicSymbolOnly() }
-                    if (line != null) {
-                        lastTickerLine = line
-                        tickerBridge.sendLyric(line)
-                    }
-                }
-            }
+            lastTickerPayload = null
+            if (enabled) resendTickerLyric()
+        }
+    }
+
+    fun setSamsungFloatingLyricTranslation(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsManager.setSamsungFloatingLyricTranslation(enabled)
+            samsungFloatingLyricTranslationEnabled = enabled
+            lastTickerPayload = null
+            if (tickerBridge.isEnabled()) resendTickerLyric()
         }
     }
 
@@ -596,43 +589,42 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun LyricLine?.bluetoothTranslation(): String? {
-        if (!bluetoothLyricTranslationEnabled) return null
+    private fun sendTickerLyric(index: Int, lyrics: List<LyricLine>) {
+        if (!tickerBridge.isEnabled() || !playerManager.isPlaying.value) return
+
+        val payload = lyrics.lyricPayloadAt(index, samsungFloatingLyricTranslationEnabled) ?: return
+        if (payload == lastTickerPayload) return
+
+        lastTickerPayload = payload
+        tickerBridge.sendLyric(payload.first, payload.second)
+    }
+
+    private fun LyricLine?.secondaryLyricText(includeTranslation: Boolean): String? {
+        if (!includeTranslation) return null
         return this?.translation
             ?.takeIf { it.isNotBlank() && !it.isMusicSymbolOnly() }
             ?: this?.backgroundTranslation?.takeIf { it.isNotBlank() && !it.isMusicSymbolOnly() }
     }
 
     private fun List<LyricLine>.bluetoothPayloadAt(index: Int): Pair<String, String?>? {
+        return lyricPayloadAt(index, bluetoothLyricTranslationEnabled)
+    }
+
+    private fun List<LyricLine>.lyricPayloadAt(
+        index: Int,
+        includeTranslation: Boolean
+    ): Pair<String, String?>? {
         val line = getOrNull(index) ?: return null
         val text = line.text.cleanBluetoothLyricText() ?: return null
-        val directTranslation = line.bluetoothTranslation()?.cleanBluetoothLyricText()
+        val directTranslation = line.secondaryLyricText(includeTranslation)?.cleanBluetoothLyricText()
 
-        if (!bluetoothLyricTranslationEnabled) return text to null
+        if (!includeTranslation) return text to null
 
         if (directTranslation != null) {
             return orderBluetoothLyricPair(text, directTranslation, preferFirstAsPrimary = true)
         }
 
-        val paired = findBluetoothTranslationPair(index)
-        val pairedText = paired
-            ?.second
-            ?.text
-            ?.cleanBluetoothLyricText()
-            ?: return text to null
-
-        return orderBluetoothLyricPair(text, pairedText, preferFirstAsPrimary = index <= paired.first)
-    }
-
-    private fun List<LyricLine>.findBluetoothTranslationPair(index: Int): Pair<Int, LyricLine>? {
-        val line = getOrNull(index) ?: return null
-        return sequenceOf(index - 1, index + 1, index - 2, index + 2)
-            .mapNotNull { candidateIndex -> getOrNull(candidateIndex)?.let { candidateIndex to it } }
-            .firstOrNull { (_, candidate) ->
-                abs(candidate.timeMs - line.timeMs) <= BLUETOOTH_LYRIC_PAIR_WINDOW_MS &&
-                    candidate.text.cleanBluetoothLyricText() != null &&
-                    candidate.text.trim() != line.text.trim()
-            }
+        return text to null
     }
 
     private fun orderBluetoothLyricPair(
@@ -682,10 +674,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 char in setOf('♪', '♫', '♬', '♩', '♭', '♯', '♮') ||
                 Character.UnicodeBlock.of(char) == Character.UnicodeBlock.MUSICAL_SYMBOLS
         }
-    }
-
-    private companion object {
-        const val BLUETOOTH_LYRIC_PAIR_WINDOW_MS = 300L
     }
 
     override fun onCleared() {
