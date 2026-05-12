@@ -11,8 +11,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -45,6 +44,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,7 +54,6 @@ import com.ella.music.data.model.LyricWord
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.sin
 
 @Composable
 fun LyricView(
@@ -453,7 +452,6 @@ fun WordLyricView(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WordLine(
     words: List<LyricWord>,
@@ -466,117 +464,47 @@ private fun WordLine(
     sungColor: Color = Color.White.copy(alpha = 0.82f),
     pendingColor: Color = Color.White.copy(alpha = 0.56f)
 ) {
-    val arrangement = when (textAlign) {
-        TextAlign.End -> Arrangement.End
-        TextAlign.Start -> Arrangement.Start
-        else -> Arrangement.Center
+    val text = remember(words) {
+        words.joinToString("") { it.text }.ifBlank { "♪" }.lineBreakSafeText()
     }
-
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = arrangement,
-        verticalArrangement = Arrangement.Center
-    ) {
-        words.toLineBreakTokens().forEach { token ->
-            Box(modifier = Modifier.padding(vertical = 5.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    token.words.forEach { word ->
-                        WordTokenText(
-                            word = word,
-                            currentPositionMs = currentPositionMs,
-                            fontSizeSp = fontSizeSp,
-                            fontFamily = fontFamily,
-                            currentColor = currentColor,
-                            sungColor = sungColor,
-                            pendingColor = pendingColor
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WordTokenText(
-    word: LyricWord,
-    currentPositionMs: Long,
-    fontSizeSp: Int,
-    fontFamily: FontFamily?,
-    currentColor: Color,
-    sungColor: Color,
-    pendingColor: Color
-) {
-    val isWordActive = currentPositionMs >= word.startMs
-    val isWordCurrent = currentPositionMs in word.startMs..word.endMs
-    val baseColor = when {
-        isWordCurrent -> currentColor
-        isWordActive -> sungColor
-        else -> pendingColor
-    }
-    val fadeAlpha by animateFloatAsState(
-        targetValue = when {
-            isWordCurrent -> 1f
-            isWordActive -> 0.86f
-            else -> 0.52f
-        },
-        animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing),
-        label = "word_fade"
+    val progress by animateFloatAsState(
+        targetValue = words.progressFraction(currentPositionMs),
+        animationSpec = tween(durationMillis = 120, easing = LinearOutSlowInEasing),
+        label = "lyric_sentence_progress"
     )
-    val color = baseColor.copy(alpha = (baseColor.alpha * fadeAlpha).coerceIn(0f, 1f))
-    val displayText = word.text.toDisplayToken().lineBreakSafeText()
-    val isLongSustain = isWordCurrent && (word.endMs - word.startMs) >= 900L
-    val glowPulse = if (isLongSustain) {
-        0.5f + 0.32f * ((sin(currentPositionMs / 145.0).toFloat() + 1f) / 2f)
-    } else {
-        0f
-    }
+    val baseStyle = TextStyle(
+        color = pendingColor,
+        fontSize = fontSizeSp.sp,
+        fontFamily = fontFamily,
+        fontWeight = FontWeight.ExtraBold,
+        textAlign = textAlign
+    )
+    val highlightStyle = TextStyle(
+        brush = lyricProgressBrush(progress, currentColor),
+        fontSize = fontSizeSp.sp,
+        fontFamily = fontFamily,
+        fontWeight = FontWeight.ExtraBold,
+        textAlign = textAlign
+    )
 
-    Box {
-        if (isLongSustain && displayText.isNotBlank()) {
-            Text(
-                text = displayText,
-                fontSize = fontSizeSp.sp,
-                fontFamily = fontFamily,
-                fontWeight = FontWeight.ExtraBold,
-                color = currentColor.copy(alpha = glowPulse * 0.34f),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    .graphicsLayer {
-                        scaleX = 1.12f
-                        scaleY = 1.12f
-                    }
-                    .blur(11.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
-            Text(
-                text = displayText,
-                fontSize = fontSizeSp.sp,
-                fontFamily = fontFamily,
-                fontWeight = FontWeight.ExtraBold,
-                color = currentColor.copy(alpha = glowPulse * 0.56f),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Clip,
-                modifier = Modifier
-                    .graphicsLayer {
-                        scaleX = 1.05f
-                        scaleY = 1.05f
-                    }
-                    .blur(5.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
-        }
-        Text(
-            text = displayText,
-            fontSize = fontSizeSp.sp,
-            fontFamily = fontFamily,
-            fontWeight = if (isWordCurrent) FontWeight.ExtraBold else FontWeight.Bold,
-            color = color,
-            maxLines = 1,
-            softWrap = false,
+    Box(modifier = modifier.fillMaxWidth()) {
+        BasicText(
+            text = text,
+            style = baseStyle,
+            maxLines = 4,
             overflow = TextOverflow.Clip,
-            modifier = Modifier.alpha(if (displayText.isBlank()) 0f else 1f)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 5.dp)
+        )
+        BasicText(
+            text = text,
+            style = highlightStyle,
+            maxLines = 4,
+            overflow = TextOverflow.Clip,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 5.dp)
         )
     }
 }
@@ -677,37 +605,40 @@ private fun fittedLyricFontSp(text: String, baseSp: Int, minSp: Int): Int {
     return scaled.coerceIn(minSp, baseSp)
 }
 
-private data class LyricToken(val words: List<LyricWord>)
-
-private fun List<LyricWord>.toLineBreakTokens(): List<LyricToken> {
-    if (isEmpty()) return emptyList()
-    val tokens = mutableListOf<MutableList<LyricWord>>()
-    var current = mutableListOf<LyricWord>()
-
-    fun flush() {
-        if (current.isNotEmpty()) {
-            tokens += current
-            current = mutableListOf()
-        }
-    }
-
+private fun List<LyricWord>.progressFraction(positionMs: Long): Float {
+    if (isEmpty()) return 0f
+    val total = sumOf { it.text.visualLength().toDouble().coerceAtLeast(0.5) }.toFloat()
+    if (total <= 0f) return 0f
+    var passed = 0f
     forEach { word ->
-        val text = word.text
-        val first = text.firstOrNull()
-        val previousText = current.lastOrNull()?.text
-        val shouldJoinCurrent = when {
-            current.isEmpty() -> false
-            text.isBlank() -> true
-            first != null && first.isForbiddenLineStartPunctuation() -> true
-            previousText?.lastOrNull()?.isAsciiWordPart() == true && text.all { it.isAsciiWordPart() } -> true
-            else -> false
+        val weight = word.text.visualLength().coerceAtLeast(0.5f)
+        when {
+            positionMs >= word.endMs -> passed += weight
+            positionMs <= word.startMs -> return (passed / total).coerceIn(0f, 1f)
+            else -> {
+                val duration = (word.endMs - word.startMs).coerceAtLeast(1L)
+                val local = ((positionMs - word.startMs).toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                return ((passed + weight * local) / total).coerceIn(0f, 1f)
+            }
         }
-
-        if (!shouldJoinCurrent) flush()
-        current += word
     }
-    flush()
-    return tokens.map { LyricToken(it) }
+    return 1f
+}
+
+private fun lyricProgressBrush(progress: Float, color: Color): Brush {
+    val p = progress.coerceIn(0f, 1f)
+    val feather = 0.10f
+    val fadeStart = (p - feather).coerceIn(0f, 1f)
+    val fadeEnd = (p + feather).coerceIn(0f, 1f)
+    return Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0f to color,
+            fadeStart to color,
+            p to color.copy(alpha = color.alpha * 0.82f),
+            fadeEnd to color.copy(alpha = 0f),
+            1f to color.copy(alpha = 0f)
+        )
+    )
 }
 
 private fun String.lineBreakSafeText(): String {
@@ -730,15 +661,6 @@ private fun Char.isForbiddenLineStartPunctuation(): Boolean {
         ')', ']', '}', '）', '】', '〕', '〉', '》',
         '…', '～', '~'
     )
-}
-
-private fun Char.isAsciiWordPart(): Boolean {
-    return this in 'A'..'Z' ||
-        this in 'a'..'z' ||
-        this in '0'..'9' ||
-        this == '\'' ||
-        this == '-' ||
-        this == '_'
 }
 
 private fun String.visualLength(): Float {
@@ -766,8 +688,3 @@ private fun Char.isCjk(): Boolean {
         block == Character.UnicodeBlock.HANGUL_COMPATIBILITY_JAMO
 }
 
-private fun String.toDisplayToken(): String {
-    val cleaned = replace(Regex("""[ \t\r\n]+"""), " ").trim()
-    if (cleaned.isBlank()) return ""
-    return if (cleaned.any { it.isCjk() }) cleaned else "$cleaned "
-}
