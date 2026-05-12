@@ -78,6 +78,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -276,6 +277,8 @@ fun PlayerScreen(
                     repeatMode = repeatMode,
                     audioInfo = audioInfo,
                     palette = palette,
+                    lyrics = lyrics,
+                    currentLyricIndex = currentLyricIndex,
                     miniLyricLine = miniLyricLine,
                     showTranslation = showLyricTranslation,
                     showPronunciation = showLyricPronunciation,
@@ -362,6 +365,8 @@ private fun CoverPlayerPage(
     repeatMode: Int,
     audioInfo: AudioInfo?,
     palette: PlayerPalette,
+    lyrics: List<com.ella.music.data.model.LyricLine>,
+    currentLyricIndex: Int,
     miniLyricLine: com.ella.music.data.model.LyricLine?,
     showTranslation: Boolean,
     showPronunciation: Boolean,
@@ -420,40 +425,13 @@ private fun CoverPlayerPage(
             } else {
                 FullBleedCover(song = song, embeddedCover = embeddedCover, modifier = Modifier.fillMaxSize())
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            0f to Color.Black.copy(alpha = 0.10f),
-                            0.64f to Color.Transparent,
-                            1f to palette.middle.copy(alpha = 0.96f)
-                        )
-                    )
-            )
-            TopNowPlayingLine(
-                line = miniLyricLine,
-                showTranslation = showTranslation,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(start = 28.dp, top = 10.dp, end = 104.dp)
-            )
         }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            palette.middle.copy(alpha = 0.96f),
-                            palette.bottom.copy(alpha = 0.96f),
-                            Color.Black.copy(alpha = 0.16f)
-                        )
-                    )
-                )
+                .background(palette.middle)
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -481,9 +459,9 @@ private fun CoverPlayerPage(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                PlayerHeaderAction(text = "♥", onClick = {})
+                PlayerHeaderAction(kind = PlayerHeaderActionKind.Favorite, onClick = {})
                 Box(contentAlignment = Alignment.TopEnd) {
-                    PlayerHeaderAction(text = "⋮", onClick = onToggleMenu)
+                    PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
                     if (menuExpanded) {
                         Popup(
                             alignment = Alignment.TopEnd,
@@ -512,9 +490,10 @@ private fun CoverPlayerPage(
             }
 
             if (miniLyricLine != null) {
-                Spacer(modifier = Modifier.height(18.dp))
-                MiniLyricBlock(
-                    line = miniLyricLine,
+                Spacer(modifier = Modifier.height(16.dp))
+                MiniLyricsPreview(
+                    lyrics = lyrics,
+                    currentIndex = currentLyricIndex,
                     showTranslation = showTranslation,
                     showPronunciation = showPronunciation,
                     fontFamily = fontFamily,
@@ -526,8 +505,6 @@ private fun CoverPlayerPage(
             }
 
             Spacer(modifier = Modifier.weight(1f))
-            PlayerUtilityRow()
-            Spacer(modifier = Modifier.height(18.dp))
             PlayerProgressBlock(
                 currentPosition = currentPosition,
                 duration = duration,
@@ -585,7 +562,13 @@ private fun LyricsPlayerPage(
                 .padding(top = 28.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SmallCover(song = song, embeddedCover = embeddedCover, modifier = Modifier.size(72.dp))
+            SmallCover(
+                song = song,
+                embeddedCover = embeddedCover,
+                modifier = Modifier
+                    .size(72.dp)
+                    .clickable(onClick = onDismissLyrics)
+            )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -605,8 +588,8 @@ private fun LyricsPlayerPage(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            PlayerHeaderAction(text = "♥", onClick = {})
-            PlayerHeaderAction(text = "⋮", onClick = {})
+            PlayerHeaderAction(kind = PlayerHeaderActionKind.Favorite, onClick = {})
+            PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = {})
         }
 
         Row(
@@ -692,8 +675,13 @@ private fun SmallCover(song: Song?, embeddedCover: Bitmap?, modifier: Modifier =
     )
 }
 
+private enum class PlayerHeaderActionKind {
+    Favorite,
+    More
+}
+
 @Composable
-private fun PlayerHeaderAction(text: String, onClick: () -> Unit) {
+private fun PlayerHeaderAction(kind: PlayerHeaderActionKind, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(52.dp)
@@ -701,62 +689,49 @@ private fun PlayerHeaderAction(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            fontSize = if (text == "♥") 38.sp else 30.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.92f)
-        )
-    }
-}
-
-@Composable
-private fun TopNowPlayingLine(
-    line: com.ella.music.data.model.LyricLine?,
-    showTranslation: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val main = line?.text?.takeIf { it.isNotBlank() && !it.isMusicSymbolOnly() }.orEmpty()
-    val secondary = line?.translation?.takeIf { showTranslation && it.isNotBlank() }.orEmpty()
-    if (main.isBlank() && secondary.isBlank()) return
-    Column(modifier = modifier) {
-        Text(
-            text = main,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.90f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (secondary.isNotBlank()) {
-            Text(
-                text = secondary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.64f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        when (kind) {
+            PlayerHeaderActionKind.Favorite -> HeartIcon(
+                color = Color.White.copy(alpha = 0.92f),
+                modifier = Modifier.size(32.dp)
+            )
+            PlayerHeaderActionKind.More -> MoreIcon(
+                color = Color.White.copy(alpha = 0.90f),
+                modifier = Modifier.size(30.dp)
             )
         }
     }
 }
 
 @Composable
-private fun PlayerUtilityRow() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        listOf("⊞", "↻", "⏱", "◇", "▣").forEach { item ->
-            Text(
-                text = item,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.42f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(42.dp)
-            )
+private fun HeartIcon(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.50f, h * 0.86f)
+            cubicTo(w * 0.18f, h * 0.60f, w * 0.04f, h * 0.42f, w * 0.10f, h * 0.24f)
+            cubicTo(w * 0.17f, h * 0.04f, w * 0.39f, h * 0.05f, w * 0.50f, h * 0.25f)
+            cubicTo(w * 0.61f, h * 0.05f, w * 0.83f, h * 0.04f, w * 0.90f, h * 0.24f)
+            cubicTo(w * 0.96f, h * 0.42f, w * 0.82f, h * 0.60f, w * 0.50f, h * 0.86f)
+            close()
+        }
+        drawPath(path, color)
+    }
+}
+
+@Composable
+private fun MoreIcon(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val radius = size.minDimension * 0.09f
+        val centerX = size.width / 2f
+        listOf(0.25f, 0.50f, 0.75f).forEach { y ->
+            drawCircle(color = color, radius = radius, center = Offset(centerX, size.height * y))
         }
     }
 }
@@ -842,12 +817,19 @@ private fun PlayerTransportControls(
                 modifier = Modifier.size(38.dp)
             )
         }
-        IconButton(onClick = onPlayPause) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.16f))
+                .clickable(onClick = onPlayPause),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
                 imageVector = if (isPlaying) MiuixIcons.Regular.Pause else MiuixIcons.Regular.Play,
                 contentDescription = if (isPlaying) "暂停" else "播放",
                 tint = Color.White.copy(alpha = 0.96f),
-                modifier = Modifier.size(54.dp)
+                modifier = Modifier.size(44.dp)
             )
         }
         IconButton(onClick = onNext) {
@@ -1109,6 +1091,72 @@ private fun PlayerQueueMenu(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniLyricsPreview(
+    lyrics: List<com.ella.music.data.model.LyricLine>,
+    currentIndex: Int,
+    showTranslation: Boolean,
+    showPronunciation: Boolean,
+    fontFamily: FontFamily? = null,
+    modifier: Modifier = Modifier
+) {
+    val safeIndex = currentIndex.takeIf { it in lyrics.indices }
+        ?: lyrics.indexOfFirst { it.hasMiniLyric() }.takeIf { it >= 0 }
+        ?: return
+    val previewLines = (-1..2)
+        .mapNotNull { offset -> lyrics.getOrNull(safeIndex + offset)?.let { (safeIndex + offset) to it } }
+        .filter { (_, line) -> line.hasMiniLyric() }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        previewLines.forEach { (index, line) ->
+            val isActive = index == safeIndex
+            val main = line.text.takeIf { it.isNotBlank() && !it.isMusicSymbolOnly() }
+            val pronunciation = line.pronunciation?.takeIf { showPronunciation && it.isNotBlank() }
+            val translation = line.translation?.takeIf { showTranslation && it.isNotBlank() }
+            val alpha = if (isActive) 0.92f else 0.34f
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (pronunciation != null && isActive) {
+                    Text(
+                        text = pronunciation,
+                        fontSize = 12.sp,
+                        fontFamily = fontFamily,
+                        color = Color.White.copy(alpha = 0.48f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (main != null) {
+                    Text(
+                        text = main,
+                        fontSize = if (isActive) 18.sp else 15.sp,
+                        fontFamily = fontFamily,
+                        fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = Color.White.copy(alpha = alpha),
+                        maxLines = if (isActive) 2 else 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (translation != null) {
+                    Text(
+                        text = translation,
+                        fontSize = if (isActive) 14.sp else 12.sp,
+                        fontFamily = fontFamily,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                        color = Color.White.copy(alpha = if (isActive) 0.64f else 0.28f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
