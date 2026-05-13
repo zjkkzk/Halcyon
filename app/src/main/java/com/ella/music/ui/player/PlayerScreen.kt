@@ -4,12 +4,15 @@ import android.content.ContentUris
 import android.content.Context
 import android.app.Activity
 import android.app.DownloadManager
+import android.Manifest
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaRouter2
+import android.media.audiofx.Visualizer
 import android.content.Intent
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
@@ -26,6 +29,8 @@ import android.provider.Settings
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
@@ -71,12 +76,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -110,6 +118,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.media3.common.Player
+import androidx.core.content.ContextCompat
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.audioQualitySummary
@@ -121,6 +130,8 @@ import com.ella.music.ui.components.WordLyricView
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
@@ -144,6 +155,7 @@ fun PlayerScreen(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager(context) }
     val lyricFontPath by settingsManager.lyricFontPath.collectAsState(initial = "")
     val lyricSourceMode by settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
@@ -156,6 +168,8 @@ fun PlayerScreen(
     val repeatMode by playerViewModel.repeatMode.collectAsState()
     val playbackSpeed by playerViewModel.playbackSpeed.collectAsState()
     val playbackPitch by playerViewModel.playbackPitch.collectAsState()
+    val audioSessionId = 0
+    val audioVisualizerEnabled by settingsManager.audioVisualizerEnabled.collectAsState(initial = false)
     val playlist by playerViewModel.playlist.collectAsState()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
@@ -170,6 +184,29 @@ fun PlayerScreen(
     var queueExpanded by remember { mutableStateOf(false) }
     var landscapeExpanded by rememberSaveable { mutableStateOf(false) }
     var dynamicCoverFailedPath by remember { mutableStateOf<String?>(null) }
+    var hasVisualizerPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val visualizerPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasVisualizerPermission = granted
+        scope.launch {
+            settingsManager.setAudioVisualizerEnabled(granted)
+        }
+        if (!granted) Toast.makeText(context, "需要录音权限才能开启音频可视化", Toast.LENGTH_SHORT).show()
+    }
+    fun setAudioVisualizerEnabled(enabled: Boolean) {
+        if (enabled && !hasVisualizerPermission) {
+            visualizerPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else {
+            scope.launch {
+                settingsManager.setAudioVisualizerEnabled(enabled)
+            }
+        }
+    }
     var dragDismissOffset by remember { mutableFloatStateOf(0f) }
     val animatedDismissOffset by animateFloatAsState(
         targetValue = dragDismissOffset,
@@ -275,6 +312,8 @@ fun PlayerScreen(
                     palette = palette,
                     currentPositionMs = currentPosition,
                     isPlaying = isPlaying,
+                    audioSessionId = audioSessionId,
+                    visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
                     onLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
                     onDismissLyrics = { playerViewModel.setShowLyrics(false) },
                     onTogglePronunciation = {
@@ -384,6 +423,9 @@ fun PlayerScreen(
                     },
                     playbackSpeed = playbackSpeed,
                     playbackPitch = playbackPitch,
+                    audioSessionId = audioSessionId,
+                    visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
+                    onVisualizerEnabled = ::setAudioVisualizerEnabled,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -401,6 +443,8 @@ fun PlayerScreen(
                 fontFamily = lyricFontFamily,
                 palette = palette,
                 isPlaying = isPlaying,
+                audioSessionId = audioSessionId,
+                visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
                 onLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
                 onDismiss = { landscapeExpanded = false },
                 modifier = Modifier.fillMaxSize()
@@ -433,6 +477,9 @@ private fun CoverPlayerPage(
     playlist: List<Song>,
     playbackSpeed: Float,
     playbackPitch: Float,
+    audioSessionId: Int,
+    visualizerEnabled: Boolean,
+    onVisualizerEnabled: (Boolean) -> Unit,
     onDynamicCoverFailed: (String) -> Unit,
     onToggleMenu: () -> Unit,
     onDismissMenu: () -> Unit,
@@ -484,6 +531,8 @@ private fun CoverPlayerPage(
                 fontFamily = fontFamily,
                 queueExpanded = queueExpanded,
                 playlist = playlist,
+                audioSessionId = audioSessionId,
+                visualizerEnabled = visualizerEnabled,
                 onDynamicCoverFailed = onDynamicCoverFailed,
                 onToggleMenu = onToggleMenu,
                 onToggleQueue = onToggleQueue,
@@ -640,7 +689,9 @@ private fun CoverPlayerPage(
                     onQueueSongClick = onQueueSongClick,
                     onClearQueue = onClearQueue
                 )
-                SimpleAudioVisualizer(
+                AudioVisualizer(
+                    enabled = visualizerEnabled,
+                    audioSessionId = audioSessionId,
                     isPlaying = isPlaying,
                     positionMs = currentPosition,
                     accent = Color.White.copy(alpha = 0.86f),
@@ -663,6 +714,7 @@ private fun CoverPlayerPage(
                     song = song,
                     speed = playbackSpeed,
                     pitch = playbackPitch,
+                    visualizerEnabled = visualizerEnabled,
                     onAlbum = onAlbum,
                     onArtist = onArtist,
                     onEditTags = onEditTags,
@@ -672,7 +724,8 @@ private fun CoverPlayerPage(
                     onTimer = onTimer,
                     onCancelTimer = onCancelTimer,
                     onSpeed = onSpeed,
-                    onPitch = onPitch
+                    onPitch = onPitch,
+                    onVisualizerEnabled = onVisualizerEnabled
                 )
             }
         }
@@ -698,6 +751,8 @@ private fun LandscapeCoverPlayerPage(
     fontFamily: FontFamily?,
     queueExpanded: Boolean,
     playlist: List<Song>,
+    audioSessionId: Int,
+    visualizerEnabled: Boolean,
     onDynamicCoverFailed: (String) -> Unit,
     onToggleMenu: () -> Unit,
     onToggleQueue: () -> Unit,
@@ -791,15 +846,14 @@ private fun LandscapeCoverPlayerPage(
                     PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                LyricView(
+                WordLyricView(
                     lyrics = lyrics,
                     currentIndex = currentLyricIndex,
+                    currentPositionMs = currentPosition,
                     showTranslation = showTranslation,
                     showPronunciation = showPronunciation,
+                    fontScale = 0.74f,
                     fontFamily = fontFamily,
-                    usePlayerColors = true,
-                    topSpacer = 18.dp,
-                    bottomSpacer = 64.dp,
                     onLineClick = { onLineClick() },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -833,7 +887,9 @@ private fun LandscapeCoverPlayerPage(
                 )
             }
         }
-        SimpleAudioVisualizer(
+        AudioVisualizer(
+            enabled = visualizerEnabled,
+            audioSessionId = audioSessionId,
             isPlaying = isPlaying,
             positionMs = currentPosition,
             accent = Color.White.copy(alpha = 0.72f),
@@ -859,6 +915,8 @@ private fun LyricsPlayerPage(
     palette: PlayerPalette,
     currentPositionMs: Long,
     isPlaying: Boolean,
+    audioSessionId: Int,
+    visualizerEnabled: Boolean,
     onLineClick: (com.ella.music.data.model.LyricLine) -> Unit,
     onDismissLyrics: () -> Unit,
     onTogglePronunciation: () -> Unit,
@@ -937,22 +995,23 @@ private fun LyricsPlayerPage(
                         )
                     }
             ) {
-                LyricView(
+                WordLyricView(
                     lyrics = lyrics,
                     currentIndex = currentLyricIndex,
+                    currentPositionMs = currentPositionMs,
                     showTranslation = showTranslation,
                     showPronunciation = showPronunciation,
+                    fontScale = 0.78f,
                     fontFamily = fontFamily,
-                    usePlayerColors = true,
-                    topSpacer = 112.dp,
-                    bottomSpacer = 220.dp,
                     onLineClick = onLineClick,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
 
-        SimpleAudioVisualizer(
+        AudioVisualizer(
+            enabled = visualizerEnabled,
+            audioSessionId = audioSessionId,
             isPlaying = isPlaying,
             positionMs = currentPositionMs,
             accent = Color.White.copy(alpha = 0.86f),
@@ -1003,6 +1062,8 @@ private fun LandscapeLyricsOverlay(
     fontFamily: FontFamily?,
     palette: PlayerPalette,
     isPlaying: Boolean,
+    audioSessionId: Int,
+    visualizerEnabled: Boolean,
     onLineClick: (com.ella.music.data.model.LyricLine) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
@@ -1073,15 +1134,14 @@ private fun LandscapeLyricsOverlay(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    LyricView(
+                    WordLyricView(
                         lyrics = lyrics,
                         currentIndex = currentLyricIndex,
+                        currentPositionMs = currentPosition,
                         showTranslation = showTranslation,
                         showPronunciation = showPronunciation,
+                        fontScale = 0.82f,
                         fontFamily = fontFamily,
-                        usePlayerColors = true,
-                        topSpacer = 36.dp,
-                        bottomSpacer = 96.dp,
                         onLineClick = onLineClick,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -1102,7 +1162,9 @@ private fun LandscapeLyricsOverlay(
                 }
             }
         }
-        SimpleAudioVisualizer(
+        AudioVisualizer(
+            enabled = visualizerEnabled,
+            audioSessionId = audioSessionId,
             isPlaying = isPlaying,
             positionMs = currentPosition,
             accent = Color.White.copy(alpha = 0.82f),
@@ -2004,6 +2066,7 @@ private fun PlayerActionMenu(
     song: Song?,
     speed: Float,
     pitch: Float,
+    visualizerEnabled: Boolean,
     onAlbum: () -> Unit,
     onArtist: () -> Unit,
     onEditTags: () -> Unit,
@@ -2014,6 +2077,7 @@ private fun PlayerActionMenu(
     onCancelTimer: () -> Unit,
     onSpeed: (Float) -> Unit,
     onPitch: (Float) -> Unit,
+    onVisualizerEnabled: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var page by remember { mutableStateOf(PlayerActionSheetPage.Main) }
@@ -2049,13 +2113,14 @@ private fun PlayerActionMenu(
                 if (song?.onlineSource == "kw" && song.path.startsWith("http")) {
                     PlayerActionMenuItem("下载 LX 歌曲", onDownload)
                 }
-                PlayerActionMenuItem("播放完当前歌曲后暂停", onStopAfterCurrent)
                 PlayerActionMenuItem("定时关闭", { page = PlayerActionSheetPage.Timer })
                 PlayerActionMenuItem("变速变调", { page = PlayerActionSheetPage.Speed })
+                PlayerActionMenuItem("可视化设置", { page = PlayerActionSheetPage.Visualizer })
             }
             PlayerActionSheetPage.Timer -> {
                 TimerSheetContent(
                     onBack = { page = PlayerActionSheetPage.Main },
+                    onStopAfterCurrent = onStopAfterCurrent,
                     onTimer = onTimer,
                     onCancelTimer = onCancelTimer
                 )
@@ -2069,6 +2134,13 @@ private fun PlayerActionMenu(
                     onPitch = onPitch
                 )
             }
+            PlayerActionSheetPage.Visualizer -> {
+                VisualizerSheetContent(
+                    enabled = visualizerEnabled,
+                    onBack = { page = PlayerActionSheetPage.Main },
+                    onEnabledChange = onVisualizerEnabled
+                )
+            }
         }
     }
 }
@@ -2076,19 +2148,21 @@ private fun PlayerActionMenu(
 private enum class PlayerActionSheetPage {
     Main,
     Timer,
-    Speed
+    Speed,
+    Visualizer
 }
 
 @Composable
 private fun TimerSheetContent(
     onBack: () -> Unit,
+    onStopAfterCurrent: () -> Unit,
     onTimer: (Int) -> Unit,
     onCancelTimer: () -> Unit
 ) {
     var customMinutes by remember { mutableFloatStateOf(45f) }
     HalfSheetTitle(title = "定时关闭", onBack = onBack)
     Spacer(modifier = Modifier.height(18.dp))
-    listOf(10, 15, 20, 30, 40, 60).chunked(4).forEach { row ->
+    listOf(10, 15, 20, 30, 40, 60).chunked(3).forEach { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             row.forEach { minutes ->
                 HalfSheetPill(
@@ -2097,7 +2171,7 @@ private fun TimerSheetContent(
                     modifier = Modifier.weight(1f)
                 )
             }
-            repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+            repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
         }
         Spacer(modifier = Modifier.height(12.dp))
     }
@@ -2124,6 +2198,7 @@ private fun TimerSheetContent(
         modifier = Modifier.fillMaxWidth()
     )
     Spacer(modifier = Modifier.height(8.dp))
+    PlayerActionMenuItem("播放完当前歌曲后暂停", onStopAfterCurrent)
     PlayerActionMenuItem("取消定时播放", onCancelTimer)
 }
 
@@ -2168,6 +2243,56 @@ private fun SpeedPitchSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .height(100.dp)
+    )
+}
+
+@Composable
+private fun VisualizerSheetContent(
+    enabled: Boolean,
+    onBack: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    HalfSheetTitle(title = "可视化设置", onBack = onBack)
+    Spacer(modifier = Modifier.height(22.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.10f))
+            .clickable { onEnabledChange(!enabled) }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "音乐可视化(Visualizer)",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.White.copy(alpha = 0.88f),
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            modifier = Modifier
+                .width(56.dp)
+                .height(32.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(Color.White.copy(alpha = if (enabled) 0.86f else 0.30f))
+                .padding(4.dp),
+            contentAlignment = if (enabled) Alignment.CenterEnd else Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (enabled) Color.Black.copy(alpha = 0.76f) else Color.White.copy(alpha = 0.90f))
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(20.dp))
+    Text(
+        text = "开启时会请求录音权限，用来读取当前播放音频的频谱。",
+        fontSize = 13.sp,
+        color = Color.White.copy(alpha = 0.54f),
+        modifier = Modifier.padding(horizontal = 4.dp)
     )
 }
 
@@ -2245,7 +2370,8 @@ private fun DottedValueSlider(
         onValueChange(stepped)
     }
 
-    Box(modifier = modifier) {
+    BoxWithConstraints(modifier = modifier) {
+        val knobOffset = (maxWidth - 46.dp) * fraction
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -2288,7 +2414,8 @@ private fun DottedValueSlider(
                 fontWeight = FontWeight.Bold,
                 color = Color.Black.copy(alpha = 0.78f),
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
+                    .align(Alignment.TopStart)
+                    .padding(start = knobOffset)
                     .padding(top = 5.dp)
             )
         }
@@ -2315,12 +2442,45 @@ private fun PlayerActionMenuItem(
 }
 
 @Composable
-private fun SimpleAudioVisualizer(
+private fun AudioVisualizer(
+    enabled: Boolean,
+    audioSessionId: Int,
     isPlaying: Boolean,
     positionMs: Long,
     accent: Color,
     modifier: Modifier = Modifier
 ) {
+    if (!enabled) return
+    var fftData by remember { mutableStateOf<ByteArray?>(null) }
+    var visualizerFailed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(enabled, audioSessionId, isPlaying) {
+        fftData = null
+        visualizerFailed = false
+        if (!enabled || audioSessionId < 0) return@LaunchedEffect
+        val visualizer = runCatching {
+            Visualizer(audioSessionId).apply {
+                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
+                this.enabled = true
+            }
+        }.onFailure { visualizerFailed = true }.getOrNull() ?: return@LaunchedEffect
+
+        val buffer = ByteArray(visualizer.captureSize)
+        try {
+            while (true) {
+                if (isPlaying) {
+                    if (visualizer.getFft(buffer) == Visualizer.SUCCESS) {
+                        fftData = buffer.copyOf()
+                    }
+                }
+                delay(33L)
+            }
+        } finally {
+            runCatching { visualizer.enabled = false }
+            visualizer.release()
+        }
+    }
+
     val transition = rememberInfiniteTransition(label = "audio_visualizer")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -2336,16 +2496,25 @@ private fun SimpleAudioVisualizer(
         val barCount = 58
         val bottom = size.height - 2.dp.toPx()
         val gap = size.width / barCount
-        val barWidth = (gap * 0.36f).coerceIn(2.dp.toPx(), 5.dp.toPx())
+        val barWidth = (gap * 0.42f).coerceIn(2.dp.toPx(), 5.dp.toPx())
+        val fft = fftData
         for (index in 0 until barCount) {
             val x = gap * index + gap / 2f
-            val seed = index * 0.37f + positionMs / 780f + playbackPhase * 6.28f
-            val wave = (
-                kotlin.math.sin(seed) * 0.42f +
-                    kotlin.math.sin(seed * 0.47f + index * 0.19f) * 0.34f +
-                    kotlin.math.sin(seed * 1.71f) * 0.24f
-                ).coerceIn(-1f, 1f)
-            val normalized = if (isPlaying) (0.30f + kotlin.math.abs(wave) * 0.70f) else 0.18f
+            val normalized = if (enabled && !visualizerFailed && fft != null && fft.size > 8) {
+                val bucket = ((index + 1) * (fft.size / 2 - 1) / barCount).coerceIn(1, fft.size / 2 - 1)
+                val real = fft[bucket * 2].toInt()
+                val imag = fft[bucket * 2 + 1].toInt()
+                val magnitude = kotlin.math.sqrt((real * real + imag * imag).toFloat()) / 128f
+                (0.08f + magnitude * 1.35f).coerceIn(0.10f, 1f)
+            } else {
+                val seed = index * 0.37f + positionMs / 780f + playbackPhase * 6.28f
+                val wave = (
+                    kotlin.math.sin(seed) * 0.42f +
+                        kotlin.math.sin(seed * 0.47f + index * 0.19f) * 0.34f +
+                        kotlin.math.sin(seed * 1.71f) * 0.24f
+                    ).coerceIn(-1f, 1f)
+                if (isPlaying) (0.30f + kotlin.math.abs(wave) * 0.70f) else 0.18f
+            }
             val height = size.height * normalized * if (index < 6 || index > barCount - 7) 0.58f else 1f
             drawRoundRect(
                 color = accent.copy(alpha = 0.20f + normalized * 0.56f),
