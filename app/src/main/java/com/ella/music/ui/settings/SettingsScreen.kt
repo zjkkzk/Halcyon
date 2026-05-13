@@ -90,6 +90,7 @@ fun SettingsScreen(
     val bluetoothLyricTranslation by settingsManager.bluetoothLyricTranslation.collectAsState(initial = false)
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
+    val audioFocusDisabled by settingsManager.audioFocusDisabled.collectAsState(initial = false)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val scanIncludeFolders by settingsManager.scanIncludeFolders.collectAsState(initial = "")
     val decoderMode by settingsManager.decoderMode.collectAsState(initial = 1)
@@ -243,6 +244,15 @@ fun SettingsScreen(
                     checked = replayGainEnabled,
                     onCheckedChange = {
                         scope.launch { settingsManager.setReplayGainEnabled(it) }
+                    }
+                )
+
+                SwitchPreference(
+                    title = "关闭音频焦点",
+                    summary = "开启后播放时不再抢占其他应用音频焦点，重启播放器服务后生效",
+                    checked = audioFocusDisabled,
+                    onCheckedChange = {
+                        scope.launch { settingsManager.setAudioFocusDisabled(it) }
                     }
                 )
 

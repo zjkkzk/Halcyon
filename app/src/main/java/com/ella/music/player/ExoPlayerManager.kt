@@ -166,6 +166,19 @@ class ExoPlayerManager(private val context: Context) {
         savePlaybackQueue(force = true)
     }
 
+    fun clearPlaylist() {
+        playlist.clear()
+        _playlist.value = emptyList()
+        _currentSong.value = null
+        _currentPosition.value = 0L
+        _duration.value = 0L
+        mediaController?.run {
+            stop()
+            clearMediaItems()
+        }
+        clearSavedQueue()
+    }
+
     fun playSong(song: Song) {
         val index = playlist.indexOfFirst { it.id == song.id }
         if (index >= 0) {
@@ -388,6 +401,13 @@ class ExoPlayerManager(private val context: Context) {
         context.getSharedPreferences(PLAYBACK_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_QUEUE, payload.toString())
+            .apply()
+    }
+
+    private fun clearSavedQueue() {
+        context.getSharedPreferences(PLAYBACK_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_QUEUE)
             .apply()
     }
 

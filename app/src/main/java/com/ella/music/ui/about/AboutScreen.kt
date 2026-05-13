@@ -66,7 +66,6 @@ import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Music
-import top.yukonga.miuix.kmp.shapes.SmoothRoundedCornerShape
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -188,7 +187,7 @@ private fun AboutContent(
                     .then(
                         if (blurEnable && !isDark) Modifier.textureBlur(
                             backdrop = backdrop,
-                            shape = SmoothRoundedCornerShape(45.dp),
+                            shape = RoundedCornerShape(45.dp),
                             blurRadius = 150f,
                             noiseCoefficient = BlurDefaults.NoiseCoefficient,
                             colors = BlurColors(blendColors = titleBlend),
@@ -214,7 +213,7 @@ private fun AboutContent(
                     .then(
                         if (blurEnable && !isDark) Modifier.textureBlur(
                             backdrop = backdrop,
-                            shape = SmoothRoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(16.dp),
                             blurRadius = 150f,
                             noiseCoefficient = BlurDefaults.NoiseCoefficient,
                             colors = BlurColors(blendColors = titleBlend),
@@ -370,7 +369,7 @@ private fun FrostedCard(
             .then(
                 if (blurEnable) Modifier.textureBlur(
                     backdrop = backdrop,
-                    shape = SmoothRoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(16.dp),
                     blurRadius = 64f,
                     noiseCoefficient = BlurDefaults.NoiseCoefficient,
                     colors = BlurColors(blendColors = cardBlendColors),

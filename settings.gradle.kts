@@ -33,8 +33,6 @@ if (miuixIncludedBuildDir.exists()) {
             substitute(module("top.yukonga.miuix.kmp:miuix-core-android")).using(project(":miuix-core"))
             substitute(module("top.yukonga.miuix.kmp:miuix-icons")).using(project(":miuix-icons"))
             substitute(module("top.yukonga.miuix.kmp:miuix-icons-android")).using(project(":miuix-icons"))
-            substitute(module("top.yukonga.miuix.kmp:miuix-shapes")).using(project(":miuix-shapes"))
-            substitute(module("top.yukonga.miuix.kmp:miuix-shapes-android")).using(project(":miuix-shapes"))
             substitute(module("top.yukonga.miuix.kmp:miuix-blur")).using(project(":miuix-blur"))
             substitute(module("top.yukonga.miuix.kmp:miuix-blur-android")).using(project(":miuix-blur"))
             substitute(module("top.yukonga.miuix.kmp:miuix-preference")).using(project(":miuix-preference"))

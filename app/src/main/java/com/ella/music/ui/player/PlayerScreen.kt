@@ -314,6 +314,10 @@ fun PlayerScreen(
                         queueExpanded = false
                         playerViewModel.playQueueIndex(index)
                     },
+                    onClearQueue = {
+                        queueExpanded = false
+                        playerViewModel.clearPlaylist()
+                    },
                     onAlbum = {
                         menuExpanded = false
                         val albumId = song?.albumId ?: 0L
@@ -430,6 +434,7 @@ private fun CoverPlayerPage(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onQueueSongClick: (Int) -> Unit,
+    onClearQueue: () -> Unit,
     onAlbum: () -> Unit,
     onArtist: () -> Unit,
     onEditTags: () -> Unit,
@@ -585,7 +590,8 @@ private fun CoverPlayerPage(
                     onNext = onNext,
                     onToggleQueue = onToggleQueue,
                     onDismissQueue = onDismissQueue,
-                    onQueueSongClick = onQueueSongClick
+                    onQueueSongClick = onQueueSongClick,
+                    onClearQueue = onClearQueue
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1054,7 +1060,8 @@ private fun PlayerTransportControls(
     onNext: () -> Unit,
     onToggleQueue: () -> Unit,
     onDismissQueue: () -> Unit,
-    onQueueSongClick: (Int) -> Unit
+    onQueueSongClick: (Int) -> Unit,
+    onClearQueue: () -> Unit
 ) {
     val density = LocalDensity.current
     Row(
@@ -1116,6 +1123,7 @@ private fun PlayerTransportControls(
                         playlist = playlist,
                         currentSongId = currentSongId,
                         onSongClick = onQueueSongClick,
+                        onClearQueue = onClearQueue,
                         modifier = Modifier.width(280.dp)
                     )
                 }
@@ -1414,6 +1422,7 @@ private fun PlayerQueueMenu(
     playlist: List<Song>,
     currentSongId: Long?,
     onSongClick: (Int) -> Unit,
+    onClearQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1422,13 +1431,32 @@ private fun PlayerQueueMenu(
             .background(Color.Black.copy(alpha = 0.56f))
             .padding(vertical = 8.dp)
     ) {
-        Text(
-            text = "当前播放列表",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.92f),
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "当前播放列表",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.92f)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (playlist.isNotEmpty()) {
+                Text(
+                    text = "清空",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable(onClick = onClearQueue)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
         if (playlist.isEmpty()) {
             Text(
                 text = "暂无歌曲",

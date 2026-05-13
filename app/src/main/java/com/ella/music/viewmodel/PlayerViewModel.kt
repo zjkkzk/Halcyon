@@ -412,6 +412,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun addToPlaylist(song: Song) = playerManager.addToPlaylist(song)
     fun addToPlaylist(songs: List<Song>) = playerManager.addToPlaylist(songs)
     fun playQueueIndex(index: Int) = playerManager.playQueueIndex(index)
+    fun clearPlaylist() = playerManager.clearPlaylist()
 
     fun requestLocateCurrentSong() {
         _locateCurrentSongRequest.value += 1

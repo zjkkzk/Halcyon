@@ -60,6 +60,9 @@ class PlaybackService : MediaSessionService() {
         val decoderMode = runBlocking(Dispatchers.IO) {
             settingsManager.decoderMode.first()
         }
+        val handleAudioFocus = runBlocking(Dispatchers.IO) {
+            !settingsManager.audioFocusDisabled.first()
+        }
         val renderersFactory = DefaultRenderersFactory(this)
             .setExtensionRendererMode(
                 when (decoderMode) {
@@ -75,7 +78,7 @@ class PlaybackService : MediaSessionService() {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                true
+                handleAudioFocus
             )
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
