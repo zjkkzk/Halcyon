@@ -125,7 +125,6 @@ import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
-import com.ella.music.ui.components.LyricView
 import com.ella.music.ui.components.WordLyricView
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.viewmodel.PlayerViewModel
@@ -355,6 +354,7 @@ fun PlayerScreen(
                     onToggleQueue = { queueExpanded = !queueExpanded },
                     onDismissQueue = { queueExpanded = false },
                     onShowLyrics = { playerViewModel.setShowLyrics(true) },
+                    onLyricLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
                     onSeek = { fraction -> playerViewModel.seekTo((fraction * duration).toLong()) },
                     onCyclePlaybackMode = { playerViewModel.cyclePlaybackMode() },
                     onPrevious = { playerViewModel.skipToPrevious() },
@@ -486,6 +486,7 @@ private fun CoverPlayerPage(
     onToggleQueue: () -> Unit,
     onDismissQueue: () -> Unit,
     onShowLyrics: () -> Unit,
+    onLyricLineClick: (com.ella.music.data.model.LyricLine) -> Unit,
     onSeek: (Float) -> Unit,
     onCyclePlaybackMode: () -> Unit,
     onPrevious: () -> Unit,
@@ -538,6 +539,7 @@ private fun CoverPlayerPage(
                 onToggleQueue = onToggleQueue,
                 onDismissQueue = onDismissQueue,
                 onShowLyrics = onShowLyrics,
+                onLyricLineClick = onLyricLineClick,
                 onSeek = onSeek,
                 onCyclePlaybackMode = onCyclePlaybackMode,
                 onPrevious = onPrevious,
@@ -648,16 +650,20 @@ private fun CoverPlayerPage(
 
                 if (miniLyricLine != null) {
                     Spacer(modifier = Modifier.height(14.dp))
-                    MiniLyricsPreview(
+                    WordLyricView(
                         lyrics = lyrics,
                         currentIndex = currentLyricIndex,
+                        currentPositionMs = currentPosition,
                         showTranslation = showTranslation,
                         showPronunciation = showPronunciation,
+                        fontScale = 0.62f,
                         fontFamily = fontFamily,
+                        topSpacer = 20.dp,
+                        bottomSpacer = 64.dp,
+                        onLineClick = onLyricLineClick,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 96.dp, max = 150.dp)
-                            .clickable(onClick = onShowLyrics)
+                            .heightIn(min = 128.dp, max = 218.dp)
                             .padding(vertical = 6.dp)
                     )
                 }
@@ -758,6 +764,7 @@ private fun LandscapeCoverPlayerPage(
     onToggleQueue: () -> Unit,
     onDismissQueue: () -> Unit,
     onShowLyrics: () -> Unit,
+    onLyricLineClick: (com.ella.music.data.model.LyricLine) -> Unit,
     onSeek: (Float) -> Unit,
     onCyclePlaybackMode: () -> Unit,
     onPrevious: () -> Unit,
@@ -854,7 +861,9 @@ private fun LandscapeCoverPlayerPage(
                     showPronunciation = showPronunciation,
                     fontScale = 0.74f,
                     fontFamily = fontFamily,
-                    onLineClick = { onLineClick() },
+                    topSpacer = 24.dp,
+                    bottomSpacer = 72.dp,
+                    onLineClick = onLyricLineClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -895,6 +904,7 @@ private fun LandscapeCoverPlayerPage(
             accent = Color.White.copy(alpha = 0.72f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .fillMaxWidth()
                 .height(38.dp)
         )
@@ -1003,6 +1013,8 @@ private fun LyricsPlayerPage(
                     showPronunciation = showPronunciation,
                     fontScale = 0.78f,
                     fontFamily = fontFamily,
+                    topSpacer = 126.dp,
+                    bottomSpacer = 220.dp,
                     onLineClick = onLineClick,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -1017,6 +1029,7 @@ private fun LyricsPlayerPage(
             accent = Color.White.copy(alpha = 0.86f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .fillMaxWidth()
                 .height(58.dp)
         )
@@ -1142,6 +1155,8 @@ private fun LandscapeLyricsOverlay(
                         showPronunciation = showPronunciation,
                         fontScale = 0.82f,
                         fontFamily = fontFamily,
+                        topSpacer = 36.dp,
+                        bottomSpacer = 96.dp,
                         onLineClick = onLineClick,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -1170,6 +1185,7 @@ private fun LandscapeLyricsOverlay(
             accent = Color.White.copy(alpha = 0.82f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .fillMaxWidth()
                 .height(54.dp)
         )

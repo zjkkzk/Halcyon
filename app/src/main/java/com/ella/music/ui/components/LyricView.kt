@@ -193,6 +193,8 @@ fun WordLyricView(
     modifier: Modifier = Modifier,
     fontScale: Float = 1f,
     fontFamily: FontFamily? = null,
+    topSpacer: androidx.compose.ui.unit.Dp = 180.dp,
+    bottomSpacer: androidx.compose.ui.unit.Dp = 420.dp,
     onLineClick: (LyricLine) -> Unit = {}
 ) {
     if (lyrics.isEmpty()) {
@@ -255,7 +257,7 @@ fun WordLyricView(
             .padding(horizontal = 22.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        item { Box(modifier = Modifier.height(180.dp)) }
+        item { Box(modifier = Modifier.height(topSpacer)) }
 
         itemsIndexed(lyrics) { index, line ->
             val isActive = index == currentIndex || line.isActiveAt(currentPositionMs)
@@ -461,7 +463,7 @@ fun WordLyricView(
             }
         }
 
-        item { Box(modifier = Modifier.height(420.dp)) }
+        item { Box(modifier = Modifier.height(bottomSpacer)) }
     }
 }
 
