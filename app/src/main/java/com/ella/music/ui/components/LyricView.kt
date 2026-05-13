@@ -193,6 +193,7 @@ fun WordLyricView(
     modifier: Modifier = Modifier,
     fontScale: Float = 1f,
     fontFamily: FontFamily? = null,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
     topSpacer: androidx.compose.ui.unit.Dp = 180.dp,
     bottomSpacer: androidx.compose.ui.unit.Dp = 420.dp,
     horizontalPadding: androidx.compose.ui.unit.Dp = 22.dp,
@@ -326,6 +327,7 @@ fun WordLyricView(
                             textAlign = lineTextAlign,
                             fontSizeSp = scaledLyricFontSp(12, fontScale, minSp = 9),
                             fontFamily = fontFamily,
+                            fontWeight = fontWeight.softenedLyricWeight(),
                             currentColor = Color.White.copy(alpha = 0.76f),
                             sungColor = Color.White.copy(alpha = 0.54f),
                             pendingColor = Color.White.copy(alpha = 0.38f),
@@ -354,7 +356,8 @@ fun WordLyricView(
                         currentPositionMs = currentPositionMs,
                         textAlign = lineTextAlign,
                         fontSizeSp = fittedLyricFontSp(line.text, scaledLyricFontSp(32, fontScale, minSp = 9), minSp = 9),
-                        fontFamily = fontFamily
+                        fontFamily = fontFamily,
+                        fontWeight = fontWeight
                     )
                 } else {
                     val textColor = when {
@@ -366,7 +369,7 @@ fun WordLyricView(
                         text = line.text.ifBlank { "♪" }.lineBreakSafeText(),
                         fontSize = fittedLyricFontSp(line.text, scaledLyricFontSp(if (isActive) 32 else 22, fontScale, minSp = if (isActive) 9 else 8), minSp = if (isActive) 9 else 8).sp,
                         fontFamily = fontFamily,
-                        fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold,
+                        fontWeight = if (isActive) fontWeight else fontWeight.softenedLyricWeight(),
                         color = textColor,
                         textAlign = lineTextAlign,
                         maxLines = if (isActive) 4 else 3,
@@ -411,6 +414,7 @@ fun WordLyricView(
                             textAlign = backgroundTextAlign,
                             fontSizeSp = fittedLyricFontSp(line.backgroundText.orEmpty(), scaledLyricFontSp(22, fontScale, minSp = 8), minSp = 8),
                             fontFamily = fontFamily,
+                            fontWeight = fontWeight.softenedLyricWeight(),
                             currentColor = Color.White.copy(alpha = 0.78f),
                             sungColor = Color.White.copy(alpha = 0.56f),
                             pendingColor = Color.White.copy(alpha = 0.42f),
@@ -477,6 +481,7 @@ private fun WordLine(
     modifier: Modifier = Modifier,
     fontSizeSp: Int = 18,
     fontFamily: FontFamily? = null,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
     currentColor: Color = Color.White,
     sungColor: Color = Color.White.copy(alpha = 0.82f),
     pendingColor: Color = Color.White.copy(alpha = 0.56f)
@@ -510,14 +515,14 @@ private fun WordLine(
         color = pendingColor,
         fontSize = fontSizeSp.sp,
         fontFamily = fontFamily,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = fontWeight,
         textAlign = textAlign
     )
     val highlightStyle = TextStyle(
         color = currentColor,
         fontSize = fontSizeSp.sp,
         fontFamily = fontFamily,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = fontWeight,
         textAlign = textAlign
     )
 
@@ -745,6 +750,10 @@ private fun fittedLyricFontSp(text: String, baseSp: Int, minSp: Int): Int {
 
 private fun scaledLyricFontSp(baseSp: Int, fontScale: Float, minSp: Int): Int {
     return (baseSp * fontScale).toInt().coerceIn(minSp, baseSp)
+}
+
+private fun FontWeight.softenedLyricWeight(): FontWeight {
+    return FontWeight((weight - 200).coerceIn(100, 900))
 }
 
 private fun String.progressFraction(words: List<LyricWord>, positionMs: Long): Float {

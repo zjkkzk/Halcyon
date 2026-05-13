@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -54,6 +55,7 @@ class SettingsManager(private val context: Context) {
         val KEY_LX_SELECTED_SOURCE_ID = stringPreferencesKey("lx_selected_source_id")
         val KEY_LYRIC_FONT_NAME = stringPreferencesKey("lyric_font_name")
         val KEY_LYRIC_FONT_PATH = stringPreferencesKey("lyric_font_path")
+        val KEY_LYRIC_FONT_WEIGHT = intPreferencesKey("lyric_font_weight")
         val KEY_SCAN_INCLUDE_FOLDERS = stringPreferencesKey("scan_include_folders")
         val KEY_SCAN_EXCLUDE_FOLDERS = stringPreferencesKey("scan_exclude_folders")
         val KEY_DECODER_MODE = intPreferencesKey("decoder_mode")
@@ -107,6 +109,7 @@ class SettingsManager(private val context: Context) {
     val lxSourceScript: Flow<String> = selectedLxSource.map { it?.script.orEmpty() }
     val lyricFontName: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_NAME] ?: "" }
     val lyricFontPath: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_PATH] ?: "" }
+    val lyricFontWeight: Flow<Int> = context.dataStore.data.map { it[KEY_LYRIC_FONT_WEIGHT] ?: 800 }
     val scanIncludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_INCLUDE_FOLDERS] ?: "" }
     val scanExcludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_EXCLUDE_FOLDERS] ?: "" }
     val decoderMode: Flow<Int> = context.dataStore.data.map { it[KEY_DECODER_MODE] ?: 1 }
@@ -290,8 +293,77 @@ class SettingsManager(private val context: Context) {
         }
     }
 
+    suspend fun setLyricFontWeight(weight: Int) {
+        context.dataStore.edit { it[KEY_LYRIC_FONT_WEIGHT] = weight.coerceIn(100, 900) }
+    }
+
     suspend fun setScanIncludeFolders(folders: String) {
         context.dataStore.edit { it[KEY_SCAN_INCLUDE_FOLDERS] = folders.trim() }
+    }
+
+    suspend fun exportSettingsJson(): JSONObject {
+        val prefs = context.dataStore.data.first()
+        val payload = JSONObject()
+        prefs.asMap().forEach { (key, value) ->
+            when (value) {
+                is Boolean -> payload.put(key.name, value)
+                is Int -> payload.put(key.name, value)
+                is String -> payload.put(key.name, value)
+            }
+        }
+        return payload
+    }
+
+    suspend fun restoreSettingsJson(payload: JSONObject) {
+        context.dataStore.edit { prefs ->
+            fun setBoolean(key: Preferences.Key<Boolean>) {
+                if (payload.has(key.name) && !payload.isNull(key.name)) prefs[key] = payload.optBoolean(key.name)
+            }
+            fun setInt(key: Preferences.Key<Int>) {
+                if (payload.has(key.name) && !payload.isNull(key.name)) prefs[key] = payload.optInt(key.name)
+            }
+            fun setString(key: Preferences.Key<String>) {
+                if (payload.has(key.name) && !payload.isNull(key.name)) prefs[key] = payload.optString(key.name)
+            }
+
+            setBoolean(KEY_LYRICON_ENABLED)
+            setBoolean(KEY_LYRICON_TRANSLATION)
+            setBoolean(KEY_AUTO_SCAN)
+            setBoolean(KEY_GAPLESS)
+            setBoolean(KEY_TICKER_ENABLED)
+            setBoolean(KEY_SAMSUNG_FLOATING_LYRIC_TRANSLATION)
+            setBoolean(KEY_DESKTOP_LYRIC_ENABLED)
+            setBoolean(KEY_SUPER_LYRIC_ENABLED)
+            setBoolean(KEY_SUPER_LYRIC_TRANSLATION)
+            setBoolean(KEY_REPLAYGAIN_ENABLED)
+            setBoolean(KEY_AUDIO_FOCUS_DISABLED)
+            setBoolean(KEY_LYRIC_PAGE_TRANSLATION)
+            setBoolean(KEY_PLAYER_HDR_GLOW)
+            setBoolean(KEY_AUDIO_VISUALIZER_ENABLED)
+            setBoolean(KEY_BLUETOOTH_LYRIC_ENABLED)
+            setBoolean(KEY_BLUETOOTH_LYRIC_TRANSLATION)
+
+            setInt(KEY_THEME_MODE)
+            setInt(KEY_MIN_DURATION)
+            setInt(KEY_SHUFFLE_MODE)
+            setInt(KEY_LYRIC_SOURCE_MODE)
+            setInt(KEY_DECODER_MODE)
+            setInt(KEY_LYRIC_FONT_WEIGHT)
+
+            setString(KEY_WEBDAV_URL)
+            setString(KEY_WEBDAV_USERNAME)
+            setString(KEY_WEBDAV_PASSWORD)
+            setString(KEY_WEBDAV_LAST_URL)
+            setString(KEY_LX_SOURCE_URL)
+            setString(KEY_LX_SOURCE_NAME)
+            setString(KEY_LX_SOURCE_SCRIPT)
+            setString(KEY_LX_SOURCES_JSON)
+            setString(KEY_LX_SELECTED_SOURCE_ID)
+            setString(KEY_LYRIC_FONT_NAME)
+            setString(KEY_LYRIC_FONT_PATH)
+            setString(KEY_SCAN_INCLUDE_FOLDERS)
+            setString(KEY_SCAN_EXCLUDE_FOLDERS)
+        }
     }
 
     suspend fun setScanExcludeFolders(folders: String) {

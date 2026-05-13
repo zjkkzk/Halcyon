@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,14 +34,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.BuildConfig
+import com.ella.music.data.PlaybackStatsStore
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.repository.MusicRepository
 import com.ella.music.ui.theme.THEME_DARK
 import com.ella.music.ui.theme.THEME_FOLLOW_SYSTEM
 import com.ella.music.ui.theme.THEME_LIGHT
 import com.ella.music.viewmodel.PlayerViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.widget.Toast
+import org.json.JSONObject
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -68,6 +74,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager(context) }
+    val playbackStatsStore = remember { PlaybackStatsStore.getInstance(context) }
     val cacheRepository = remember { MusicRepository(context) }
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = if (isDark) Color(0xFF101014) else Color(0xFFF4F4F7)
@@ -118,6 +125,50 @@ fun SettingsScreen(
                     else -> "洗牌队列播放，一轮内尽量不重复"
                 }
             )
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val backup = JSONObject()
+                    .put("version", 1)
+                    .put("exportedAt", System.currentTimeMillis())
+                    .put("settings", settingsManager.exportSettingsJson())
+                    .put("playback", playbackStatsStore.exportJson())
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        output.write(backup.toString(2).toByteArray(Charsets.UTF_8))
+                    } ?: error("无法打开备份文件")
+                }
+            }.onSuccess {
+                Toast.makeText(context, "备份已导出", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(context, "备份导出失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        input.bufferedReader(Charsets.UTF_8).readText()
+                    } ?: error("无法读取备份文件")
+                }
+                val root = JSONObject(text)
+                settingsManager.restoreSettingsJson(root.optJSONObject("settings") ?: root)
+                root.optJSONObject("playback")?.let { playbackStatsStore.restoreJson(it) }
+            }.onSuccess {
+                Toast.makeText(context, "备份已恢复", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(context, "备份恢复失败", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -197,6 +248,27 @@ fun SettingsScreen(
                     }
                 }
 
+                }
+            }
+
+            SmallTitle(text = "备份")
+
+            SettingsCardGroup {
+                Column {
+                    ArrowPreference(
+                        title = "备份设置和听歌统计",
+                        summary = "导出设置、听歌历史和排行热力图数据",
+                        onClick = {
+                            exportLauncher.launch("ella_backup_${System.currentTimeMillis()}.json")
+                        }
+                    )
+                    ArrowPreference(
+                        title = "恢复设置和听歌统计",
+                        summary = "从备份 JSON 恢复设置、历史和统计",
+                        onClick = {
+                            importLauncher.launch(arrayOf("application/json", "text/json", "text/*"))
+                        }
+                    )
                 }
             }
 

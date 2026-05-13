@@ -165,8 +165,10 @@ fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager(context) }
     val lyricFontPath by settingsManager.lyricFontPath.collectAsState(initial = "")
+    val lyricFontWeightValue by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     val lyricSourceMode by settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
     val lyricFontFamily = remember(lyricFontPath) { lyricFontPath.toPlayerLyricFontFamily() }
+    val lyricFontWeight = remember(lyricFontWeightValue) { FontWeight(lyricFontWeightValue.coerceIn(100, 900)) }
     val currentSong by playerViewModel.currentSong.collectAsState()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     val currentPosition by playerViewModel.currentPosition.collectAsState()
@@ -316,6 +318,7 @@ fun PlayerScreen(
                     showPronunciation = showLyricPronunciation,
                     lyricSourceMode = lyricSourceMode,
                     fontFamily = lyricFontFamily,
+                    fontWeight = lyricFontWeight,
                     palette = palette,
                     currentPositionMs = currentPosition,
                     isPlaying = isPlaying,
@@ -353,6 +356,7 @@ fun PlayerScreen(
                     showTranslation = showLyricTranslation,
                     showPronunciation = showLyricPronunciation,
                     fontFamily = lyricFontFamily,
+                    fontWeight = lyricFontWeight,
                     menuExpanded = menuExpanded,
                     queueExpanded = queueExpanded,
                     playlist = playlist,
@@ -449,6 +453,7 @@ fun PlayerScreen(
                 showTranslation = showLyricTranslation,
                 showPronunciation = showLyricPronunciation,
                 fontFamily = lyricFontFamily,
+                fontWeight = lyricFontWeight,
                 palette = palette,
                 isPlaying = isPlaying,
                 audioSessionId = audioSessionId,
@@ -480,6 +485,7 @@ private fun CoverPlayerPage(
     showTranslation: Boolean,
     showPronunciation: Boolean,
     fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     menuExpanded: Boolean,
     queueExpanded: Boolean,
     playlist: List<Song>,
@@ -538,6 +544,7 @@ private fun CoverPlayerPage(
                 showTranslation = showTranslation,
                 showPronunciation = showPronunciation,
                 fontFamily = fontFamily,
+                fontWeight = fontWeight,
                 queueExpanded = queueExpanded,
                 playlist = playlist,
                 audioSessionId = audioSessionId,
@@ -664,6 +671,7 @@ private fun CoverPlayerPage(
                         showPronunciation = showPronunciation,
                         currentPositionMs = currentPosition,
                         fontFamily = fontFamily,
+                        fontWeight = fontWeight,
                         onLineClick = onLyricLineClick,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -759,6 +767,7 @@ private fun LandscapeCoverPlayerPage(
     showTranslation: Boolean,
     showPronunciation: Boolean,
     fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     queueExpanded: Boolean,
     playlist: List<Song>,
     audioSessionId: Int,
@@ -864,6 +873,7 @@ private fun LandscapeCoverPlayerPage(
                     showPronunciation = showPronunciation,
                     fontScale = 0.74f,
                     fontFamily = fontFamily,
+                    fontWeight = fontWeight,
                     topSpacer = 24.dp,
                     bottomSpacer = 72.dp,
                     horizontalPadding = 6.dp,
@@ -926,6 +936,7 @@ private fun LyricsPlayerPage(
     showPronunciation: Boolean,
     lyricSourceMode: Int,
     fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     palette: PlayerPalette,
     currentPositionMs: Long,
     isPlaying: Boolean,
@@ -1017,6 +1028,7 @@ private fun LyricsPlayerPage(
                     showPronunciation = showPronunciation,
                     fontScale = 0.78f,
                     fontFamily = fontFamily,
+                    fontWeight = fontWeight,
                     topSpacer = 116.dp,
                     bottomSpacer = 220.dp,
                     horizontalPadding = 6.dp,
@@ -1078,6 +1090,7 @@ private fun LandscapeLyricsOverlay(
     showTranslation: Boolean,
     showPronunciation: Boolean,
     fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     palette: PlayerPalette,
     isPlaying: Boolean,
     audioSessionId: Int,
@@ -1160,6 +1173,7 @@ private fun LandscapeLyricsOverlay(
                         showPronunciation = showPronunciation,
                         fontScale = 0.82f,
                         fontFamily = fontFamily,
+                        fontWeight = fontWeight,
                         topSpacer = 36.dp,
                         bottomSpacer = 96.dp,
                         horizontalPadding = 4.dp,
@@ -1948,6 +1962,7 @@ private fun MiniLyricsPreview(
     showPronunciation: Boolean,
     currentPositionMs: Long,
     fontFamily: FontFamily? = null,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
     onLineClick: (com.ella.music.data.model.LyricLine) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -2013,6 +2028,7 @@ private fun MiniLyricsPreview(
                 currentPositionMs = currentPositionMs,
                 active = isActive,
                 fontFamily = fontFamily,
+                fontWeight = fontWeight,
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer {
@@ -2036,6 +2052,7 @@ private fun MiniLyricBlock(
     currentPositionMs: Long = 0L,
     active: Boolean = true,
     fontFamily: FontFamily? = null,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
     modifier: Modifier = Modifier
 ) {
     val longest = listOfNotNull(
@@ -2076,6 +2093,7 @@ private fun MiniLyricBlock(
                     currentPositionMs = currentPositionMs,
                     fontSize = if (secondarySize.value <= 10f) 9.sp else 11.sp,
                     fontFamily = fontFamily,
+                    fontWeight = fontWeight.softenedPlayerLyricWeight(),
                     textAlign = line.previewTextAlign(),
                     pendingAlpha = 0.42f,
                     sungAlpha = 0.62f,
@@ -2101,6 +2119,7 @@ private fun MiniLyricBlock(
                     currentPositionMs = currentPositionMs,
                     fontSize = (mainSize.value + 1f).sp,
                     fontFamily = fontFamily,
+                    fontWeight = fontWeight,
                     textAlign = line.previewTextAlign(),
                     maxLines = 3
                 )
@@ -2109,7 +2128,7 @@ private fun MiniLyricBlock(
                     text = main,
                     fontSize = if (active) (mainSize.value + 1f).sp else mainSize,
                     fontFamily = fontFamily,
-                    fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    fontWeight = if (active) fontWeight else fontWeight.softenedPlayerLyricWeight(),
                     color = Color.White.copy(alpha = if (active) 0.90f else 0.70f),
                     textAlign = line.previewTextAlign(),
                     maxLines = if (active) 3 else 2,
@@ -2136,6 +2155,7 @@ private fun MiniLyricBlock(
                     currentPositionMs = currentPositionMs,
                     fontSize = if (mainSize.value <= 12f) 10.sp else 13.sp,
                     fontFamily = fontFamily,
+                    fontWeight = fontWeight.softenedPlayerLyricWeight(),
                     textAlign = line.previewBackgroundTextAlign(),
                     pendingAlpha = 0.36f,
                     sungAlpha = 0.58f,
@@ -2146,7 +2166,7 @@ private fun MiniLyricBlock(
                     text = background,
                     fontSize = if (mainSize.value <= 12f) 10.sp else 13.sp,
                     fontFamily = fontFamily,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = fontWeight.softenedPlayerLyricWeight(),
                     color = Color.White.copy(alpha = if (active) 0.68f else 0.44f),
                     textAlign = line.previewBackgroundTextAlign(),
                     maxLines = 2,
@@ -2175,6 +2195,7 @@ private fun MiniWordText(
     currentPositionMs: Long,
     fontSize: TextUnit,
     fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     textAlign: TextAlign,
     modifier: Modifier = Modifier,
     maxLines: Int = 2,
@@ -2195,7 +2216,7 @@ private fun MiniWordText(
                 pushStyle(
                     SpanStyle(
                         color = color,
-                        fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.SemiBold
+                        fontWeight = if (isCurrent) fontWeight else fontWeight.softenedPlayerLyricWeight()
                     )
                 )
                 append(word.text)
@@ -2210,7 +2231,7 @@ private fun MiniWordText(
         style = TextStyle(
             fontSize = fontSize,
             fontFamily = fontFamily,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = fontWeight,
             textAlign = textAlign
         ),
         maxLines = maxLines,
@@ -2927,6 +2948,10 @@ private fun com.ella.music.data.model.LyricLine.previewHorizontalAlignment(): Al
         TextAlign.Center -> Alignment.CenterHorizontally
         else -> Alignment.Start
     }
+}
+
+private fun FontWeight.softenedPlayerLyricWeight(): FontWeight {
+    return FontWeight((weight - 200).coerceIn(100, 900))
 }
 
 private fun String.toPlayerLyricFontFamily(): FontFamily? {

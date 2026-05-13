@@ -70,6 +70,27 @@ class PlaybackStatsStore private constructor(context: Context) {
         addDailyListenTime(now, listenedMs)
     }
 
+    suspend fun exportJson(): JSONObject = withContext(Dispatchers.IO) {
+        JSONObject()
+            .put("stats", statsToJson(_stats.value))
+            .put("history", historyToJson(_history.value))
+            .put("dailyListenMs", dailyStatsToJson(_dailyListenMs.value))
+    }
+
+    suspend fun restoreJson(payload: JSONObject) = withContext(Dispatchers.IO) {
+        val stats = payload.optJSONArray("stats")?.toStatsList().orEmpty()
+        val history = payload.optJSONArray("history")?.toHistoryList().orEmpty()
+        val daily = payload.optJSONObject("dailyListenMs")?.toDailyStatsMap().orEmpty()
+
+        _stats.value = stats
+        _history.value = history
+        _dailyListenMs.value = daily.toSortedMap()
+
+        save(stats)
+        saveHistory(history)
+        saveDailyStats(daily)
+    }
+
     private suspend fun update(
         song: Song,
         transform: (SongPlaybackStats) -> SongPlaybackStats
@@ -124,18 +145,7 @@ class PlaybackStatsStore private constructor(context: Context) {
         if (!statsFile.exists()) return
         runCatching {
             val array = JSONArray(statsFile.readText())
-            _stats.value = List(array.length()) { index ->
-                val item = array.getJSONObject(index)
-                SongPlaybackStats(
-                    songId = item.getLong("songId"),
-                    title = item.optString("title"),
-                    artist = item.optString("artist"),
-                    album = item.optString("album"),
-                    playCount = item.optInt("playCount"),
-                    listenedMs = item.optLong("listenedMs"),
-                    lastPlayedAt = item.optLong("lastPlayedAt")
-                )
-            }
+            _stats.value = array.toStatsList()
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to load playback stats", it)
         }
@@ -145,18 +155,7 @@ class PlaybackStatsStore private constructor(context: Context) {
         if (!historyFile.exists()) return
         runCatching {
             val array = JSONArray(historyFile.readText())
-            _history.value = List(array.length()) { index ->
-                val item = array.getJSONObject(index)
-                PlaybackHistoryEntry(
-                    songId = item.optLong("songId"),
-                    title = item.optString("title"),
-                    artist = item.optString("artist"),
-                    album = item.optString("album"),
-                    playedAt = item.optLong("playedAt")
-                )
-            }.filter { it.playedAt > 0L }
-                .sortedByDescending { it.playedAt }
-                .take(MAX_HISTORY_ITEMS)
+            _history.value = array.toHistoryList()
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to load playback history", it)
         }
@@ -166,11 +165,7 @@ class PlaybackStatsStore private constructor(context: Context) {
         if (!dailyStatsFile.exists()) return
         runCatching {
             val payload = JSONObject(dailyStatsFile.readText())
-            val parsed = mutableMapOf<String, Long>()
-            payload.keys().forEach { key ->
-                parsed[key] = payload.optLong(key)
-            }
-            _dailyListenMs.value = parsed.toSortedMap()
+            _dailyListenMs.value = payload.toDailyStatsMap().toSortedMap()
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to load daily playback stats", it)
         }
@@ -178,20 +173,7 @@ class PlaybackStatsStore private constructor(context: Context) {
 
     private fun save(stats: List<SongPlaybackStats>) {
         runCatching {
-            val array = JSONArray()
-            stats.forEach { stat ->
-                array.put(
-                    JSONObject()
-                        .put("songId", stat.songId)
-                        .put("title", stat.title)
-                        .put("artist", stat.artist)
-                        .put("album", stat.album)
-                        .put("playCount", stat.playCount)
-                        .put("listenedMs", stat.listenedMs)
-                        .put("lastPlayedAt", stat.lastPlayedAt)
-                )
-            }
-            statsFile.writeText(array.toString())
+            statsFile.writeText(statsToJson(stats).toString())
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to save playback stats", it)
         }
@@ -199,18 +181,7 @@ class PlaybackStatsStore private constructor(context: Context) {
 
     private fun saveHistory(history: List<PlaybackHistoryEntry>) {
         runCatching {
-            val array = JSONArray()
-            history.forEach { entry ->
-                array.put(
-                    JSONObject()
-                        .put("songId", entry.songId)
-                        .put("title", entry.title)
-                        .put("artist", entry.artist)
-                        .put("album", entry.album)
-                        .put("playedAt", entry.playedAt)
-                )
-            }
-            historyFile.writeText(array.toString())
+            historyFile.writeText(historyToJson(history).toString())
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to save playback history", it)
         }
@@ -218,14 +189,86 @@ class PlaybackStatsStore private constructor(context: Context) {
 
     private fun saveDailyStats(dailyStats: Map<String, Long>) {
         runCatching {
-            val payload = JSONObject()
-            dailyStats.forEach { (date, listenedMs) ->
-                payload.put(date, listenedMs)
-            }
-            dailyStatsFile.writeText(payload.toString())
+            dailyStatsFile.writeText(dailyStatsToJson(dailyStats).toString())
         }.onFailure {
             Log.w("PlaybackStatsStore", "Failed to save daily playback stats", it)
         }
+    }
+
+    private fun statsToJson(stats: List<SongPlaybackStats>): JSONArray {
+        val array = JSONArray()
+        stats.forEach { stat ->
+            array.put(
+                JSONObject()
+                    .put("songId", stat.songId)
+                    .put("title", stat.title)
+                    .put("artist", stat.artist)
+                    .put("album", stat.album)
+                    .put("playCount", stat.playCount)
+                    .put("listenedMs", stat.listenedMs)
+                    .put("lastPlayedAt", stat.lastPlayedAt)
+            )
+        }
+        return array
+    }
+
+    private fun historyToJson(history: List<PlaybackHistoryEntry>): JSONArray {
+        val array = JSONArray()
+        history.forEach { entry ->
+            array.put(
+                JSONObject()
+                    .put("songId", entry.songId)
+                    .put("title", entry.title)
+                    .put("artist", entry.artist)
+                    .put("album", entry.album)
+                    .put("playedAt", entry.playedAt)
+            )
+        }
+        return array
+    }
+
+    private fun dailyStatsToJson(dailyStats: Map<String, Long>): JSONObject {
+        val payload = JSONObject()
+        dailyStats.forEach { (date, listenedMs) ->
+            payload.put(date, listenedMs)
+        }
+        return payload
+    }
+
+    private fun JSONArray.toStatsList(): List<SongPlaybackStats> =
+        List(length()) { index ->
+            val item = getJSONObject(index)
+            SongPlaybackStats(
+                songId = item.getLong("songId"),
+                title = item.optString("title"),
+                artist = item.optString("artist"),
+                album = item.optString("album"),
+                playCount = item.optInt("playCount"),
+                listenedMs = item.optLong("listenedMs"),
+                lastPlayedAt = item.optLong("lastPlayedAt")
+            )
+        }.sortedByDescending { it.lastPlayedAt }
+
+    private fun JSONArray.toHistoryList(): List<PlaybackHistoryEntry> =
+        List(length()) { index ->
+            val item = getJSONObject(index)
+            PlaybackHistoryEntry(
+                songId = item.optLong("songId"),
+                title = item.optString("title"),
+                artist = item.optString("artist"),
+                album = item.optString("album"),
+                playedAt = item.optLong("playedAt")
+            )
+        }.filter { it.playedAt > 0L }
+            .sortedByDescending { it.playedAt }
+            .take(MAX_HISTORY_ITEMS)
+
+    private fun JSONObject.toDailyStatsMap(): Map<String, Long> {
+        val parsed = mutableMapOf<String, Long>()
+        keys().forEach { key ->
+            parsed[key] = optLong(key)
+        }
+        return parsed
     }
 
     private fun Long.toDateKey(): String {

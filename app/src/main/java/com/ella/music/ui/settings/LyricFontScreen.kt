@@ -46,6 +46,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -62,6 +63,7 @@ fun LyricFontScreen(
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager(context) }
     val selectedFontPath by settingsManager.lyricFontPath.collectAsState(initial = "")
+    val lyricFontWeight by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     var fonts by remember { mutableStateOf(collectFontChoices(context)) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -147,6 +149,47 @@ fun LyricFontScreen(
                             }
                         }
                     )
+                }
+                Card(
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "歌词字重",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "当前 ${lyricFontWeight.coerceIn(100, 900)}",
+                                    fontSize = 12.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                            Text(
+                                text = "春江花月夜",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight(lyricFontWeight.coerceIn(100, 900)),
+                                color = MiuixTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Slider(
+                            value = (lyricFontWeight.coerceIn(100, 900) - 100) / 800f,
+                            onValueChange = { fraction ->
+                                val weight = ((fraction.coerceIn(0f, 1f) * 8).toInt() + 1) * 100
+                                scope.launch { settingsManager.setLyricFontWeight(weight) }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(text = "细", fontSize = 11.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(text = "粗", fontSize = 11.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        }
+                    }
                 }
                 Text(
                     text = "系统字体",
