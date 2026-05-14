@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,11 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ella.music.R
 import com.ella.music.data.model.Song
 import com.ella.music.ui.components.SongItem
 import com.ella.music.viewmodel.MainViewModel
@@ -74,7 +71,6 @@ fun FolderDetailScreen(
 ) {
     val songs by mainViewModel.songs.collectAsState()
     val currentSong by playerViewModel.currentSong.collectAsState()
-    val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var searchExpanded by remember { mutableStateOf(false) }
@@ -145,14 +141,6 @@ fun FolderDetailScreen(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = { playerViewModel.requestLocateCurrentSong() }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_my_location),
-                    contentDescription = "定位当前歌曲",
-                    tint = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
             IconButton(onClick = { sortExpanded = !sortExpanded }) {
                 Icon(
                     imageVector = MiuixIcons.Regular.Sort,
@@ -236,13 +224,6 @@ fun FolderDetailScreen(
         } else {
             val listState = rememberLazyListState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
-            var handledLocateRequest by remember { mutableStateOf(locateCurrentSongRequest) }
-            LaunchedEffect(locateCurrentSongRequest) {
-                if (locateCurrentSongRequest <= 0 || locateCurrentSongRequest == handledLocateRequest) return@LaunchedEffect
-                handledLocateRequest = locateCurrentSongRequest
-                val index = sortedSongs.indexOfFirst { it.id == currentSong?.id }
-                if (index >= 0) listState.animateScrollToItem(index)
-            }
             val fastIndexTargets = remember(sortedSongs) {
                 sortedSongs
                     .mapIndexed { index, song -> song.indexLetter() to index }

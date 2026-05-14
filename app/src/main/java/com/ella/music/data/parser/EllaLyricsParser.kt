@@ -526,7 +526,7 @@ internal object EllaLyricsParser {
             val builder = StringBuilder()
             var endMs = this[index].endMs
             while (index < size && builder.length < target.length) {
-                builder.append(this[index].text.trim())
+                builder.append(this[index].text.trimTimedWordToken())
                 endMs = this[index].endMs
                 index++
             }
@@ -549,6 +549,10 @@ internal object EllaLyricsParser {
             cursor = end + suffix.length
             word.copy(text = word.text + suffix)
         }
+    }
+
+    private fun String.trimTimedWordToken(): String = trim {
+        it.isWhitespace() || it == '\u00A0' || it == '\u200B' || it == '\u2060'
     }
 
     private fun estimateDuration(text: String): Long =

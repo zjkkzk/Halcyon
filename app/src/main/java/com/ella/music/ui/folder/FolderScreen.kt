@@ -30,7 +30,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,11 +40,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ella.music.R
 import com.ella.music.data.model.Song
 import com.ella.music.data.webdav.WebDavClient
 import com.ella.music.data.webdav.WebDavItem
@@ -79,8 +76,6 @@ fun FolderScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val songs by mainViewModel.songs.collectAsState()
-    val currentSong by playerViewModel.currentSong.collectAsState()
-    val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
     val isScanning by mainViewModel.isScanning.collectAsState()
     val scanProgress by mainViewModel.scanProgress.collectAsState()
     val scanIncludeFolders by mainViewModel.settingsManager.scanIncludeFolders.collectAsState(initial = "")
@@ -133,14 +128,6 @@ fun FolderScreen(
             title = "文件夹",
             color = MiuixTheme.colorScheme.background,
             actions = {
-                IconButton(onClick = { playerViewModel.requestLocateCurrentSong() }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_my_location),
-                        contentDescription = "定位当前歌曲",
-                        tint = MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
                 IconButton(
                     onClick = {
                         if (!isScanning) mainViewModel.scanMusic()
@@ -273,15 +260,6 @@ fun FolderScreen(
         } else {
             val folders = remember(folderMap) { folderMap.entries.toList() }
             val listState = rememberLazyListState()
-            var handledLocateRequest by remember { mutableStateOf(locateCurrentSongRequest) }
-            LaunchedEffect(locateCurrentSongRequest) {
-                if (locateCurrentSongRequest <= 0 || locateCurrentSongRequest == handledLocateRequest) return@LaunchedEffect
-                handledLocateRequest = locateCurrentSongRequest
-                val index = folders.indexOfFirst { (_, folderSongs) ->
-                    folderSongs.any { it.id == currentSong?.id }
-                }
-                if (index >= 0) listState.animateScrollToItem(index)
-            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
