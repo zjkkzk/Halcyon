@@ -233,6 +233,33 @@ fun MusicFreeOnlineScreen(
                                     Text(text = "文档")
                                 }
                             }
+                            if (plugins.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "已导入来源",
+                                    fontSize = 13.sp,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                )
+                                plugins.forEach { plugin ->
+                                    MusicFreePluginRow(
+                                        plugin = plugin,
+                                        selected = plugin.id == selectedPlugin?.id,
+                                        enabled = !state.isBusy,
+                                        onSelect = {
+                                            scope.launch {
+                                                settingsManager.selectMusicFreePlugin(plugin.id)
+                                                state.clearResults("已切换到 ${plugin.name}")
+                                            }
+                                        },
+                                        onRemove = {
+                                            scope.launch {
+                                                settingsManager.removeMusicFreePlugin(plugin.id)
+                                                state.clearResults("已移除 ${plugin.name}")
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -307,26 +334,6 @@ fun MusicFreeOnlineScreen(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
                 )
-            } else {
-                plugins.forEach { plugin ->
-                    MusicFreePluginRow(
-                        plugin = plugin,
-                        selected = plugin.id == selectedPlugin?.id,
-                        enabled = !state.isBusy,
-                        onSelect = {
-                            scope.launch {
-                                settingsManager.selectMusicFreePlugin(plugin.id)
-                                state.clearResults("已切换到 ${plugin.name}")
-                            }
-                        },
-                        onRemove = {
-                            scope.launch {
-                                settingsManager.removeMusicFreePlugin(plugin.id)
-                                state.clearResults("已移除 ${plugin.name}")
-                            }
-                        }
-                    )
-                }
             }
 
             if (state.results.isEmpty()) {
