@@ -103,6 +103,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
@@ -116,6 +117,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -305,7 +307,16 @@ fun PlayerScreen(
                 )
             )
     ) {
-        ImmersiveCoverBackground(palette = palette, modifier = Modifier.fillMaxSize())
+        PlayerFlowBackground(
+            palette = palette,
+            flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+            modifier = Modifier.fillMaxSize()
+        )
+        ImmersiveCoverBackground(
+            palette = palette,
+            flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+            modifier = Modifier.fillMaxSize()
+        )
 
         AnimatedContent(
             targetState = showLyrics,
@@ -328,6 +339,7 @@ fun PlayerScreen(
                     fontFamily = lyricFontFamily,
                     fontWeight = lyricFontWeight,
                     palette = palette,
+                    flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                     currentPositionMs = currentPosition,
                     isPlaying = isPlaying,
                     audioSessionId = audioSessionId,
@@ -358,6 +370,7 @@ fun PlayerScreen(
                     repeatMode = repeatMode,
                     audioInfo = audioInfo,
                     palette = palette,
+                    flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                     lyrics = lyrics,
                     currentLyricIndex = currentLyricIndex,
                     miniLyricLine = miniLyricLine,
@@ -463,6 +476,7 @@ fun PlayerScreen(
                 fontFamily = lyricFontFamily,
                 fontWeight = lyricFontWeight,
                 palette = palette,
+                flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                 isPlaying = isPlaying,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
@@ -487,6 +501,7 @@ private fun CoverPlayerPage(
     repeatMode: Int,
     audioInfo: AudioInfo?,
     palette: PlayerPalette,
+    flowEffectMode: Int,
     lyrics: List<com.ella.music.data.model.LyricLine>,
     currentLyricIndex: Int,
     miniLyricLine: com.ella.music.data.model.LyricLine?,
@@ -547,6 +562,7 @@ private fun CoverPlayerPage(
                 repeatMode = repeatMode,
                 audioInfo = audioInfo,
                 palette = palette,
+                flowEffectMode = flowEffectMode,
                 lyrics = lyrics,
                 currentLyricIndex = currentLyricIndex,
                 showTranslation = showTranslation,
@@ -629,15 +645,7 @@ private fun CoverPlayerPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to palette.middle.copy(alpha = 0.86f),
-                                0.16f to palette.middle,
-                                1.0f to palette.middle
-                            )
-                        )
-                    )
+                    .background(playerContentSurfaceBrush(palette, flowEffectMode))
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -651,7 +659,7 @@ private fun CoverPlayerPage(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = song?.title ?: "未在播放",
-                            fontSize = 28.sp,
+                            fontSize = adaptiveTitleFontSize(song?.title ?: "未在播放", 28.sp),
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White.copy(alpha = 0.96f),
                             maxLines = 2,
@@ -683,7 +691,7 @@ private fun CoverPlayerPage(
                         onLineClick = { onShowLyrics() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 132.dp, max = 212.dp)
+                            .height(168.dp)
                             .padding(vertical = 6.dp)
                     )
                 }
@@ -713,7 +721,8 @@ private fun CoverPlayerPage(
                     onToggleQueue = onToggleQueue,
                     onDismissQueue = onDismissQueue,
                     onQueueSongClick = onQueueSongClick,
-                    onClearQueue = onClearQueue
+                    onClearQueue = onClearQueue,
+                    modifier = Modifier.height(86.dp)
                 )
                 AudioVisualizer(
                     enabled = visualizerEnabled,
@@ -780,6 +789,7 @@ private fun LandscapeCoverPlayerPage(
     playlist: List<Song>,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    flowEffectMode: Int,
     onDynamicCoverFailed: (String) -> Unit,
     onToggleMenu: () -> Unit,
     onToggleQueue: () -> Unit,
@@ -798,10 +808,16 @@ private fun LandscapeCoverPlayerPage(
 ) {
     val bluetoothDeviceName = rememberBluetoothOutputName()
     Box(modifier = modifier.background(palette.middle)) {
+        PlayerFlowBackground(
+            palette = palette,
+            flowEffectMode = flowEffectMode,
+            modifier = Modifier.fillMaxSize()
+        )
         FluidLyricBackground(
             palette = palette,
             positionMs = currentPosition,
             isPlaying = isPlaying,
+            flowEffectMode = flowEffectMode,
             modifier = Modifier.fillMaxSize()
         )
         Row(
@@ -855,7 +871,7 @@ private fun LandscapeCoverPlayerPage(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = song?.title ?: "未在播放",
-                            fontSize = 24.sp,
+                            fontSize = adaptiveTitleFontSize(song?.title ?: "未在播放", 24.sp),
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White.copy(alpha = 0.96f),
                             maxLines = 1,
@@ -946,6 +962,7 @@ private fun LyricsPlayerPage(
     fontFamily: FontFamily?,
     fontWeight: FontWeight,
     palette: PlayerPalette,
+    flowEffectMode: Int,
     currentPositionMs: Long,
     isPlaying: Boolean,
     audioSessionId: Int,
@@ -964,6 +981,7 @@ private fun LyricsPlayerPage(
             palette = palette,
             positionMs = currentPositionMs,
             isPlaying = isPlaying,
+            flowEffectMode = flowEffectMode,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -991,7 +1009,7 @@ private fun LyricsPlayerPage(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song?.title ?: "未在播放",
-                        fontSize = 28.sp,
+                        fontSize = adaptiveTitleFontSize(song?.title ?: "未在播放", 28.sp),
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White.copy(alpha = 0.96f),
                         maxLines = 1,
@@ -1100,6 +1118,7 @@ private fun LandscapeLyricsOverlay(
     fontFamily: FontFamily?,
     fontWeight: FontWeight,
     palette: PlayerPalette,
+    flowEffectMode: Int,
     isPlaying: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
@@ -1123,6 +1142,7 @@ private fun LandscapeLyricsOverlay(
             palette = palette,
             positionMs = currentPosition,
             isPlaying = isPlaying,
+            flowEffectMode = flowEffectMode,
             modifier = Modifier.fillMaxSize()
         )
         Row(
@@ -1158,7 +1178,7 @@ private fun LandscapeLyricsOverlay(
                 Column(modifier = Modifier.fillMaxSize()) {
                     Text(
                         text = song?.title ?: "Ella Music",
-                        fontSize = 22.sp,
+                        fontSize = adaptiveTitleFontSize(song?.title ?: "Ella Music", 22.sp),
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White.copy(alpha = 0.96f),
                         maxLines = 1,
@@ -1443,11 +1463,12 @@ private fun PlayerTransportControls(
     onToggleQueue: () -> Unit,
     onDismissQueue: () -> Unit,
     onQueueSongClick: (Int) -> Unit,
-    onClearQueue: () -> Unit
+    onClearQueue: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1673,18 +1694,20 @@ private fun PlaybackModeIcon(
 @Composable
 private fun ImmersiveCoverBackground(
     palette: PlayerPalette,
+    flowEffectMode: Int,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.background(palette.middle)) {
+    val lightMode = flowEffectMode == SettingsManager.PLAYER_FLOW_EFFECT_LIGHT
+    Box(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            palette.top,
-                            palette.middle,
-                            palette.bottom
+                            palette.top.copy(alpha = if (lightMode) 0.24f else 0.64f),
+                            palette.middle.copy(alpha = if (lightMode) 0.18f else 0.58f),
+                            palette.bottom.copy(alpha = if (lightMode) 0.16f else 0.72f)
                         )
                     )
                 )
@@ -1695,9 +1718,9 @@ private fun ImmersiveCoverBackground(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            palette.accent.copy(alpha = 0.20f),
+                            palette.accent.copy(alpha = if (lightMode) 0.12f else 0.20f),
                             Color.Transparent,
-                            Color.Black.copy(alpha = 0.18f)
+                            Color.Black.copy(alpha = if (lightMode) 0.12f else 0.18f)
                         ),
                         start = Offset.Zero,
                         end = Offset.Infinite
@@ -1708,12 +1731,128 @@ private fun ImmersiveCoverBackground(
 }
 
 @Composable
+private fun PlayerFlowBackground(
+    palette: PlayerPalette,
+    flowEffectMode: Int,
+    modifier: Modifier = Modifier
+) {
+    val lightMode = flowEffectMode == SettingsManager.PLAYER_FLOW_EFFECT_LIGHT
+    val transition = rememberInfiniteTransition(label = "player_flow_background")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (lightMode) 15_000 else 18_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "player_flow_background_drift"
+    )
+
+    Canvas(modifier = modifier.background(if (lightMode) palette.accent.lighten(0.72f) else palette.middle)) {
+        val w = size.width
+        val h = size.height
+        val angle = drift * kotlin.math.PI.toFloat() * 2f
+        val baseTop = if (lightMode) palette.accent.lighten(0.78f) else palette.top
+        val baseMid = if (lightMode) palette.accent.lighten(0.54f) else palette.middle
+        val baseBottom = if (lightMode) palette.accent.lighten(0.34f) else palette.bottom
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(baseTop, baseMid, baseBottom)
+            )
+        )
+
+        val centers = listOf(
+            Offset((0.16f + 0.10f * kotlin.math.sin(angle)) * w, (0.22f + 0.08f * kotlin.math.cos(angle * 0.7f)) * h),
+            Offset((0.86f + 0.08f * kotlin.math.cos(angle * 0.9f)) * w, (0.18f + 0.10f * kotlin.math.sin(angle)) * h),
+            Offset((0.46f + 0.16f * kotlin.math.sin(angle * 0.42f)) * w, (0.64f + 0.08f * kotlin.math.cos(angle * 0.8f)) * h)
+        )
+        val glows = if (lightMode) {
+            listOf(
+                Color.White.copy(alpha = 0.44f),
+                palette.accent.lighten(0.48f).copy(alpha = 0.46f),
+                Color(0xFFFFF2C8).copy(alpha = 0.30f)
+            )
+        } else {
+            listOf(
+                palette.accent.copy(alpha = 0.30f),
+                palette.top.lighten(0.22f).copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.10f)
+            )
+        }
+        centers.forEachIndexed { index, center ->
+            val radius = max(w, h) * (0.34f + index * 0.08f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(glows[index], Color.Transparent),
+                    center = center,
+                    radius = radius
+                ),
+                radius = radius,
+                center = center
+            )
+        }
+
+        val sweepStart = Offset((-0.36f + drift * 1.72f) * w, -0.08f * h)
+        val sweepEnd = Offset((0.12f + drift * 1.72f) * w, 1.08f * h)
+        drawRect(
+            brush = Brush.linearGradient(
+                colorStops = arrayOf(
+                    0.0f to Color.Transparent,
+                    0.46f to Color.Transparent,
+                    0.50f to Color.White.copy(alpha = if (lightMode) 0.28f else 0.12f),
+                    0.56f to Color.Transparent,
+                    1.0f to Color.Transparent
+                ),
+                start = sweepStart,
+                end = sweepEnd
+            )
+        )
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color.Black.copy(alpha = if (lightMode) 0.18f else 0.30f)
+                )
+            )
+        )
+    }
+}
+
+private fun playerContentSurfaceBrush(
+    palette: PlayerPalette,
+    flowEffectMode: Int
+): Brush {
+    val lightMode = flowEffectMode == SettingsManager.PLAYER_FLOW_EFFECT_LIGHT
+    return if (lightMode) {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.0f to Color.White.copy(alpha = 0.34f),
+                0.28f to palette.accent.lighten(0.38f).copy(alpha = 0.20f),
+                0.70f to Color.Black.copy(alpha = 0.22f),
+                1.0f to Color.Black.copy(alpha = 0.36f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.0f to palette.middle.copy(alpha = 0.70f),
+                0.16f to palette.middle.copy(alpha = 0.82f),
+                1.0f to palette.middle.copy(alpha = 0.90f)
+            )
+        )
+    }
+}
+
+@Composable
 private fun FluidLyricBackground(
     palette: PlayerPalette,
     positionMs: Long,
     isPlaying: Boolean,
+    flowEffectMode: Int = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
     modifier: Modifier = Modifier
 ) {
+    val lightMode = flowEffectMode == SettingsManager.PLAYER_FLOW_EFFECT_LIGHT
     val transition = rememberInfiniteTransition(label = "fluid_lyric_background")
     val drift by transition.animateFloat(
         initialValue = 0f,
@@ -1730,13 +1869,13 @@ private fun FluidLyricBackground(
         0.28f
     }
 
-    Canvas(modifier = modifier.background(palette.middle)) {
+    Canvas(modifier = modifier.background(if (lightMode) palette.accent.lighten(0.68f) else palette.middle)) {
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    palette.top.copy(alpha = 0.98f),
-                    palette.middle.copy(alpha = 0.98f),
-                    palette.bottom.copy(alpha = 1f)
+                    (if (lightMode) palette.accent.lighten(0.76f) else palette.top).copy(alpha = 0.98f),
+                    (if (lightMode) palette.accent.lighten(0.48f) else palette.middle).copy(alpha = 0.98f),
+                    (if (lightMode) palette.accent.lighten(0.24f) else palette.bottom).copy(alpha = 1f)
                 )
             )
         )
@@ -1750,10 +1889,10 @@ private fun FluidLyricBackground(
             Offset((0.72f + 0.06f * kotlin.math.sin(t * 0.95f)) * w, (0.86f + 0.04f * kotlin.math.cos(t * 0.6f)) * h)
         )
         val colors = listOf(
-            palette.accent.copy(alpha = 0.22f + pulse * 0.05f),
-            Color.White.copy(alpha = 0.10f),
-            palette.top.copy(alpha = 0.20f),
-            Color.Black.copy(alpha = 0.20f)
+            palette.accent.copy(alpha = if (lightMode) 0.26f + pulse * 0.04f else 0.22f + pulse * 0.05f),
+            Color.White.copy(alpha = if (lightMode) 0.24f else 0.10f),
+            (if (lightMode) palette.accent.lighten(0.48f) else palette.top).copy(alpha = if (lightMode) 0.24f else 0.20f),
+            Color.Black.copy(alpha = if (lightMode) 0.12f else 0.20f)
         )
         centers.forEachIndexed { index, center ->
             val radius = minOf(w, h) * (0.34f + index * 0.055f)
@@ -1770,9 +1909,9 @@ private fun FluidLyricBackground(
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color.Black.copy(alpha = 0.10f),
+                    Color.Black.copy(alpha = if (lightMode) 0.04f else 0.10f),
                     Color.Transparent,
-                    Color.Black.copy(alpha = 0.42f)
+                    Color.Black.copy(alpha = if (lightMode) 0.34f else 0.42f)
                 )
             )
         )
@@ -1977,19 +2116,16 @@ private fun MiniLyricsPreview(
     val safeIndex = currentIndex.takeIf { it in lyrics.indices }
         ?: lyrics.indexOfFirst { it.hasMiniLyric() }.takeIf { it >= 0 }
         ?: return
-    val visibleLines = remember(lyrics) { lyrics.withIndex().filter { it.value.hasMiniLyric() } }
-    val visibleIndex = visibleLines.indexOfFirst { it.index == safeIndex }.coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = visibleIndex)
+    val previousIndex = lyrics.indices
+        .asSequence()
+        .filter { it < safeIndex && lyrics[it].hasMiniLyric() }
+        .lastOrNull()
+    val nextIndex = lyrics.indices
+        .asSequence()
+        .firstOrNull { it > safeIndex && lyrics[it].hasMiniLyric() }
+    val previewItems = listOfNotNull(previousIndex, safeIndex, nextIndex)
 
-    LaunchedEffect(visibleIndex) {
-        if (visibleIndex in visibleLines.indices) {
-            listState.animateScrollToItem(visibleIndex, scrollOffset = -34)
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        userScrollEnabled = false,
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
@@ -2009,10 +2145,8 @@ private fun MiniLyricsPreview(
             },
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item { Spacer(modifier = Modifier.height(14.dp)) }
-        itemsIndexed(visibleLines, key = { _, indexed -> indexed.index }) { _, indexed ->
-            val index = indexed.index
-            val line = indexed.value
+        previewItems.forEach { index ->
+            val line = lyrics[index]
             val isActive = index == safeIndex
             val distance = kotlin.math.abs(index - safeIndex)
             val alpha by animateFloatAsState(
@@ -2040,16 +2174,16 @@ private fun MiniLyricsPreview(
                 fontWeight = fontWeight,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(if (isActive) 1.16f else 0.82f)
                     .graphicsLayer {
                         this.alpha = alpha
                         scaleX = scale
                         scaleY = scale
                     }
                     .clickable { onLineClick(line) }
-                    .padding(vertical = if (isActive) 5.dp else 2.dp)
+                    .padding(vertical = if (isActive) 3.dp else 1.dp)
             )
         }
-        item { Spacer(modifier = Modifier.height(30.dp)) }
     }
 }
 
@@ -2215,21 +2349,17 @@ private fun MiniWordText(
     val annotated = remember(words, currentPositionMs, pendingAlpha, sungAlpha, currentAlpha) {
         buildAnnotatedString {
             words.forEach { word ->
-                val isCurrent = currentPositionMs in word.startMs until word.endMs
-                val isSung = currentPositionMs >= word.endMs
-                val color = when {
-                    isCurrent -> Color.White.copy(alpha = currentAlpha)
-                    isSung -> Color.White.copy(alpha = sungAlpha)
-                    else -> Color.White.copy(alpha = pendingAlpha)
-                }
-                pushStyle(
-                    SpanStyle(
-                        color = color,
-                        fontWeight = if (isCurrent) fontWeight else fontWeight.softenedPlayerLyricWeight()
-                    )
+                appendMiniTimedWord(
+                    text = word.text,
+                    startMs = word.startMs,
+                    endMs = word.endMs,
+                    currentPositionMs = currentPositionMs,
+                    pendingColor = Color.White.copy(alpha = pendingAlpha),
+                    sungColor = Color.White.copy(alpha = sungAlpha),
+                    currentColor = Color.White.copy(alpha = currentAlpha),
+                    fontWeight = fontWeight,
+                    inactiveWeight = fontWeight.softenedPlayerLyricWeight()
                 )
-                append(word.text)
-                pop()
             }
             if (length == 0) append(text)
         }
@@ -2245,6 +2375,103 @@ private fun MiniWordText(
         ),
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis
+    )
+}
+
+private const val MINI_LONG_WORD_GLOW_MS = 650L
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendMiniTimedWord(
+    text: String,
+    startMs: Long,
+    endMs: Long,
+    currentPositionMs: Long,
+    pendingColor: Color,
+    sungColor: Color,
+    currentColor: Color,
+    fontWeight: FontWeight,
+    inactiveWeight: FontWeight
+) {
+    if (text.isEmpty()) return
+    val durationMs = (endMs - startMs).coerceAtLeast(1L)
+    val isCurrent = currentPositionMs in startMs until endMs
+    val isSung = currentPositionMs >= endMs
+    when {
+        isCurrent -> {
+            val progress = ((currentPositionMs - startMs).toFloat() / durationMs).coerceIn(0f, 1f)
+            val glow = if (durationMs >= MINI_LONG_WORD_GLOW_MS) {
+                Shadow(
+                    color = currentColor.copy(alpha = 0.5f),
+                    offset = Offset.Zero,
+                    blurRadius = 14f
+                )
+            } else {
+                null
+            }
+            appendMiniStyledText(
+                value = text,
+                color = currentColor,
+                fontWeight = fontWeight,
+                brush = miniLyricSweepBrush(
+                    progress = progress,
+                    activeColor = currentColor,
+                    pendingColor = pendingColor
+                ),
+                shadow = glow,
+                baselineShift = BaselineShift(0.04f)
+            )
+        }
+        isSung -> appendMiniStyledText(text, sungColor, inactiveWeight)
+        else -> appendMiniStyledText(text, pendingColor, inactiveWeight)
+    }
+}
+
+private fun androidx.compose.ui.text.AnnotatedString.Builder.appendMiniStyledText(
+    value: String,
+    color: Color,
+    fontWeight: FontWeight,
+    brush: Brush? = null,
+    shadow: Shadow? = null,
+    baselineShift: BaselineShift? = null
+) {
+    if (value.isEmpty()) return
+    val style = if (brush != null) {
+        SpanStyle(
+            brush = brush,
+            fontWeight = fontWeight,
+            shadow = shadow,
+            baselineShift = baselineShift
+        )
+    } else {
+        SpanStyle(
+            color = color,
+            fontWeight = fontWeight,
+            shadow = shadow,
+            baselineShift = baselineShift
+        )
+    }
+    pushStyle(
+        style
+    )
+    append(value)
+    pop()
+}
+
+private fun miniLyricSweepBrush(
+    progress: Float,
+    activeColor: Color,
+    pendingColor: Color
+): Brush {
+    val head = (progress - 0.045f).coerceIn(0f, 0.96f)
+    val edge = progress.coerceIn(head + 0.002f, 0.985f)
+    val tail = (progress + 0.090f).coerceIn(edge + 0.008f, 1f)
+    return Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0f to activeColor,
+            head to activeColor,
+            edge to Color.White.copy(alpha = activeColor.alpha),
+            tail to pendingColor,
+            1f to pendingColor
+        )
     )
 }
 
@@ -2981,6 +3208,18 @@ private fun FontWeight.softenedPlayerLyricWeight(): FontWeight {
     return FontWeight((weight - 200).coerceIn(100, 900))
 }
 
+private fun adaptiveTitleFontSize(text: String, maxSize: TextUnit): TextUnit {
+    val scale = when {
+        text.length > 72 -> 0.54f
+        text.length > 58 -> 0.62f
+        text.length > 44 -> 0.70f
+        text.length > 32 -> 0.80f
+        text.length > 24 -> 0.90f
+        else -> 1f
+    }
+    return (maxSize.value * scale).sp
+}
+
 private fun String.toPlayerLyricFontFamily(): FontFamily? {
     if (isBlank()) return null
     val file = File(this)
@@ -3002,6 +3241,13 @@ private fun Color.darken(amount: Float): Color = Color(
     green = green * (1f - amount),
     blue = blue * (1f - amount),
     alpha = 1f
+)
+
+private fun Color.lighten(amount: Float): Color = Color(
+    red = red + (1f - red) * amount,
+    green = green + (1f - green) * amount,
+    blue = blue + (1f - blue) * amount,
+    alpha = alpha
 )
 
 private fun Color.boosted(): Color {

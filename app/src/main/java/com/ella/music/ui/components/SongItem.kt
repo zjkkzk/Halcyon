@@ -206,7 +206,7 @@ private fun AudioQualityBadge(tag: String) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = tag,
+            text = if (tag == "Dolby") "ᴰᴰ" else tag,
             fontSize = 9.sp,
             color = audioQualityColor(tag)
         )

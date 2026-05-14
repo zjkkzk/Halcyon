@@ -398,9 +398,16 @@ class ExoPlayerManager(private val context: Context) {
 
         val mediaItemCount = controller.mediaItemCount
         if (mediaItemCount > 0 && playlist.isEmpty()) {
-            playlist.clear()
-            for (index in 0 until mediaItemCount) {
-                playlist += controller.getMediaItemAt(index).toSong()
+            val saved = loadSavedQueue()
+            val currentMediaId = controller.currentMediaItem?.mediaId?.toLongOrNull()
+            val savedCurrentIndex = currentMediaId?.let { id -> saved?.songs?.indexOfFirst { it.id == id } } ?: -1
+            if (saved != null && saved.songs.isNotEmpty() && (saved.songs.size == mediaItemCount || savedCurrentIndex >= 0)) {
+                playlist.addAll(saved.songs)
+                virtualPlaylistCurrentIndex = savedCurrentIndex.takeIf { mediaItemCount == 1 && it >= 0 }
+            } else {
+                for (index in 0 until mediaItemCount) {
+                    playlist += controller.getMediaItemAt(index).toSong()
+                }
             }
         }
         _playlist.value = playlist.toList()
@@ -462,6 +469,7 @@ class ExoPlayerManager(private val context: Context) {
                 Bundle().apply {
                     putString(EXTRA_ONLINE_SOURCE, onlineSource)
                     putString(EXTRA_ONLINE_ID, onlineId)
+                    putString(EXTRA_SONG_JSON, this@mediaMetadata.toJson().toString())
                 }
             )
             .build()
@@ -756,6 +764,11 @@ class ExoPlayerManager(private val context: Context) {
 
     private fun MediaItem.toSong(): Song {
         val metadata = mediaMetadata
+        metadata.extras
+            ?.getString(EXTRA_SONG_JSON)
+            ?.let { raw -> runCatching { JSONObject(raw).toSongOrNull() }.getOrNull() }
+            ?.let { return it }
+
         val path = localConfiguration?.uri?.toString().orEmpty()
         val mediaIdValue = mediaId.toLongOrNull() ?: path.hashCode().toLong()
         val fileName = path.substringAfterLast('/').ifBlank { metadata.title?.toString().orEmpty() }
@@ -778,6 +791,7 @@ class ExoPlayerManager(private val context: Context) {
     private companion object {
         const val EXTRA_ONLINE_SOURCE = "com.ella.music.extra.ONLINE_SOURCE"
         const val EXTRA_ONLINE_ID = "com.ella.music.extra.ONLINE_ID"
+        const val EXTRA_SONG_JSON = "com.ella.music.extra.SONG_JSON"
         const val MAX_NOTIFICATION_ARTWORK_BYTES = 2 * 1024 * 1024
         const val PLAYBACK_PREFS = "ella_playback_state"
         const val KEY_QUEUE = "queue"

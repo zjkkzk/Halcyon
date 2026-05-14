@@ -242,7 +242,8 @@ fun EllaApp(
         Screen.Home.route,
         Screen.Library.route,
         Screen.Album.route,
-        Screen.Folder.route
+        Screen.Folder.route,
+        Screen.Settings.route
     )
     val showBottomBar = currentRoute in bottomBarScreens
 
@@ -288,6 +289,7 @@ fun EllaApp(
         Triple(Screen.Library.route, "音乐库", MiuixIcons.Regular.Playlist),
         Triple(Screen.Album.route, "专辑", MiuixIcons.Regular.Album),
         Triple(Screen.Folder.route, "文件夹", MiuixIcons.Regular.Folder),
+        Triple(Screen.Settings.route, "设置", MiuixIcons.Regular.Settings),
     )
 
     val contentModifier = Modifier
@@ -326,10 +328,10 @@ fun EllaApp(
                 if (currentRoute != route) {
                     navController.navigate(route) {
                         popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                            saveState = false
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        restoreState = false
                     }
                     AppLogStore.debug(context, "BottomNav", "navigate route=$route")
                 } else {

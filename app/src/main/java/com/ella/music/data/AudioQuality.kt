@@ -63,7 +63,9 @@ fun detailedAudioInfo(info: AudioInfo): String = detailedAudioInfo(info, normali
 fun normalizedBitDepth(info: AudioInfo): Int {
     if (info.bitDepth > 0) return info.bitDepth
     val format = normalizedAudioFormat(info.format)
-    if (format in setOf("FLAC", "ALAC/M4A", "WAV", "APE") || (format == "M4A" && info.bitRate >= 700_000)) {
+    if (format in setOf("FLAC", "ALAC/M4A", "WAV", "APE") ||
+        (format == "M4A" && (info.sampleRate >= 88_200 || info.bitRate >= 700_000))
+    ) {
         return if (info.sampleRate >= 88_200 || info.bitRate >= 1_600_000) 24 else 16
     }
     return 0

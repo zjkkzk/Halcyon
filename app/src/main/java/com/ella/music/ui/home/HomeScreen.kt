@@ -319,6 +319,7 @@ fun LibraryScreen(
                                 isCurrent = currentSong?.id == song.id,
                                 albumArtUri = if (listCoversEnabled) mainViewModel.getAlbumArtUri(song.albumId) else null,
                                 loadCoverArt = mainViewModel::getCoverArtBitmap,
+                                loadAudioInfo = mainViewModel::getAudioInfo,
                                 selectionMode = selectionMode,
                                 selected = selected,
                                 onLongClick = {

@@ -249,12 +249,11 @@ internal object EllaLyricsParser {
                     ?.textContent
                     ?.cleanLyricText()
                 val transliteration = transliterations[key]
-                val pronunciationWords = if (transliteration != null && transliteration.size == words.size) {
-                    words.mapIndexed { wordIndex, word -> word.copy(text = transliteration[wordIndex]) }
-                } else {
-                    emptyList()
-                }
+                val pronunciationWords = transliteration?.words
+                    ?.alignPronunciationWords(words, text)
+                    .orEmpty()
                 val pronunciation = linePronunciation
+                    ?: transliteration?.text?.takeUsefulText()
                     ?: pronunciationWords.joinLyricText().takeIf { it.isNotBlank() }
 
                 if (text.isBlank() && bg == null) return@mapNotNull null
@@ -300,19 +299,39 @@ internal object EllaLyricsParser {
         return result
     }
 
-    private fun parseTransliterations(root: Element): Map<String, List<String>> {
-        val result = mutableMapOf<String, List<String>>()
+    private fun parseTransliterations(root: Element): Map<String, TtmlPronunciation> {
+        val result = mutableMapOf<String, TtmlPronunciation>()
         root.allElements()
             .filter { it.localTagName() == "transliteration" }
             .flatMap { it.childrenElements() }
             .filter { it.localTagName() == "text" }
             .forEach { text ->
                 val key = text.attr("for").ifBlank { return@forEach }
-                val spans = text.childrenElements()
+                val words = text.childrenElements()
                     .filter { it.localTagName() == "span" }
-                    .map { it.textContent.cleanLyricText() }
-                    .filter { it.isNotBlank() }
-                if (spans.isNotEmpty()) result[key] = spans
+                    .mapNotNull { span ->
+                        val value = span.textContent
+                            .removeBackgroundParentheses()
+                            .cleanLyricText()
+                            .takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        val start = span.attr("begin").parseTtmlTime()
+                        val end = span.attr("end").parseTtmlTime()
+                        LyricWord(
+                            text = value,
+                            startMs = start ?: 0L,
+                            endMs = end ?: start?.plus(estimateDuration(value)) ?: 0L
+                        )
+                    }
+                val plainText = text.textContent
+                    .removeBackgroundParentheses()
+                    .cleanLyricText()
+                    .takeUsefulText()
+                if (!plainText.isNullOrBlank() || words.isNotEmpty()) {
+                    result[key] = TtmlPronunciation(
+                        text = plainText.orEmpty(),
+                        words = words
+                    )
+                }
             }
         return result
     }
@@ -370,13 +389,21 @@ internal object EllaLyricsParser {
             .values
             .map { group ->
                 if (group.size == 1) return@map group.first()
-                val primary = group.firstOrNull { it.text.isUsefulMainText() } ?: group.first()
-                val pronunciation = group.firstOrNull { it !== primary && it.text.isPronunciationLine() }
+                val hasRomanizedCompanion = group.size >= 3 && group.any { it.text.isPronunciationLine() }
+                val primary = if (hasRomanizedCompanion) {
+                    group.firstOrNull { it.text.cleanLyricText().hasCjk() && it.text.isUsefulMainText() }
+                } else {
+                    null
+                } ?: group.firstOrNull { it.text.isUsefulMainText() } ?: group.first()
+                val primaryText = primary.text.cleanLyricText()
+                val pronunciation = group
+                    .takeIf { it.size >= 3 && primaryText.hasCjk() }
+                    ?.firstOrNull { it !== primary && it.text.isPronunciationLine() }
                 val translation = group
                     .asSequence()
                     .filter { it !== primary && it !== pronunciation }
                     .map { it.text.cleanLyricText() }
-                    .firstOrNull { it.isUsefulMainText() && it != primary.text.cleanLyricText() }
+                    .firstOrNull { it.isUsefulMainText() && it != primaryText }
                 primary.copy(
                     translation = primary.translation ?: translation,
                     pronunciation = primary.pronunciation ?: pronunciation?.text?.cleanLyricText(),
@@ -419,6 +446,56 @@ internal object EllaLyricsParser {
         val words: List<LyricWord>,
         val translation: String?
     )
+
+    private data class TtmlPronunciation(
+        val text: String,
+        val words: List<LyricWord>
+    )
+
+    private fun List<LyricWord>.alignPronunciationWords(
+        mainWords: List<LyricWord>,
+        mainText: String
+    ): List<LyricWord> {
+        if (isEmpty() || mainWords.isEmpty()) return emptyList()
+
+        if (size == mainWords.size) {
+            return mainWords.mapIndexed { index, word -> word.copy(text = this[index].text) }
+        }
+
+        val byOverlap = mainWords.mapNotNull { word ->
+            val match = maxByOrNull { ruby ->
+                val overlap = minOf(word.endMs, ruby.endMs) - maxOf(word.startMs, ruby.startMs)
+                overlap.coerceAtLeast(0L)
+            }?.takeIf { ruby ->
+                minOf(word.endMs, ruby.endMs) > maxOf(word.startMs, ruby.startMs)
+            }
+            match?.let { word.copy(text = it.text) }
+        }
+        if (byOverlap.size == mainWords.size) return byOverlap
+
+        val cjkWordIndices = mainWords
+            .mapIndexedNotNull { index, word -> index.takeIf { word.text.hasCjk() } }
+        if (cjkWordIndices.size == size) {
+            val result = MutableList(mainWords.size) { index -> mainWords[index].copy(text = "") }
+            cjkWordIndices.forEachIndexed { rubyIndex, wordIndex ->
+                result[wordIndex] = mainWords[wordIndex].copy(text = this[rubyIndex].text)
+            }
+            return result.filter { it.text.isNotBlank() }
+        }
+
+        val cjkCharCount = mainText.count { it.isCjkChar() }
+        if (cjkCharCount == size && mainWords.size == 1) {
+            val word = mainWords.first()
+            val duration = (word.endMs - word.startMs).coerceAtLeast(size * 120L)
+            return mapIndexed { index, ruby ->
+                val start = word.startMs + duration * index / size
+                val end = word.startMs + duration * (index + 1) / size
+                LyricWord(ruby.text, start, end)
+            }
+        }
+
+        return emptyList()
+    }
 
     private fun parseLrcTime(groups: List<String>): Long {
         val minutes = groups[1].toLongOrNull() ?: 0L
@@ -534,7 +611,12 @@ internal object EllaLyricsParser {
                 result += this[startIndex].copy(text = token, endMs = endMs)
             }
         }
-        return result.ifEmpty { withSpacing(normalized) }
+        val resultText = result.joinToString("") { it.text }.cleanLyricText()
+        return if (result.isNotEmpty() && resultText == normalized) {
+            result
+        } else {
+            withSpacing(normalized)
+        }
     }
 
     private fun List<LyricWord>.withSpacing(lineText: String): List<LyricWord> {
@@ -545,7 +627,11 @@ internal object EllaLyricsParser {
             val end = start + word.text.length
             val next = getOrNull(index + 1)?.text
             val nextStart = if (next != null) lineText.indexOf(next, end) else -1
-            val suffix = if (nextStart > end) lineText.substring(end, nextStart) else ""
+            val suffix = when {
+                nextStart > end -> lineText.substring(end, nextStart)
+                next == null && end < lineText.length -> lineText.substring(end)
+                else -> ""
+            }
             cursor = end + suffix.length
             word.copy(text = word.text + suffix)
         }
@@ -571,17 +657,18 @@ internal object EllaLyricsParser {
     }
 
     private fun String.hasCjk(): Boolean =
-        any { char ->
-            Character.UnicodeBlock.of(char) in setOf(
-                Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
-                Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A,
-                Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B,
-                Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS,
-                Character.UnicodeBlock.HIRAGANA,
-                Character.UnicodeBlock.KATAKANA,
-                Character.UnicodeBlock.HANGUL_SYLLABLES
-            )
-        }
+        any { it.isCjkChar() }
+
+    private fun Char.isCjkChar(): Boolean =
+        Character.UnicodeBlock.of(this) in setOf(
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B,
+            Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS,
+            Character.UnicodeBlock.HIRAGANA,
+            Character.UnicodeBlock.KATAKANA,
+            Character.UnicodeBlock.HANGUL_SYLLABLES
+        )
 
     private fun String.isPronunciationLine(): Boolean {
         val text = cleanLyricText()

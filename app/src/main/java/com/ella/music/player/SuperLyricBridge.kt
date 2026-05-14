@@ -140,7 +140,11 @@ class SuperLyricBridge {
             val end = start + word.text.length
             val nextText = getOrNull(index + 1)?.text
             val nextStart = if (nextText != null) lineText.indexOf(nextText, startIndex = end) else -1
-            val suffix = if (nextStart > end) lineText.substring(end, nextStart) else ""
+            val suffix = when {
+                nextStart > end -> lineText.substring(end, nextStart)
+                nextText == null && end < lineText.length -> lineText.substring(end)
+                else -> ""
+            }
             result += word.copy(text = word.text + suffix)
             cursor = end + suffix.length
         }

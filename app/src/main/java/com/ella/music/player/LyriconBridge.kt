@@ -91,14 +91,14 @@ class LyriconBridge(private val context: Context) {
 
         try {
             val richLyrics = lyrics.map { line ->
-                val words = line.words.map { word ->
+                val words = line.words.withLineSpacing(line.text).map { word ->
                     LyricWord(
                         text = word.text,
                         begin = word.startMs,
                         end = word.endMs
                     )
                 }
-                val backgroundWords = line.backgroundWords.map { word ->
+                val backgroundWords = line.backgroundWords.withLineSpacing(line.backgroundText.orEmpty()).map { word ->
                     LyricWord(
                         text = word.text,
                         begin = word.startMs,
@@ -147,14 +147,14 @@ class LyriconBridge(private val context: Context) {
 
         try {
             val richLyrics = lyrics.map { line ->
-                val words = line.words.map { word ->
+                val words = line.words.withLineSpacing(line.text).map { word ->
                     LyricWord(
                         text = word.text,
                         begin = word.startMs,
                         end = word.endMs
                     )
                 }
-                val backgroundWords = line.backgroundWords.map { word ->
+                val backgroundWords = line.backgroundWords.withLineSpacing(line.backgroundText.orEmpty()).map { word ->
                     LyricWord(
                         text = word.text,
                         begin = word.startMs,
@@ -247,5 +247,35 @@ class LyriconBridge(private val context: Context) {
     private fun LyricLine.translationForLyricon(): String? {
         if (!displayTranslation) return null
         return translation ?: backgroundTranslation
+    }
+
+    private fun List<com.ella.music.data.model.LyricWord>.withLineSpacing(
+        lineText: String
+    ): List<com.ella.music.data.model.LyricWord> {
+        if (isEmpty() || lineText.isBlank() || !lineText.any { it.isWhitespace() }) return this
+
+        val result = mutableListOf<com.ella.music.data.model.LyricWord>()
+        var cursor = 0
+
+        forEachIndexed { index, word ->
+            val start = lineText.indexOf(word.text, startIndex = cursor)
+            if (start < 0) {
+                result += word
+                return@forEachIndexed
+            }
+
+            val end = start + word.text.length
+            val nextText = getOrNull(index + 1)?.text
+            val nextStart = if (nextText != null) lineText.indexOf(nextText, startIndex = end) else -1
+            val suffix = when {
+                nextStart > end -> lineText.substring(end, nextStart)
+                nextText == null && end < lineText.length -> lineText.substring(end)
+                else -> ""
+            }
+            result += word.copy(text = word.text + suffix)
+            cursor = end + suffix.length
+        }
+
+        return result.takeIf { it.size == size } ?: this
     }
 }

@@ -37,16 +37,20 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -499,20 +503,17 @@ private fun WordLine(
             words.forEach { word ->
                 val wordText = word.text.lineBreakSafeText()
                 if (wordText.isEmpty()) return@forEach
-                val isCurrent = currentPositionMs in word.startMs..word.endMs
-                val isSung = currentPositionMs >= word.endMs
-                pushStyle(
-                    SpanStyle(
-                        color = when {
-                            isCurrent -> currentColor
-                            isSung -> sungColor
-                            else -> pendingColor
-                        },
-                        fontWeight = if (isCurrent) fontWeight else fontWeight.softenedLyricWeight()
-                    )
+                appendTimedLyricWord(
+                    text = wordText,
+                    startMs = word.startMs,
+                    endMs = word.endMs,
+                    currentPositionMs = currentPositionMs,
+                    currentColor = currentColor,
+                    sungColor = sungColor,
+                    pendingColor = pendingColor,
+                    fontWeight = fontWeight,
+                    inactiveWeight = fontWeight.softenedLyricWeight()
                 )
-                append(wordText)
-                pop()
                 appended = true
             }
             if (!appended) append(text)
@@ -533,6 +534,102 @@ private fun WordLine(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 5.dp)
+    )
+}
+
+private const val LONG_WORD_GLOW_MS = 650L
+
+private fun AnnotatedString.Builder.appendTimedLyricWord(
+    text: String,
+    startMs: Long,
+    endMs: Long,
+    currentPositionMs: Long,
+    currentColor: Color,
+    sungColor: Color,
+    pendingColor: Color,
+    fontWeight: FontWeight,
+    inactiveWeight: FontWeight
+) {
+    val durationMs = (endMs - startMs).coerceAtLeast(1L)
+    val isCurrent = currentPositionMs in startMs until endMs
+    val isSung = currentPositionMs >= endMs
+    when {
+        isCurrent -> {
+            val progress = ((currentPositionMs - startMs).toFloat() / durationMs).coerceIn(0f, 1f)
+            val glow = if (durationMs >= LONG_WORD_GLOW_MS) {
+                Shadow(
+                    color = currentColor.copy(alpha = 0.56f),
+                    offset = Offset.Zero,
+                    blurRadius = 18f
+                )
+            } else {
+                null
+            }
+            appendStyledLyricText(
+                value = text,
+                color = currentColor,
+                fontWeight = fontWeight,
+                brush = lyricSweepBrush(
+                    progress = progress,
+                    activeColor = currentColor,
+                    pendingColor = pendingColor
+                ),
+                shadow = glow,
+                baselineShift = BaselineShift(0.045f)
+            )
+        }
+        isSung -> appendStyledLyricText(text, sungColor, inactiveWeight)
+        else -> appendStyledLyricText(text, pendingColor, inactiveWeight)
+    }
+}
+
+private fun AnnotatedString.Builder.appendStyledLyricText(
+    value: String,
+    color: Color,
+    fontWeight: FontWeight,
+    brush: Brush? = null,
+    shadow: Shadow? = null,
+    baselineShift: BaselineShift? = null
+) {
+    if (value.isEmpty()) return
+    val style = if (brush != null) {
+        SpanStyle(
+            brush = brush,
+            fontWeight = fontWeight,
+            shadow = shadow,
+            baselineShift = baselineShift
+        )
+    } else {
+        SpanStyle(
+            color = color,
+            fontWeight = fontWeight,
+            shadow = shadow,
+            baselineShift = baselineShift
+        )
+    }
+    pushStyle(
+        style
+    )
+    append(value)
+    pop()
+}
+
+private fun lyricSweepBrush(
+    progress: Float,
+    activeColor: Color,
+    pendingColor: Color
+): Brush {
+    val head = (progress - 0.045f).coerceIn(0f, 0.96f)
+    val edge = progress.coerceIn(head + 0.002f, 0.985f)
+    val tail = (progress + 0.090f).coerceIn(edge + 0.008f, 1f)
+    return Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0f to activeColor,
+            head to activeColor,
+            edge to Color.White.copy(alpha = activeColor.alpha),
+            tail to pendingColor,
+            1f to pendingColor
+        )
     )
 }
 
