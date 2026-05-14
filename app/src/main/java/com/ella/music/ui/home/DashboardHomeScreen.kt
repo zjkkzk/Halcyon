@@ -14,11 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,7 +72,7 @@ fun HomeScreen(
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = if (isDark) Color(0xFF101014) else Color(0xFFF5F6FA)
     val cardText = if (isDark) Color.White else Color(0xFF15151A)
-    val featuredSongs = remember(songs) { songs.shuffled().take(5) }
+    val featuredSongs = remember(songs) { songs.shuffled().take(3) }
     val artistCount = remember(songs) {
         songs
             .flatMap { splitArtistNames(it.artist) }
@@ -84,7 +81,7 @@ fun HomeScreen(
     }
     val songsById = remember(songs) { songs.associateBy { it.id } }
     val recentSongs = remember(history, songsById) {
-        history.take(8).mapNotNull { entry -> songsById[entry.songId] }
+        history.take(5).mapNotNull { entry -> songsById[entry.songId] }
     }
 
     Column(
@@ -156,26 +153,7 @@ fun HomeScreen(
                     modifier = Modifier.padding(vertical = 12.dp)
                 )
             } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(recentSongs, key = { it.id }) { song ->
-                        RecentSongCard(
-                            song = song,
-                            mainViewModel = mainViewModel,
-                            cardText = cardText,
-                            onClick = {
-                                playerViewModel.playSong(song)
-                                if (openPlayerOnPlay) onNavigateToPlayer()
-                            }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                recentSongs.take(3).forEach { song ->
+                recentSongs.forEach { song ->
                     CompactRecentSongRow(
                         song = song,
                         mainViewModel = mainViewModel,
@@ -219,7 +197,7 @@ private fun DailyMixCard(
                 .padding(20.dp)
         ) {
             featuredSongs.forEachIndexed { index, song ->
-                val size = listOf(74, 64, 58, 52, 46).getOrElse(index) { 46 }.dp
+                val size = listOf(68, 58, 48).getOrElse(index) { 48 }.dp
                 SafeCoverImage(
                     model = mainViewModel.getAlbumArtUri(song.albumId),
                     contentDescription = null,
@@ -228,7 +206,7 @@ private fun DailyMixCard(
                         .offset(x = (-16 - index * 28).dp, y = (14 + index * 14).dp)
                         .size(size)
                         .clip(CircleShape),
-                    sizePx = 192
+                    sizePx = 96
                 )
             }
 
@@ -256,43 +234,6 @@ private fun DailyMixCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RecentSongCard(
-    song: Song,
-    mainViewModel: MainViewModel,
-    cardText: Color,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(132.dp)
-            .clickable(onClick = onClick)
-    ) {
-        SafeCoverImage(
-            model = mainViewModel.getAlbumArtUri(song.albumId),
-            contentDescription = null,
-            modifier = Modifier
-                .size(132.dp)
-                .clip(RoundedCornerShape(14.dp)),
-            sizePx = 220
-        )
-        Text(
-            text = song.title,
-            color = cardText,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-        Text(
-            text = song.artist,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            fontSize = 12.sp,
-            maxLines = 1
-        )
     }
 }
 
