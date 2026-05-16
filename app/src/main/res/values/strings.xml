@@ -45,7 +45,7 @@
     <string name="about_sdk_version">SDK 版本</string>
     <string name="about_contributors">贡献者</string>
     <string name="about_open_source">开源许可</string>
-    <string name="about_copyright">© 2024 Ella Music. All rights reserved.</string>
+    <string name="about_copyright">© 2026 Kifranei. All rights reserved.</string>
 
     <string-array name="lyricon_module_tags">
         <item>$syllable</item>
