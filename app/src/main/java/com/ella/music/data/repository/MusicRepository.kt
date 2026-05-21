@@ -401,8 +401,9 @@ class MusicRepository(private val context: Context) {
         return _songs.value
             .filter { it.albumIdentityId() == albumId }
             .sortedWith(
-                compareBy<Song> { it.trackNumber <= 0 }
-                    .thenBy { it.trackNumber }
+                compareBy<Song> { it.discNumber <= 0 && it.trackNumber <= 0 }
+                    .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
+                    .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
                     .thenBy { it.title.lowercase() }
                     .thenBy { it.id }
             )
@@ -580,6 +581,7 @@ class MusicRepository(private val context: Context) {
                     .put("dateAdded", song.dateAdded)
                     .put("dateModified", song.dateModified)
                     .put("trackNumber", song.trackNumber)
+                    .put("discNumber", song.discNumber)
                     .put("albumArtist", song.albumArtist)
                     .put("genre", song.genre)
                     .put("year", song.year)
@@ -629,6 +631,7 @@ class MusicRepository(private val context: Context) {
                 dateAdded = item.optLong("dateAdded"),
                 dateModified = item.optLong("dateModified"),
                 trackNumber = item.optInt("trackNumber"),
+                discNumber = item.optInt("discNumber"),
                 albumArtist = item.optString("albumArtist"),
                 genre = item.optString("genre"),
                 year = item.optString("year"),
@@ -705,9 +708,15 @@ class MusicRepository(private val context: Context) {
             }.getOrDefault(SongTagInfo())
             Song(
                 id = cursor.getLong(0),
-                title = cursor.getString(1)?.takeUnless { it.isBlank() || it == "<unknown>" } ?: song.title,
-                artist = cursor.getString(2)?.takeUnless { it.isBlank() || it == "<unknown>" } ?: song.artist,
-                album = cursor.getString(3)?.takeUnless { it.isBlank() || it == "<unknown>" } ?: song.album,
+                title = tagInfo.title.usableTagText().ifBlank {
+                    cursor.getString(1)?.usableTagText().orEmpty().ifBlank { song.title }
+                },
+                artist = tagInfo.artist.usableTagText().ifBlank {
+                    cursor.getString(2)?.usableTagText().orEmpty().ifBlank { song.artist }
+                },
+                album = tagInfo.album.usableTagText().ifBlank {
+                    cursor.getString(3)?.usableTagText().orEmpty().ifBlank { song.album }
+                },
                 albumId = cursor.getLong(4),
                 duration = cursor.getLong(5).takeIf { it > 0L } ?: song.duration,
                 path = cursor.getString(6).orEmpty().ifBlank { song.path },
@@ -717,6 +726,7 @@ class MusicRepository(private val context: Context) {
                 dateAdded = cursor.getLong(10) * 1000L,
                 dateModified = cursor.getLong(11) * 1000L,
                 trackNumber = cursor.getInt(12).let { if (it > 1000) it % 1000 else it },
+                discNumber = cursor.getInt(12).let { if (it >= 1000) it / 1000 else song.discNumber },
                 albumArtist = tagInfo.albumArtist.ifBlank { song.albumArtist },
                 genre = tagInfo.genre.ifBlank { song.genre },
                 year = tagInfo.year.ifBlank { song.year },
@@ -742,4 +752,11 @@ class MusicRepository(private val context: Context) {
 
     private fun String.extractYearInt(): Int? =
         Regex("""\d{4}""").find(this)?.value?.toIntOrNull()
+
+    private fun String?.usableTagText(): String {
+        val text = this?.trim().orEmpty()
+        if (text.isBlank() || text == "<unknown>") return ""
+        if ('\uFFFD' in text || "锟斤拷" in text || Regex("""(?:锟|斤|拷){3,}""").containsMatchIn(text)) return ""
+        return text
+    }
 }

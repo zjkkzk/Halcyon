@@ -284,7 +284,7 @@ Ella Music 以 **AGPL-3.0-or-later** 协议开源。由于项目包含对 MusicF
 ## 👀 访问统计
 
 <p align="center">
-  <img src="https://count.getloli.com/get/@kifranei_ella?theme=moebooru-h" alt="Visitor Count" />
+  <img src="https://count.getloli.com/get/@kifranei_ella?theme=gelbooru-h" alt="Visitor Count" />
 </p>
 
 ---

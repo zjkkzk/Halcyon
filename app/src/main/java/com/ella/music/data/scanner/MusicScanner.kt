@@ -92,7 +92,9 @@ class MusicScanner(private val context: Context) {
                 val mime = cursor.getString(mimeCol) ?: ""
                 val dateAdded = cursor.getLong(dateAddedCol) * 1000L
                 val dateModified = cursor.getLong(dateModifiedCol) * 1000L
-                val trackNumber = cursor.getInt(trackCol).normalizedTrackNumber()
+                val rawTrackNumber = cursor.getInt(trackCol)
+                val trackNumber = rawTrackNumber.normalizedTrackNumber()
+                var discNumber = rawTrackNumber.normalizedDiscNumber()
 
                 if (path.isEmpty()) continue
                 if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
@@ -121,6 +123,11 @@ class MusicScanner(private val context: Context) {
                         tag.safeFirst(file, "TEXT"),
                         tag.safeFirst(file, "WRITER")
                     ).orEmpty()
+                    discNumber = discNumber.takeIf { it > 0 } ?: firstNonBlank(
+                        tag.safeFirst(file, "DISCNUMBER"),
+                        tag.safeFirst(file, "DISC"),
+                        tag.safeFirst(file, "TPOS")
+                    ).orEmpty().normalizedDiscNumberFromTag()
                     if (duration <= 0) duration = (audioFile.audioHeader?.trackLength ?: 0) * 1000L
                 }
 
@@ -154,6 +161,9 @@ class MusicScanner(private val context: Context) {
                             }
                             if (lyricist.isBlank()) {
                                 lyricist = props.firstValue("LYRICIST", "TEXT", "WRITER", "AUTHOR", "WM/WRITER")
+                            }
+                            if (discNumber <= 0) {
+                                discNumber = props.firstValue("DISCNUMBER", "DISC", "TPOS").normalizedDiscNumberFromTag()
                             }
                             if (duration <= 0) {
                                 duration = ((audioProps?.length ?: 0) * 1000L)
@@ -209,6 +219,7 @@ class MusicScanner(private val context: Context) {
                             dateAdded = dateAdded,
                             dateModified = dateModified,
                             trackNumber = trackNumber,
+                            discNumber = discNumber,
                             albumArtist = albumArtist,
                             genre = genre,
                             year = year,
@@ -429,6 +440,7 @@ class MusicScanner(private val context: Context) {
         if (normalized.equals("unknown", ignoreCase = true)) return true
         if (normalized.equals("unknown artist", ignoreCase = true)) return true
         if (normalized.equals("unknown album", ignoreCase = true)) return true
+        if (normalized.looksLikeMojibake()) return true
         return fileName != null && normalized == fileName.substringBeforeLast('.')
     }
 
@@ -764,8 +776,21 @@ class MusicScanner(private val context: Context) {
     private fun String.normalizeYear(): String =
         Regex("""\d{4}""").find(this)?.value ?: trim()
 
+    private fun String.looksLikeMojibake(): Boolean {
+        val text = trim()
+        if (text.isBlank()) return false
+        if ('\uFFFD' in text || "锟斤拷" in text || "�" in text) return true
+        return Regex("""(?:锟|斤|拷){3,}""").containsMatchIn(text)
+    }
+
     private fun Int.normalizedTrackNumber(): Int =
         if (this > 1000) this % 1000 else this
+
+    private fun Int.normalizedDiscNumber(): Int =
+        if (this >= 1000) this / 1000 else 0
+
+    private fun String.normalizedDiscNumberFromTag(): Int =
+        substringBefore('/').trim().toIntOrNull() ?: 0
 
     private fun String.normalizedFolderPath(): String? {
         val normalized = trim().replace('\\', '/').trimEnd('/')

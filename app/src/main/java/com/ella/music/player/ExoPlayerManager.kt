@@ -386,6 +386,22 @@ class ExoPlayerManager(private val context: Context) {
         savePlaybackState(force = true)
     }
 
+    fun restartSong(song: Song?) {
+        val controller = mediaController ?: return
+        val target = song ?: _currentSong.value
+        val targetIndex = target?.let { current ->
+            playlist.indexOfFirst { it.id == current.id || it.path == current.path }
+        } ?: -1
+        val safeIndex = targetIndex.takeIf { it >= 0 } ?: controller.currentMediaItemIndex
+        if (safeIndex < 0) return
+        controller.seekToDefaultPosition(safeIndex)
+        controller.play()
+        _currentPosition.value = 0L
+        updateCurrentSong()
+        savePlaybackQueue(force = true)
+        savePlaybackState(force = true)
+    }
+
     fun seekTo(positionMs: Long) {
         mediaController?.seekTo(positionMs)
         savePlaybackState(force = true)
@@ -574,6 +590,7 @@ class ExoPlayerManager(private val context: Context) {
             .setDescription(album)
             .setDurationMs(duration.takeIf { it > 0L } ?: C.TIME_UNSET)
             .setTrackNumber(trackNumber.takeIf { it > 0 })
+            .setDiscNumber(discNumber.takeIf { it > 0 })
             .apply {
                 if (artworkData != null) {
                     setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
@@ -861,6 +878,12 @@ class ExoPlayerManager(private val context: Context) {
         .put("dateAdded", dateAdded)
         .put("dateModified", dateModified)
         .put("trackNumber", trackNumber)
+        .put("discNumber", discNumber)
+        .put("albumArtist", albumArtist)
+        .put("genre", genre)
+        .put("year", year)
+        .put("composer", composer)
+        .put("lyricist", lyricist)
         .put("coverUrl", coverUrl)
         .put("onlineSource", onlineSource)
         .put("onlineId", onlineId)
@@ -881,6 +904,12 @@ class ExoPlayerManager(private val context: Context) {
             dateAdded = optLong("dateAdded", 0L),
             dateModified = optLong("dateModified", 0L),
             trackNumber = optInt("trackNumber", 0),
+            discNumber = optInt("discNumber", 0),
+            albumArtist = optString("albumArtist"),
+            genre = optString("genre"),
+            year = optString("year"),
+            composer = optString("composer"),
+            lyricist = optString("lyricist"),
             coverUrl = optString("coverUrl"),
             onlineSource = optString("onlineSource"),
             onlineId = optString("onlineId")

@@ -424,6 +424,7 @@ private fun List<Song>.sortedForArtistDetail(mode: ArtistDetailSongSortMode): Li
         ArtistDetailSongSortMode.Title -> sortedBy { it.title.lowercase(Locale.ROOT) }
         ArtistDetailSongSortMode.AlbumTrack -> sortedWith(
             compareBy<Song> { it.album.lowercase(Locale.ROOT) }
+                .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
                 .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
                 .thenBy { it.title.lowercase(Locale.ROOT) }
         )

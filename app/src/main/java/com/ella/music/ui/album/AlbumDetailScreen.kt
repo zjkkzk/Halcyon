@@ -284,7 +284,8 @@ private enum class AlbumDetailSongSortMode(val label: String) {
 private fun List<Song>.sortedForAlbumDetail(mode: AlbumDetailSongSortMode): List<Song> {
     return when (mode) {
         AlbumDetailSongSortMode.Track -> sortedWith(
-            compareBy<Song> { it.trackNumber <= 0 }
+            compareBy<Song> { it.discNumber <= 0 && it.trackNumber <= 0 }
+                .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
                 .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
                 .thenBy { it.title.lowercase(Locale.ROOT) }
                 .thenBy { it.id }

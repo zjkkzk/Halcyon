@@ -72,6 +72,7 @@ import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Sort
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import java.util.Locale
@@ -93,6 +94,7 @@ fun FolderScreen(
     val scanProgress by mainViewModel.scanProgress.collectAsState()
     val scanIncludeFolders by mainViewModel.settingsManager.scanIncludeFolders.collectAsState(initial = "")
     val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
+    val useAndroidMediaLibrary by mainViewModel.settingsManager.useAndroidMediaLibrary.collectAsState(initial = true)
     val savedFolders = remember(scanIncludeFolders) { scanIncludeFolders.toFolderSettingList() }
     val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
     val folderSortIndex by mainViewModel.settingsManager.folderListSortIndex.collectAsState(initial = LibrarySortUiState.folderListSortIndex)
@@ -224,6 +226,17 @@ fun FolderScreen(
         if (isScanning) {
             ScanStatusCard(scanProgress = scanProgress)
         }
+
+        MediaSourceModeCard(
+            useAndroidMediaLibrary = useAndroidMediaLibrary,
+            customFolderCount = savedFolders.size,
+            onUseAndroidMediaLibraryChange = { enabled ->
+                scope.launch {
+                    mainViewModel.settingsManager.setUseAndroidMediaLibrary(enabled)
+                    mainViewModel.scanMusic()
+                }
+            }
+        )
 
         if (savedFolders.isNotEmpty()) {
             SavedScanFoldersCard(
@@ -391,6 +404,32 @@ private fun ScanStatusCard(scanProgress: Int) {
             color = MiuixTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
         )
+    }
+}
+
+@Composable
+private fun MediaSourceModeCard(
+    useAndroidMediaLibrary: Boolean,
+    customFolderCount: Int,
+    onUseAndroidMediaLibraryChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            SwitchPreference(
+                title = "使用 Android 媒体库",
+                summary = if (useAndroidMediaLibrary) {
+                    "扫描系统媒体库中的所有音乐"
+                } else {
+                    "仅扫描已添加的 $customFolderCount 个自定义文件夹"
+                },
+                checked = useAndroidMediaLibrary,
+                onCheckedChange = onUseAndroidMediaLibraryChange
+            )
+        }
     }
 }
 

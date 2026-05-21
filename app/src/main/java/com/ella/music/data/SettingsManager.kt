@@ -84,6 +84,7 @@ class SettingsManager(private val context: Context) {
         val KEY_LYRIC_FONT_SCALE = intPreferencesKey("lyric_font_scale")
         val KEY_SCAN_INCLUDE_FOLDERS = stringPreferencesKey("scan_include_folders")
         val KEY_SCAN_EXCLUDE_FOLDERS = stringPreferencesKey("scan_exclude_folders")
+        val KEY_USE_ANDROID_MEDIA_LIBRARY = booleanPreferencesKey("use_android_media_library")
         val KEY_ARTIST_SEPARATORS = stringPreferencesKey("artist_separators")
         val KEY_ARTIST_PROTECTED_NAMES = stringPreferencesKey("artist_protected_names")
         val KEY_GENRE_SEPARATORS = stringPreferencesKey("genre_separators")
@@ -193,6 +194,8 @@ class SettingsManager(private val context: Context) {
     val lyricFontScale: Flow<Int> = context.dataStore.data.map { it[KEY_LYRIC_FONT_SCALE] ?: 100 }
     val scanIncludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_INCLUDE_FOLDERS] ?: "" }
     val scanExcludeFolders: Flow<String> = context.dataStore.data.map { it[KEY_SCAN_EXCLUDE_FOLDERS] ?: "" }
+    val useAndroidMediaLibrary: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_USE_ANDROID_MEDIA_LIBRARY] ?: true }
     val artistSeparators: Flow<String> = context.dataStore.data.map { it[KEY_ARTIST_SEPARATORS] ?: "" }
     val artistProtectedNames: Flow<String> = context.dataStore.data.map { it[KEY_ARTIST_PROTECTED_NAMES] ?: "" }
     val genreSeparators: Flow<String> = context.dataStore.data.map { it[KEY_GENRE_SEPARATORS] ?: "" }
@@ -549,6 +552,10 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_SCAN_INCLUDE_FOLDERS] = folders.trim() }
     }
 
+    suspend fun setUseAndroidMediaLibrary(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_USE_ANDROID_MEDIA_LIBRARY] = enabled }
+    }
+
     suspend fun setArtistSeparators(separators: String) {
         context.dataStore.edit { it[KEY_ARTIST_SEPARATORS] = separators.trim() }
     }
@@ -610,6 +617,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_PLAYER_HDR_GLOW)
             setBoolean(KEY_AUDIO_VISUALIZER_ENABLED)
             setBoolean(KEY_DYNAMIC_COVER_ENABLED)
+            setBoolean(KEY_USE_ANDROID_MEDIA_LIBRARY)
             setBoolean(KEY_BLUETOOTH_LYRIC_ENABLED)
             setBoolean(KEY_BLUETOOTH_LYRIC_TRANSLATION)
             setBoolean(KEY_OPEN_PLAYER_ON_PLAY)

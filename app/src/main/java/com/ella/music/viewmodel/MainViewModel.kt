@@ -91,9 +91,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (scanJob?.isActive == true || isScanning.value) return
         scanJob = viewModelScope.launch {
             val minDuration = settingsManager.minDurationSec.first() * 1000L
+            val includeFolders = settingsManager.scanIncludeFolders.first().toFolderFilterList()
+            val useAndroidMediaLibrary = settingsManager.useAndroidMediaLibrary.first()
             repository.scanMusic(
                 minDuration,
-                settingsManager.scanIncludeFolders.first().toFolderFilterList(),
+                if (useAndroidMediaLibrary) emptyList() else includeFolders.ifEmpty { listOf("__ella_no_custom_folder__") },
                 settingsManager.scanExcludeFolders.first().toFolderFilterList()
             )
         }
@@ -106,9 +108,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         scanJob = viewModelScope.launch {
             if (!settingsManager.autoScan.first()) return@launch
             val minDuration = settingsManager.minDurationSec.first() * 1000L
+            val includeFolders = settingsManager.scanIncludeFolders.first().toFolderFilterList()
+            val useAndroidMediaLibrary = settingsManager.useAndroidMediaLibrary.first()
             repository.scanMusic(
                 minDuration,
-                settingsManager.scanIncludeFolders.first().toFolderFilterList(),
+                if (useAndroidMediaLibrary) emptyList() else includeFolders.ifEmpty { listOf("__ella_no_custom_folder__") },
                 settingsManager.scanExcludeFolders.first().toFolderFilterList()
             )
         }
@@ -217,6 +221,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .filter { song -> song.metadataCategoryNames(type).any { it.equals(target, ignoreCase = true) } }
             .sortedWith(
                 compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.album }
+                    .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
                     .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
                     .thenBy(String.CASE_INSENSITIVE_ORDER) { song -> song.title }
             )

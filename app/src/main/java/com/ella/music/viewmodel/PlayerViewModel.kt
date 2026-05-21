@@ -604,7 +604,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun togglePlayPause() = playerManager.togglePlayPause()
     fun skipToNext() {
         if (repeatMode.value == Player.REPEAT_MODE_ONE) {
-            playerManager.restartCurrent()
+            playerManager.restartSong(currentSong.value)
             return
         }
         if (!playLazyOnlineOffset(1)) playerManager.skipToNext()
@@ -612,7 +612,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun skipToPrevious() {
         if (shouldReplayCurrentFromPreviousButton()) {
-            playerManager.restartCurrent()
+            playerManager.restartSong(currentSong.value)
             return
         }
         if (!playLazyOnlineOffset(-1)) playerManager.skipToPrevious()

@@ -30,6 +30,7 @@ data class PlaylistSong(
     val dateAdded: Long,
     val dateModified: Long,
     val trackNumber: Int,
+    val discNumber: Int = 0,
     val albumArtist: String = "",
     val genre: String = "",
     val year: String = "",
@@ -67,6 +68,7 @@ fun Song.toPlaylistSong(addedAt: Long = System.currentTimeMillis()): PlaylistSon
         dateAdded = dateAdded,
         dateModified = dateModified,
         trackNumber = trackNumber,
+        discNumber = discNumber,
         albumArtist = albumArtist,
         genre = genre,
         year = year,
@@ -95,6 +97,7 @@ fun PlaylistSong.toSong(): Song =
         dateAdded = dateAdded,
         dateModified = dateModified,
         trackNumber = trackNumber,
+        discNumber = discNumber,
         albumArtist = albumArtist,
         genre = genre,
         year = year,
@@ -142,6 +145,7 @@ fun PlaylistSong.toJson(): JSONObject =
         .put("dateAdded", dateAdded)
         .put("dateModified", dateModified)
         .put("trackNumber", trackNumber)
+        .put("discNumber", discNumber)
         .put("albumArtist", albumArtist)
         .put("genre", genre)
         .put("year", year)
@@ -170,6 +174,7 @@ fun JSONObject.toPlaylistSong(): PlaylistSong =
         dateAdded = optLong("dateAdded"),
         dateModified = optLong("dateModified"),
         trackNumber = optInt("trackNumber"),
+        discNumber = optInt("discNumber"),
         albumArtist = optString("albumArtist"),
         genre = optString("genre"),
         year = optString("year"),

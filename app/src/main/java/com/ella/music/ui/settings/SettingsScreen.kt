@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,18 +26,23 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.ella.music.BuildConfig
 import com.ella.music.data.PlaybackStatsStore
@@ -56,7 +62,6 @@ import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -514,11 +519,29 @@ fun SettingsDetailScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         scope.launch { settingsManager.setDynamicCoverEnabled(granted) }
-        Toast.makeText(
-            context,
-            if (granted) "已开启动态封面" else "未授予视频权限，动态封面已关闭",
-            Toast.LENGTH_SHORT
-        ).show()
+        if (granted) {
+            Toast.makeText(context, "已开启动态封面", Toast.LENGTH_SHORT).show()
+        } else {
+            val activity = context as? android.app.Activity
+            val shouldShowRationale = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && activity != null) {
+                ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_MEDIA_VIDEO)
+            } else {
+                true
+            }
+            if (!shouldShowRationale && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Toast.makeText(context, "请在系统设置中授予视频权限后再开启动态封面", Toast.LENGTH_LONG).show()
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                    )
+                }
+            } else {
+                Toast.makeText(context, "未授予视频权限，动态封面已关闭", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun setDynamicCoverEnabled(enabled: Boolean) {
@@ -534,6 +557,7 @@ fun SettingsDetailScreen(
             if (granted) {
                 scope.launch { settingsManager.setDynamicCoverEnabled(true) }
             } else {
+                scope.launch { settingsManager.setDynamicCoverEnabled(false) }
                 dynamicCoverPermissionLauncher.launch(Manifest.permission.READ_MEDIA_VIDEO)
             }
         } else {
@@ -960,6 +984,15 @@ private fun SplitSettingTextField(
     summary: String,
     onValueChange: (String) -> Unit
 ) {
+    var fieldValue by remember {
+        mutableStateOf(TextFieldValue(value, selection = TextRange(value.length)))
+    }
+    LaunchedEffect(value) {
+        if (value != fieldValue.text) {
+            fieldValue = TextFieldValue(value, selection = TextRange(value.length))
+        }
+    }
+
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(
             text = label,
@@ -972,20 +1005,36 @@ private fun SplitSettingTextField(
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
         )
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = label,
-            useLabelAsPlaceholder = true,
-            singleLine = false,
-            insideMargin = DpSize(12.dp, 10.dp),
-            backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
-            cornerRadius = 12.dp,
+        BasicTextField(
+            value = fieldValue,
+            onValueChange = { next ->
+                fieldValue = next
+                onValueChange(next.text)
+            },
             textStyle = TextStyle(
                 color = MiuixTheme.colorScheme.onSurface,
                 fontSize = 14.sp
             ),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 1,
+            maxLines = 5,
+            decorationBox = { innerTextField ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MiuixTheme.colorScheme.surfaceContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    if (fieldValue.text.isBlank()) {
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
+                    innerTextField()
+                }
+            }
         )
     }
 }

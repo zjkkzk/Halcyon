@@ -14,6 +14,7 @@ data class Song(
     val dateAdded: Long = 0L,
     val dateModified: Long = 0L,
     val trackNumber: Int = 0,
+    val discNumber: Int = 0,
     val albumArtist: String = "",
     val genre: String = "",
     val year: String = "",

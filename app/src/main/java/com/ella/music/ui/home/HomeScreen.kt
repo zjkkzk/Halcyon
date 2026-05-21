@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -222,6 +223,22 @@ fun LibraryScreen(
         SmallTopAppBar(
             title = "音乐库",
             color = ellaPageBackground(),
+            navigationIcon = {
+                if (!selectionMode) {
+                    IconButton(
+                        onClick = {
+                            if (!isScanning) mainViewModel.scanMusic()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Refresh,
+                            contentDescription = "刷新音乐库",
+                            tint = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            },
             actions = {
                 if (selectionMode) {
                     IconButton(onClick = {
@@ -249,18 +266,6 @@ fun LibraryScreen(
                         Text(text = "取消", fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurface)
                     }
                 } else {
-                    IconButton(
-                        onClick = {
-                            if (!isScanning) mainViewModel.scanMusic()
-                        }
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Refresh,
-                            contentDescription = "刷新音乐库",
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                     IconButton(onClick = { sortExpanded = !sortExpanded }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Sort,
@@ -291,6 +296,20 @@ fun LibraryScreen(
                 }
             }
         )
+
+        BackHandler(enabled = selectionMode || searchExpanded || sortExpanded) {
+            when {
+                selectionMode -> {
+                    selectedIds = emptySet()
+                    selectionMode = false
+                }
+                searchExpanded -> {
+                    searchExpanded = false
+                    searchQuery = ""
+                }
+                sortExpanded -> sortExpanded = false
+            }
+        }
 
         AnimatedVisibility(
             visible = sortExpanded && !selectionMode,

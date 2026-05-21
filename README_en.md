@@ -292,7 +292,7 @@ Because the project contains compatibility implementations related to the MusicF
 ## 👀 Visitor Count
 
 <p align="center">
-  <img src="https://count.getloli.com/get/@kifranei_ella?theme=moebooru-h" alt="Visitor Count" />
+  <img src="https://count.getloli.com/get/@kifranei_ella?theme=gelbooru-h" alt="Visitor Count" />
 </p>
 
 ---
