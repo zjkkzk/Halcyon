@@ -47,13 +47,11 @@
     <string name="about_open_source">开源许可</string>
     <string name="about_copyright">© 2026 Kifranei. All rights reserved.</string>
     <string name="shortcut_library_short">音乐库</string>
-    <string name="shortcut_library_long">打开音乐库</string>
+    <string name="shortcut_library_long">音乐库</string>
     <string name="shortcut_playlists_short">歌单</string>
-    <string name="shortcut_playlists_long">打开歌单</string>
+    <string name="shortcut_playlists_long">歌单</string>
     <string name="shortcut_folder_short">文件夹</string>
-    <string name="shortcut_folder_long">打开文件夹</string>
-    <string name="shortcut_settings_short">设置</string>
-    <string name="shortcut_settings_long">打开设置</string>
+    <string name="shortcut_folder_long">文件夹</string>
 
     <string-array name="lyricon_module_tags">
         <item>$syllable</item>

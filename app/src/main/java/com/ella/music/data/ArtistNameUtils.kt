@@ -12,6 +12,9 @@ object NameSplitConfigStore {
 
     @Volatile
     var genreProtectedNames: List<String> = emptyList()
+
+    @Volatile
+    var tagIgnoreCase: Boolean = false
 }
 
 private val defaultArtistSeparatorPatterns = listOf(
@@ -64,14 +67,17 @@ fun splitGenreNames(value: String): List<String> {
 fun String.matchesArtistName(artistName: String): Boolean {
     val target = artistName.trim()
     if (target.isBlank()) return false
-    return splitArtistNames(this).any { it.equals(target, ignoreCase = true) }
+    return splitArtistNames(this).any { it.equals(target, ignoreCase = NameSplitConfigStore.tagIgnoreCase) }
 }
 
 fun String.matchesGenreName(genreName: String): Boolean {
     val target = genreName.trim()
     if (target.isBlank()) return false
-    return splitGenreNames(this).any { it.equals(target, ignoreCase = true) }
+    return splitGenreNames(this).any { it.equals(target, ignoreCase = NameSplitConfigStore.tagIgnoreCase) }
 }
+
+fun String.tagIdentityKey(): String =
+    if (NameSplitConfigStore.tagIgnoreCase) trim().lowercase() else trim()
 
 fun parseNameSplitSetting(value: String): List<String> {
     return value
@@ -124,5 +130,5 @@ private fun splitNames(
         .filter { item ->
             item.isNotBlank() && item.lowercase() !in unknownValues
         }
-        .distinctBy { it.lowercase() }
+        .distinctBy { it.tagIdentityKey() }
 }

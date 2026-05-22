@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.ella.music.data.model.Artist
 import com.ella.music.data.model.Song
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
@@ -83,12 +84,13 @@ fun ArtistListScreen(
     var sortExpanded by remember { mutableStateOf(false) }
     val sortIndex by mainViewModel.settingsManager.artistListSortIndex.collectAsState(initial = LibrarySortUiState.artistListSortIndex)
     val showAlbumArtists by mainViewModel.settingsManager.showAlbumArtists.collectAsState(initial = false)
+    val tagIgnoreCase by mainViewModel.settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val sortMode = ArtistSortMode.entries.getOrElse(sortIndex) { ArtistSortMode.Name }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var scrollToTopRequest by remember { mutableStateOf(0) }
 
-    val artists = remember(songs, albums, showAlbumArtists) { mainViewModel.getArtists(showAlbumArtists) }
-    val representativeSongsByArtist = remember(songs, showAlbumArtists) {
+    val artists = remember(songs, albums, showAlbumArtists, tagIgnoreCase) { mainViewModel.getArtists(showAlbumArtists) }
+    val representativeSongsByArtist = remember(songs, showAlbumArtists, tagIgnoreCase) {
         buildMap {
             songs.forEach { song ->
                 val names = if (showAlbumArtists) {
@@ -97,26 +99,28 @@ fun ArtistListScreen(
                     splitArtistNames(song.artist)
                 }
                 names.forEach { artistName ->
-                    putIfAbsent(artistName, song)
+                    putIfAbsent(artistName.tagIdentityKey(), song)
                 }
             }
         }
     }
-    val artistDurations = remember(songs) {
+    val artistDurations = remember(songs, tagIgnoreCase) {
         buildMap {
             songs.forEach { song ->
                 splitArtistNames(song.artist).forEach { artistName ->
-                    put(artistName.lowercase(), (get(artistName.lowercase()) ?: 0L) + song.duration)
+                    val key = artistName.tagIdentityKey()
+                    put(key, (get(key) ?: 0L) + song.duration)
                 }
             }
         }
     }
-    val releaseAlbumCounts = remember(albums, showAlbumArtists) {
+    val releaseAlbumCounts = remember(albums, showAlbumArtists, tagIgnoreCase) {
         buildMap {
             if (!showAlbumArtists) return@buildMap
             albums.forEach { album ->
                 splitArtistNames(album.albumArtist.ifBlank { album.artist }).forEach { artistName ->
-                    put(artistName.lowercase(), (get(artistName.lowercase()) ?: 0) + 1)
+                    val key = artistName.tagIdentityKey()
+                    put(key, (get(key) ?: 0) + 1)
                 }
             }
         }
@@ -131,8 +135,8 @@ fun ArtistListScreen(
             ArtistSortMode.Name -> filtered.sortedBy { it.name.lowercase() }
             ArtistSortMode.SongCount -> filtered.sortedByDescending { it.songCount }
             ArtistSortMode.AlbumCount -> filtered.sortedByDescending { it.albumCount }
-            ArtistSortMode.ReleaseAlbumCount -> filtered.sortedByDescending { releaseAlbumCounts[it.name.lowercase()] ?: 0 }
-            ArtistSortMode.Duration -> filtered.sortedByDescending { artistDurations[it.name.lowercase()] ?: 0L }
+            ArtistSortMode.ReleaseAlbumCount -> filtered.sortedByDescending { releaseAlbumCounts[it.name.tagIdentityKey()] ?: 0 }
+            ArtistSortMode.Duration -> filtered.sortedByDescending { artistDurations[it.name.tagIdentityKey()] ?: 0L }
         }
     }
 
@@ -262,14 +266,15 @@ fun ArtistListScreen(
                         )
                     }
                     items(filteredArtists, key = { it.name }) { artist ->
+                        val artistKey = artist.name.tagIdentityKey()
                         ArtistRow(
                             artist = artist,
-                            representativeSong = representativeSongsByArtist[artist.name],
+                            representativeSong = representativeSongsByArtist[artistKey],
                             mainViewModel = mainViewModel,
                             summary = artist.summaryForSort(
                                 sortMode = sortMode,
-                                duration = artistDurations[artist.name.lowercase()] ?: 0L,
-                                releaseAlbumCount = releaseAlbumCounts[artist.name.lowercase()] ?: 0
+                                duration = artistDurations[artistKey] ?: 0L,
+                                releaseAlbumCount = releaseAlbumCounts[artistKey] ?: 0
                             ),
                             onClick = { onArtistClick(artist.name) },
                             onLongClick = {

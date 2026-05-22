@@ -39,7 +39,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -60,6 +59,7 @@ fun SongItem(
     onMore: (() -> Unit)? = null,
     leadingLabel: String? = null,
     leadingLabelBeforeCover: Boolean = false,
+    showAlbumInSubtitle: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -141,13 +141,7 @@ fun SongItem(
                     sizePx = 128
                 )
             } else {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Music,
-                    contentDescription = null,
-                    tint = if (isCurrent) MiuixTheme.colorScheme.primary
-                    else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.size(24.dp)
-                )
+                DefaultAlbumCover(modifier = Modifier.size(48.dp))
             }
         }
 
@@ -181,7 +175,13 @@ fun SongItem(
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Text(
-                    text = "${song.artist} · ${song.album}",
+                    text = if (showAlbumInSubtitle) {
+                        listOf(song.artist, song.album)
+                            .map { it.ifBlank { "未知" } }
+                            .joinToString(" · ")
+                    } else {
+                        song.artist.ifBlank { "未知艺术家" }
+                    },
                     fontSize = 13.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     maxLines = 1,

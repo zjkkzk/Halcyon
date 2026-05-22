@@ -3,7 +3,7 @@
     <shortcut
         android:shortcutId="library"
         android:enabled="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_shortcut_library"
         android:shortcutShortLabel="@string/shortcut_library_short"
         android:shortcutLongLabel="@string/shortcut_library_long">
         <intent
@@ -17,7 +17,7 @@
     <shortcut
         android:shortcutId="playlists"
         android:enabled="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_shortcut_playlist"
         android:shortcutShortLabel="@string/shortcut_playlists_short"
         android:shortcutLongLabel="@string/shortcut_playlists_long">
         <intent
@@ -31,7 +31,7 @@
     <shortcut
         android:shortcutId="folder"
         android:enabled="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_shortcut_folder"
         android:shortcutShortLabel="@string/shortcut_folder_short"
         android:shortcutLongLabel="@string/shortcut_folder_long">
         <intent
@@ -42,17 +42,4 @@
         </intent>
     </shortcut>
 
-    <shortcut
-        android:shortcutId="settings"
-        android:enabled="true"
-        android:icon="@mipmap/ic_launcher"
-        android:shortcutShortLabel="@string/shortcut_settings_short"
-        android:shortcutLongLabel="@string/shortcut_settings_long">
-        <intent
-            android:action="android.intent.action.VIEW"
-            android:targetPackage="com.ella.music"
-            android:targetClass="com.ella.music.MainActivity">
-            <extra android:name="ella_shortcut_route" android:value="settings" />
-        </intent>
-    </shortcut>
 </shortcuts>

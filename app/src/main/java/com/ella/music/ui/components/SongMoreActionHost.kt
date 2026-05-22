@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.data.decodeNeteaseKey
 import com.ella.music.data.detailedAudioInfo
+import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
@@ -50,6 +51,7 @@ import com.ella.music.data.neteaseAlbumUrl
 import com.ella.music.data.neteaseArtistUrl
 import com.ella.music.data.neteaseSongUrl
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +63,9 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SongMoreActionHost(
@@ -74,10 +79,12 @@ fun SongMoreActionHost(
     deleteFromLibrary: Boolean = true,
     showDelete: Boolean = true,
     showLocalFileActions: Boolean = true,
-    resolveSongForAction: (suspend (Song) -> Song)? = null
+    resolveSongForAction: (suspend (Song) -> Song)? = null,
+    onDeleteSong: ((Song) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val playlists by mainViewModel.playlists.collectAsState(initial = emptyList())
+    val metadataEditorId by mainViewModel.settingsManager.metadataEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
     val scope = rememberCoroutineScope()
     var playlistSong by remember { mutableStateOf<Song?>(null) }
     var createPlaylistSong by remember { mutableStateOf<Song?>(null) }
@@ -148,7 +155,7 @@ fun SongMoreActionHost(
                 onArtist = {
                     val artists = splitArtistNames(song.artist)
                         .filterNot { it.equals("Unknown", ignoreCase = true) }
-                        .distinctBy { it.lowercase() }
+                        .distinctBy { it.tagIdentityKey() }
                     when (artists.size) {
                         0 -> Toast.makeText(context, "这首歌没有可跳转的歌手信息", Toast.LENGTH_SHORT).show()
                         1 -> onNavigateToArtist(artists.first())
@@ -179,7 +186,9 @@ fun SongMoreActionHost(
                 },
                 onDelete = if (showDelete) {
                     {
-                        if (deleteFromLibrary) {
+                        if (onDeleteSong != null) {
+                            onDeleteSong(song)
+                        } else if (deleteFromLibrary) {
                             mainViewModel.deleteSongs(listOf(song))
                         } else {
                             mainViewModel.removeSongsFromLibrary(listOf(song))
@@ -249,6 +258,19 @@ fun SongMoreActionHost(
     }
 
     tagEditorSong?.let { song ->
+        val tagOptions = remember(song.id, song.path, song.mimeType) {
+            buildTagEditorOptions(context, song)
+                .filter { it.kind == TagEditorOptionKind.Metadata }
+        }
+        val preferredOption = remember(tagOptions, metadataEditorId) {
+            tagOptions.firstOrNull { it.id == metadataEditorId }
+        }
+        LaunchedEffect(song.id, metadataEditorId, preferredOption) {
+            if (metadataEditorId.isNotBlank() && preferredOption != null) {
+                launchTagEditorOption(context, preferredOption)
+                tagEditorSong = null
+            }
+        }
         WindowBottomSheet(
             show = true,
             enableNestedScroll = false,
@@ -257,7 +279,7 @@ fun SongMoreActionHost(
         ) {
             SongTagEditorSheet(
                 song = song,
-                options = buildTagEditorOptions(context, song),
+                options = tagOptions,
                 onDismiss = { tagEditorSong = null },
                 onOptionClick = { option ->
                     launchTagEditorOption(context, option)
@@ -276,11 +298,8 @@ fun SongMoreActionHost(
         ) {
             SongInfoSheet(
                 song = song,
-                mainViewModel = mainViewModel,
-                onAiInterpret = {
-                    infoSong = null
-                    aiSong = song
-                },
+                audioInfoLoader = mainViewModel::getAudioInfo,
+                tagInfoLoader = mainViewModel::getSongTagInfo,
                 onDismiss = { infoSong = null }
             )
         }
@@ -375,7 +394,7 @@ private fun ArtistPickerContent(
     onDismiss: () -> Unit
 ) {
     SongSheetColumn {
-        artists.distinctBy { it.lowercase() }.forEach { artist ->
+        artists.distinctBy { it.tagIdentityKey() }.forEach { artist ->
             BasicComponent(
                 title = artist,
                 onClick = { onArtistSelected(artist) }
@@ -451,19 +470,19 @@ private fun SongTagEditorSheet(
 }
 
 @Composable
-private fun SongInfoSheet(
+fun SongInfoSheet(
     song: Song,
-    mainViewModel: MainViewModel,
-    onAiInterpret: () -> Unit,
+    audioInfoLoader: (Song) -> AudioInfo,
+    tagInfoLoader: (Song) -> SongTagInfo,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     var showNeteaseKeyInfo by remember(song.id) { mutableStateOf(false) }
-    val audioInfo by produceState<com.ella.music.data.model.AudioInfo?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
-        value = withContext(Dispatchers.IO) { mainViewModel.getAudioInfo(song) }
+    val audioInfo by produceState<AudioInfo?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
+        value = withContext(Dispatchers.IO) { audioInfoLoader(song) }
     }
     val tagInfo by produceState<SongTagInfo?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
-        value = withContext(Dispatchers.IO) { mainViewModel.getSongTagInfo(song) }
+        value = withContext(Dispatchers.IO) { tagInfoLoader(song) }
     }
     val neteaseInfo = remember(tagInfo?.neteaseKey) { decodeNeteaseKey(tagInfo?.neteaseKey.orEmpty()) }
 
@@ -477,6 +496,10 @@ private fun SongInfoSheet(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
             )
             neteaseInfo.musicName.takeIf { it.isNotBlank() }?.let { SongInfoRow("歌曲", it) }
+            neteaseInfo.aliases
+                .joinToString(" / ")
+                .takeIf { it.isNotBlank() }
+                ?.let { SongInfoRow("别名", it) }
             neteaseInfo.artists
                 .joinToString(" / ") { it.name.ifBlank { it.id } }
                 .takeIf { it.isNotBlank() }
@@ -498,13 +521,11 @@ private fun SongInfoSheet(
             }
             SongInfoRow("原始 163 key", neteaseInfo.raw)
             SongMenuItem("返回", onClick = { showNeteaseKeyInfo = false })
-            SongMenuItem("关闭", onDismiss)
         }
         return
     }
 
     SongSheetColumn {
-        SongMenuItem("AI 解读歌曲", onAiInterpret)
         SongInfoRow("标题", tagInfo?.title?.ifBlank { song.title } ?: song.title)
         SongInfoRow("艺术家", tagInfo?.artist?.ifBlank { song.artist } ?: song.artist)
         SongInfoRow("专辑", tagInfo?.album?.ifBlank { song.album } ?: song.album)
@@ -526,9 +547,10 @@ private fun SongInfoSheet(
         SongInfoRow("格式", audioInfo?.let { detailedAudioInfo(it) }.orEmpty())
         SongInfoRow("时长", song.durationText)
         SongInfoRow("大小", formatFileSize(song.fileSize))
+        SongInfoRow("修改时间", song.dateModified.formatSongDateTime())
+        SongInfoRow("添加时间", song.dateAdded.formatSongDateTime())
         SongInfoRow("文件名", song.fileName.ifBlank { song.path.substringAfterLast('/') })
         SongInfoRow("路径", song.path)
-        SongMenuItem("关闭", onDismiss)
     }
 }
 
@@ -566,12 +588,9 @@ private fun SongSheetColumn(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color.Black.copy(alpha = 0.54f))
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
         content = content
     )
 }
@@ -591,10 +610,8 @@ private fun SongMenuItem(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.58f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .padding(horizontal = 4.dp, vertical = 14.dp)
     )
 }
 
@@ -659,8 +676,14 @@ private fun formatFileSize(bytes: Long): String {
     val mb = kb / 1024.0
     val gb = mb / 1024.0
     return when {
-        gb >= 1 -> String.format(java.util.Locale.ROOT, "%.2f GB", gb)
-        mb >= 1 -> String.format(java.util.Locale.ROOT, "%.2f MB", mb)
-        else -> String.format(java.util.Locale.ROOT, "%.0f KB", kb)
+        gb >= 1 -> String.format(Locale.ROOT, "%.2f GB", gb)
+        mb >= 1 -> String.format(Locale.ROOT, "%.2f MB", mb)
+        else -> String.format(Locale.ROOT, "%.0f KB", kb)
     }
+}
+
+private fun Long.formatSongDateTime(): String {
+    if (this <= 0L) return ""
+    val millis = if (this < 10_000_000_000L) this * 1000L else this
+    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }

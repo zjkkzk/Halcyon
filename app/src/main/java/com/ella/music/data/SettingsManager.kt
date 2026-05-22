@@ -67,6 +67,11 @@ class SettingsManager(private val context: Context) {
         val KEY_SHOW_PLAY_NEXT_IN_LISTS = booleanPreferencesKey("show_play_next_in_lists")
         val KEY_LYRIC_SHARE_CUSTOM_INFO = stringPreferencesKey("lyric_share_custom_info")
         val KEY_SHOW_ALBUM_ARTISTS = booleanPreferencesKey("show_album_artists")
+        val KEY_METADATA_EDITOR_ID = stringPreferencesKey("metadata_editor_id")
+        val KEY_LYRIC_TIMING_EDITOR_ID = stringPreferencesKey("lyric_timing_editor_id")
+        val KEY_SHORTCUT_LIBRARY_LABEL = stringPreferencesKey("shortcut_library_label")
+        val KEY_SHORTCUT_PLAYLISTS_LABEL = stringPreferencesKey("shortcut_playlists_label")
+        val KEY_SHORTCUT_FOLDER_LABEL = stringPreferencesKey("shortcut_folder_label")
         val KEY_WEBDAV_URL = stringPreferencesKey("webdav_url")
         val KEY_WEBDAV_USERNAME = stringPreferencesKey("webdav_username")
         val KEY_WEBDAV_PASSWORD = stringPreferencesKey("webdav_password")
@@ -96,6 +101,7 @@ class SettingsManager(private val context: Context) {
         val KEY_ARTIST_PROTECTED_NAMES = stringPreferencesKey("artist_protected_names")
         val KEY_GENRE_SEPARATORS = stringPreferencesKey("genre_separators")
         val KEY_GENRE_PROTECTED_NAMES = stringPreferencesKey("genre_protected_names")
+        val KEY_TAG_IGNORE_CASE = booleanPreferencesKey("tag_ignore_case")
         val KEY_DECODER_MODE = intPreferencesKey("decoder_mode")
         val KEY_SORT_LIBRARY_SONG = intPreferencesKey("sort_library_song")
         val KEY_SORT_ALBUM_LIST = intPreferencesKey("sort_album_list")
@@ -128,6 +134,9 @@ class SettingsManager(private val context: Context) {
 
         const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
         const val DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+        const val DEFAULT_SHORTCUT_LIBRARY_LABEL = "音乐库"
+        const val DEFAULT_SHORTCUT_PLAYLISTS_LABEL = "歌单"
+        const val DEFAULT_SHORTCUT_FOLDER_LABEL = "文件夹"
     }
 
     private fun metadataCategorySortKey(type: String): Preferences.Key<Int> =
@@ -188,6 +197,16 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_LYRIC_SHARE_CUSTOM_INFO] ?: "" }
     val showAlbumArtists: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_SHOW_ALBUM_ARTISTS] ?: false }
+    val metadataEditorId: Flow<String> =
+        context.dataStore.data.map { it[KEY_METADATA_EDITOR_ID] ?: "" }
+    val lyricTimingEditorId: Flow<String> =
+        context.dataStore.data.map { it[KEY_LYRIC_TIMING_EDITOR_ID] ?: "" }
+    val shortcutLibraryLabel: Flow<String> =
+        context.dataStore.data.map { it[KEY_SHORTCUT_LIBRARY_LABEL] ?: DEFAULT_SHORTCUT_LIBRARY_LABEL }
+    val shortcutPlaylistsLabel: Flow<String> =
+        context.dataStore.data.map { it[KEY_SHORTCUT_PLAYLISTS_LABEL] ?: DEFAULT_SHORTCUT_PLAYLISTS_LABEL }
+    val shortcutFolderLabel: Flow<String> =
+        context.dataStore.data.map { it[KEY_SHORTCUT_FOLDER_LABEL] ?: DEFAULT_SHORTCUT_FOLDER_LABEL }
     val webDavUrl: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_URL] ?: "" }
     val webDavUsername: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_USERNAME] ?: "" }
     val webDavPassword: Flow<String> = context.dataStore.data.map { it[KEY_WEBDAV_PASSWORD] ?: "" }
@@ -236,6 +255,7 @@ class SettingsManager(private val context: Context) {
     val artistProtectedNames: Flow<String> = context.dataStore.data.map { it[KEY_ARTIST_PROTECTED_NAMES] ?: "" }
     val genreSeparators: Flow<String> = context.dataStore.data.map { it[KEY_GENRE_SEPARATORS] ?: "" }
     val genreProtectedNames: Flow<String> = context.dataStore.data.map { it[KEY_GENRE_PROTECTED_NAMES] ?: "" }
+    val tagIgnoreCase: Flow<Boolean> = context.dataStore.data.map { it[KEY_TAG_IGNORE_CASE] ?: false }
     val decoderMode: Flow<Int> = context.dataStore.data.map { it[KEY_DECODER_MODE] ?: 2 }
     val librarySongSortIndex: Flow<Int> = context.dataStore.data.map { it[KEY_SORT_LIBRARY_SONG] ?: 0 }
     val albumListSortIndex: Flow<Int> = context.dataStore.data.map { it[KEY_SORT_ALBUM_LIST] ?: 0 }
@@ -410,6 +430,43 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setShowAlbumArtists(enabled: Boolean) {
         context.dataStore.edit { it[KEY_SHOW_ALBUM_ARTISTS] = enabled }
+    }
+
+    suspend fun setMetadataEditorId(id: String) {
+        context.dataStore.edit {
+            val safeId = id.trim()
+            if (safeId.isBlank()) it.remove(KEY_METADATA_EDITOR_ID) else it[KEY_METADATA_EDITOR_ID] = safeId
+        }
+    }
+
+    suspend fun setLyricTimingEditorId(id: String) {
+        context.dataStore.edit {
+            val safeId = id.trim()
+            if (safeId.isBlank()) it.remove(KEY_LYRIC_TIMING_EDITOR_ID) else it[KEY_LYRIC_TIMING_EDITOR_ID] = safeId
+        }
+    }
+
+    suspend fun setShortcutLibraryLabel(label: String) {
+        setShortcutLabel(KEY_SHORTCUT_LIBRARY_LABEL, label, DEFAULT_SHORTCUT_LIBRARY_LABEL)
+    }
+
+    suspend fun setShortcutPlaylistsLabel(label: String) {
+        setShortcutLabel(KEY_SHORTCUT_PLAYLISTS_LABEL, label, DEFAULT_SHORTCUT_PLAYLISTS_LABEL)
+    }
+
+    suspend fun setShortcutFolderLabel(label: String) {
+        setShortcutLabel(KEY_SHORTCUT_FOLDER_LABEL, label, DEFAULT_SHORTCUT_FOLDER_LABEL)
+    }
+
+    private suspend fun setShortcutLabel(
+        key: Preferences.Key<String>,
+        label: String,
+        defaultLabel: String
+    ) {
+        context.dataStore.edit {
+            val safeLabel = label.trim().take(24)
+            if (safeLabel.isBlank() || safeLabel == defaultLabel) it.remove(key) else it[key] = safeLabel
+        }
     }
 
     suspend fun setWebDavConfig(url: String, username: String, password: String) {
@@ -677,6 +734,10 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_GENRE_PROTECTED_NAMES] = names.trim() }
     }
 
+    suspend fun setTagIgnoreCase(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_TAG_IGNORE_CASE] = enabled }
+    }
+
     suspend fun exportSettingsJson(): JSONObject {
         val prefs = context.dataStore.data.first()
         val payload = JSONObject()
@@ -726,6 +787,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_SHOW_ALBUM_ARTISTS)
             setBoolean(KEY_USE_ANDROID_MEDIA_LIBRARY)
             setBoolean(KEY_INITIAL_SCAN_PROMPT_HANDLED)
+            setBoolean(KEY_TAG_IGNORE_CASE)
             setBoolean(KEY_BLUETOOTH_LYRIC_ENABLED)
             setBoolean(KEY_BLUETOOTH_LYRIC_TRANSLATION)
             setBoolean(KEY_OPEN_PLAYER_ON_PLAY)
@@ -772,6 +834,11 @@ class SettingsManager(private val context: Context) {
             setString(KEY_LYRIC_FONT_NAME)
             setString(KEY_LYRIC_FONT_PATH)
             setString(KEY_LYRIC_SHARE_CUSTOM_INFO)
+            setString(KEY_METADATA_EDITOR_ID)
+            setString(KEY_LYRIC_TIMING_EDITOR_ID)
+            setString(KEY_SHORTCUT_LIBRARY_LABEL)
+            setString(KEY_SHORTCUT_PLAYLISTS_LABEL)
+            setString(KEY_SHORTCUT_FOLDER_LABEL)
             setString(KEY_SCAN_INCLUDE_FOLDERS)
             setString(KEY_SCAN_EXCLUDE_FOLDERS)
             setString(KEY_ARTIST_SEPARATORS)

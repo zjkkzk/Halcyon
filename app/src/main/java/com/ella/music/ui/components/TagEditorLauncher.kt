@@ -17,11 +17,26 @@ import com.ella.music.data.model.Song
 import java.io.File
 
 data class TagEditorOption(
+    val id: String,
     val label: String,
     val summary: String,
+    val kind: TagEditorOptionKind,
     val intents: List<Intent>,
     val sourceSong: Song? = null
 )
+
+enum class TagEditorOptionKind {
+    Metadata,
+    LyricTiming
+}
+
+object TagEditorOptionIds {
+    const val ASK_EACH_TIME = ""
+    const val LYRICO = "lyrico"
+    const val LUNABEAT_METADATA = "lunabeat_metadata"
+    const val LUNABEAT_LYRIC_TIMING = "lunabeat_lyric_timing"
+    const val MUSIC_TAG = "music_tag"
+}
 
 object TagEditorEditTracker {
     var pendingSong: Song? = null
@@ -190,8 +205,10 @@ fun buildTagEditorOptions(context: Context, song: Song): List<TagEditorOption> {
 
     return listOf(
         TagEditorOption(
+            id = TagEditorOptionIds.LYRICO,
             label = "Lyrico",
             summary = "使用 Lyrico 打开当前歌曲标签编辑",
+            kind = TagEditorOptionKind.Metadata,
             intents = listOf(
                 tagEditorIntent(
                     label = "Lyrico",
@@ -202,8 +219,10 @@ fun buildTagEditorOptions(context: Context, song: Song): List<TagEditorOption> {
             sourceSong = song
         ),
         TagEditorOption(
+            id = TagEditorOptionIds.LUNABEAT_METADATA,
             label = "LunaBeat（编辑元数据）",
             summary = "打开 LunaBeat 的歌曲元数据编辑页面",
+            kind = TagEditorOptionKind.Metadata,
             intents = listOf(
                 lunaBeatIntent(
                     ComponentName("com.example.LyricBox", "com.example.LyricBox.SongMetadataEditActivity")
@@ -219,8 +238,10 @@ fun buildTagEditorOptions(context: Context, song: Song): List<TagEditorOption> {
             sourceSong = song
         ),
         TagEditorOption(
+            id = TagEditorOptionIds.LUNABEAT_LYRIC_TIMING,
             label = "LunaBeat（歌词打轴）",
             summary = "打开 LunaBeat 的歌词打轴页面",
+            kind = TagEditorOptionKind.LyricTiming,
             intents = listOf(
                 lunaBeatIntent(
                     ComponentName("com.example.LyricBox", "com.example.LyricBox.LyricTimingActivity")
@@ -236,8 +257,10 @@ fun buildTagEditorOptions(context: Context, song: Song): List<TagEditorOption> {
             sourceSong = song
         ),
         TagEditorOption(
+            id = TagEditorOptionIds.MUSIC_TAG,
             label = "音乐标签",
             summary = "通过 content Uri 交给音乐标签编辑",
+            kind = TagEditorOptionKind.Metadata,
             intents = listOf(
                 musicTagFilePathIntent(),
                 tagEditorIntent(

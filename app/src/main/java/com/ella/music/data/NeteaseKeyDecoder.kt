@@ -11,11 +11,10 @@ data class NeteaseKeyInfo(
     val decodedJson: String = "",
     val musicId: String = "",
     val musicName: String = "",
+    val aliases: List<String> = emptyList(),
     val albumId: String = "",
     val albumName: String = "",
     val artists: List<NeteaseArtist> = emptyList(),
-    val format: String = "",
-    val bitrate: String = "",
     val comment: String = ""
 ) {
     val hasDecodedContent: Boolean
@@ -53,11 +52,10 @@ fun decodeNeteaseKey(value: String): NeteaseKeyInfo? {
             decodedJson = decodedJson,
             musicId = json.optId("musicId", "songId", "id"),
             musicName = json.optStringCompat("musicName", "songName", "name"),
+            aliases = json.optStringList("alias", "aliases", "alia"),
             albumId = json.optId("albumId"),
             albumName = json.optStringCompat("album", "albumName"),
             artists = json.optArtists(),
-            format = json.optStringCompat("format", "fileFormat"),
-            bitrate = json.optId("bitrate", "bitRate"),
             comment = json.optStringCompat("comment", "description", "desc", "remark", "note", "subtitle", "subTitle")
         )
     }.getOrElse {
@@ -137,6 +135,27 @@ private fun JSONObject.optStringCompat(vararg names: String): String {
         if (text.isNotBlank() && text != "null") return text
     }
     return ""
+}
+
+private fun JSONObject.optStringList(vararg names: String): List<String> {
+    for (name in names) {
+        if (!has(name) || isNull(name)) continue
+        val value = opt(name)
+        val result = when (value) {
+            is JSONArray -> buildList {
+                for (index in 0 until value.length()) {
+                    value.optString(index).trim().takeIf { it.isNotBlank() && it != "null" }?.let(::add)
+                }
+            }
+            else -> value?.toString()
+                ?.split('/', ',', ';', '；')
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() && it != "null" }
+                .orEmpty()
+        }
+        if (result.isNotEmpty()) return result
+    }
+    return emptyList()
 }
 
 private fun JSONObject.optArtists(): List<NeteaseArtist> {

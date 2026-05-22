@@ -73,6 +73,7 @@ import com.ella.music.ui.components.LiquidGlassBottomBar
 import com.ella.music.ui.components.LiquidGlassBottomBarItem
 import com.ella.music.ui.components.MiniPlayer
 import com.ella.music.ui.components.TagEditorEditTracker
+import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
 import com.ella.music.ui.navigation.Screen
@@ -246,6 +247,9 @@ fun EllaApp(
     val isPlayerVisible = showPlayerOverlay || currentRoute == Screen.Player.route
     val libraryCacheLoaded by mainViewModel.libraryCacheLoaded.collectAsState()
     val initialScanPromptHandled by settingsManager.initialScanPromptHandled.collectAsState(initial = true)
+    val shortcutLibraryLabel by settingsManager.shortcutLibraryLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_LIBRARY_LABEL)
+    val shortcutPlaylistsLabel by settingsManager.shortcutPlaylistsLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_PLAYLISTS_LABEL)
+    val shortcutFolderLabel by settingsManager.shortcutFolderLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_FOLDER_LABEL)
     val isScanning by mainViewModel.isScanning.collectAsState()
     var showInitialScanPrompt by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -260,6 +264,15 @@ fun EllaApp(
             }
             activity?.intent?.removeExtra(EXTRA_SHORTCUT_ROUTE)
         }
+    }
+
+    LaunchedEffect(shortcutLibraryLabel, shortcutPlaylistsLabel, shortcutFolderLabel) {
+        updateEllaDynamicShortcuts(
+            context = context,
+            libraryLabel = shortcutLibraryLabel,
+            playlistsLabel = shortcutPlaylistsLabel,
+            folderLabel = shortcutFolderLabel
+        )
     }
 
     val initialScanFolderPicker = rememberLauncherForActivityResult(

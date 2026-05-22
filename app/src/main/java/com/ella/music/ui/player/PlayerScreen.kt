@@ -57,6 +57,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -150,6 +152,7 @@ import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.Song
@@ -158,13 +161,17 @@ import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.model.playlistIdentityKey
 import com.ella.music.player.PlaybackAudioSession
 import com.ella.music.ui.components.ArtistPickerSheet
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.WordLyricView
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.CoverLoadLimiter
 import com.ella.music.ui.components.LyricSharePicker
 import com.ella.music.ui.components.TagEditorOption
+import com.ella.music.ui.components.TagEditorOptionIds
+import com.ella.music.ui.components.TagEditorOptionKind
 import com.ella.music.ui.components.buildTagEditorOptions
 import com.ella.music.ui.components.launchTagEditorOption
+import com.ella.music.ui.components.SongInfoSheet
 import com.ella.music.ui.components.shareLyricCard
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
@@ -223,6 +230,8 @@ fun PlayerScreen(
     val audioVisualizerEnabled by settingsManager.audioVisualizerEnabled.collectAsState(initial = false)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
+    val metadataEditorId by settingsManager.metadataEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
+    val lyricTimingEditorId by settingsManager.lyricTimingEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
     val playlist by playerViewModel.playlist.collectAsState()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
@@ -238,6 +247,7 @@ fun PlayerScreen(
         ?.takeIf { it.hasMiniLyric() }
         ?: lyrics.firstOrNull { it.hasMiniLyric() }
     var menuExpanded by remember { mutableStateOf(false) }
+    var songInfoExpanded by remember { mutableStateOf(false) }
     var queueExpanded by remember { mutableStateOf(false) }
     var artistChoices by remember { mutableStateOf<List<String>>(emptyList()) }
     var landscapeExpanded by rememberSaveable { mutableStateOf(false) }
@@ -353,7 +363,7 @@ fun PlayerScreen(
     fun navigateToArtistOrChoose(artistText: String) {
         val artists = splitArtistNames(artistText)
             .filterNot { it.equals("Unknown", ignoreCase = true) }
-            .distinctBy { it.lowercase() }
+            .distinctBy { it.tagIdentityKey() }
         when (artists.size) {
             0 -> Toast.makeText(context, "这首歌没有可跳转的歌手信息", Toast.LENGTH_SHORT).show()
             1 -> onNavigateToArtist(artists.first())
@@ -603,6 +613,10 @@ fun PlayerScreen(
                             menuExpanded = false
                             landscapeExpanded = true
                         },
+                        onSongInfo = {
+                            menuExpanded = false
+                            songInfoExpanded = true
+                        },
                         onStopAfterCurrent = {
                             playerViewModel.setStopAfterCurrentEnabled(it)
                             Toast.makeText(
@@ -630,6 +644,8 @@ fun PlayerScreen(
                         isFavorite = isCurrentSongFavorite,
                         audioSessionId = audioSessionId,
                         visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
+                        metadataEditorId = metadataEditorId,
+                        lyricTimingEditorId = lyricTimingEditorId,
                         onVisualizerEnabled = ::setAudioVisualizerEnabled,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -649,6 +665,22 @@ fun PlayerScreen(
                             onNavigateToArtist(artist)
                         },
                         onDismiss = { artistChoices = emptyList() }
+                    )
+                }
+            }
+
+            if (songInfoExpanded && song != null) {
+                WindowBottomSheet(
+                    show = true,
+                    enableNestedScroll = false,
+                    title = "歌曲信息",
+                    onDismissRequest = { songInfoExpanded = false }
+                ) {
+                    SongInfoSheet(
+                        song = song,
+                        audioInfoLoader = playerViewModel::getAudioInfo,
+                        tagInfoLoader = playerViewModel::getSongTagInfo,
+                        onDismiss = { songInfoExpanded = false }
                     )
                 }
             }
@@ -735,6 +767,8 @@ private fun CoverPlayerPage(
     isFavorite: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    metadataEditorId: String,
+    lyricTimingEditorId: String,
     onVisualizerEnabled: (Boolean) -> Unit,
     onDynamicCoverFailed: (String) -> Unit,
     onToggleMenu: () -> Unit,
@@ -756,6 +790,7 @@ private fun CoverPlayerPage(
     onArtist: () -> Unit,
     onDownload: () -> Unit,
     onLandscape: () -> Unit,
+    onSongInfo: () -> Unit,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
     onCancelTimer: () -> Unit,
@@ -886,12 +921,15 @@ private fun CoverPlayerPage(
                     PlayerSongMetaText(
                         song = song,
                         annotation = annotation,
-                        titleFontSize = 28.sp,
-                        artistFontSize = 20.sp,
+                        titleFontSize = 22.sp,
+                        artistFontSize = 14.sp,
                         artistAlpha = 0.54f,
                         onArtistClick = onArtist,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .widthIn(max = 230.dp)
                     )
+                    Spacer(modifier = Modifier.width(20.dp))
                     PlayerHeaderAction(
                         kind = PlayerHeaderActionKind.Favorite,
                         selected = isFavorite,
@@ -955,7 +993,7 @@ private fun CoverPlayerPage(
                     accent = Color.White.copy(alpha = 0.86f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(72.dp)
+                        .height(42.dp)
                 )
             }
             }
@@ -974,6 +1012,8 @@ private fun CoverPlayerPage(
                     speed = playbackSpeed,
                     pitch = playbackPitch,
                     visualizerEnabled = visualizerEnabled,
+                    metadataEditorId = metadataEditorId,
+                    lyricTimingEditorId = lyricTimingEditorId,
                     sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
                     stopAfterCurrentEnabled = stopAfterCurrentEnabled,
                     onClose = onDismissMenu,
@@ -981,6 +1021,7 @@ private fun CoverPlayerPage(
                     onArtist = onArtist,
                     onDownload = onDownload,
                     onLandscape = onLandscape,
+                    onSongInfo = onSongInfo,
                     onStopAfterCurrent = onStopAfterCurrent,
                     onTimer = onTimer,
                     onCancelTimer = onCancelTimer,
@@ -1256,19 +1297,22 @@ private fun LyricsPlayerPage(
                     song = song,
                     embeddedCover = embeddedCover,
                     modifier = Modifier
-                        .size(66.dp)
+                        .size(56.dp)
                         .clickable(onClick = onDismissLyrics)
                 )
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 PlayerSongMetaText(
                     song = song,
                     annotation = annotation,
-                    titleFontSize = 28.sp,
-                    artistFontSize = 20.sp,
+                    titleFontSize = 22.sp,
+                    artistFontSize = 14.sp,
                     artistAlpha = 0.72f,
                     onArtistClick = onArtist,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(max = 230.dp)
                 )
+                Spacer(modifier = Modifier.width(20.dp))
                 PlayerHeaderAction(
                     kind = PlayerHeaderActionKind.Favorite,
                     selected = isFavorite,
@@ -1306,8 +1350,8 @@ private fun LyricsPlayerPage(
                     fontFamily = fontFamily,
                     fontWeight = fontWeight,
                     topSpacer = 110.dp,
-                    bottomSpacer = 260.dp,
-                    horizontalPadding = 24.dp,
+                    bottomSpacer = if (visualizerEnabled) 214.dp else 260.dp,
+                    horizontalPadding = 12.dp,
                     onLineClick = onLineClick,
                     onLineDoubleClick = onLineDoubleClick,
                     onLineLongClick = onLineLongClick,
@@ -1326,7 +1370,7 @@ private fun LyricsPlayerPage(
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .fillMaxWidth()
-                .height(78.dp)
+                .height(42.dp)
         )
 
         if (lyricMenuExpanded) {
@@ -1980,12 +2024,7 @@ private fun FullBleedCover(
                 sizePx = 768
             )
         } else {
-            Icon(
-                imageVector = MiuixIcons.Regular.Music,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.48f),
-                modifier = Modifier.size(72.dp)
-            )
+            DefaultAlbumCover(modifier = Modifier.fillMaxSize())
         }
     }
 }
@@ -1995,7 +2034,8 @@ private fun SmallCover(song: Song?, embeddedCover: Bitmap?, modifier: Modifier =
     AlbumArtView(
         song = song,
         embeddedCover = embeddedCover,
-        modifier = modifier.clip(RoundedCornerShape(6.dp))
+        cornerRadius = 12.dp,
+        modifier = modifier.clip(RoundedCornerShape(12.dp))
     )
 }
 
@@ -2012,7 +2052,7 @@ private fun PlayerHeaderAction(
 ) {
     Box(
         modifier = Modifier
-            .size(52.dp)
+            .size(42.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -2021,11 +2061,11 @@ private fun PlayerHeaderAction(
             PlayerHeaderActionKind.Favorite -> HeartIcon(
                 color = if (selected) Color(0xFFFF4D6D) else Color.White.copy(alpha = 0.92f),
                 filled = selected,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(25.dp)
             )
             PlayerHeaderActionKind.More -> MoreIcon(
                 color = Color.White.copy(alpha = 0.90f),
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -2331,9 +2371,9 @@ private fun LyricActionMenu(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-            .background(Color.Black.copy(alpha = 0.86f))
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         PlayerActionMenuItem(
             text = if (showPronunciation) "隐藏注音" else "显示注音",
@@ -2352,7 +2392,7 @@ private fun LyricActionMenu(
             text = "歌词字号",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.74f),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
         )
         DottedValueSlider(
@@ -2370,7 +2410,7 @@ private fun LyricActionMenu(
             text = "歌词来源",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.74f),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
         )
         Row(
@@ -2409,7 +2449,10 @@ private fun LyricSourceChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(15.dp))
-            .background(Color.White.copy(alpha = if (selected) 0.22f else 0.07f))
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+                else MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 11.dp),
         contentAlignment = Alignment.Center
@@ -2418,7 +2461,7 @@ private fun LyricSourceChip(
             text = if (selected) "✓ $text" else text,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = if (selected) 0.96f else 0.70f)
+            color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
     }
 }
@@ -2791,10 +2834,8 @@ private fun PlayerQueueMenu(
 
     Column(
         modifier = modifier
-            .padding(horizontal = 18.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color.Black.copy(alpha = 0.54f))
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 8.dp)
     ) {
         Row(
             modifier = Modifier
@@ -2804,37 +2845,43 @@ private fun PlayerQueueMenu(
         ) {
             Spacer(modifier = Modifier.weight(1f))
             if (playlist.isNotEmpty()) {
-                Text(
-                    text = "定位",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.76f),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable {
-                            if (currentIndex >= 0) {
-                                scope.launch { listState.animateScrollToItem(currentIndex) }
-                            }
+                IconButton(
+                    onClick = {
+                        if (currentIndex >= 0) {
+                            scope.launch { listState.animateScrollToItem(currentIndex) }
                         }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-                Text(
-                    text = "清空",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.62f),
+                    },
                     modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable(onClick = onClearQueue)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                        .size(38.dp)
+                        .clip(CircleShape)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_my_location),
+                        contentDescription = "定位当前歌曲",
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onClearQueue,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_delete),
+                        contentDescription = "清空播放列表",
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
         if (playlist.isEmpty()) {
             Text(
                 text = "暂无歌曲",
                 fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.54f),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 18.dp)
             )
         } else {
@@ -2848,7 +2895,7 @@ private fun PlayerQueueMenu(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (item.id == currentSongId) Color.White.copy(alpha = 0.12f)
+                                if (item.id == currentSongId) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
                                 else Color.Transparent
                             )
                             .clickable { onSongClick(index) }
@@ -2858,14 +2905,14 @@ private fun PlayerQueueMenu(
                             text = item.title,
                             fontSize = 13.sp,
                             fontWeight = if (item.id == currentSongId) FontWeight.Bold else FontWeight.Medium,
-                            color = if (item.id == currentSongId) Color.White else Color.White.copy(alpha = 0.82f),
+                            color = if (item.id == currentSongId) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = item.artist,
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.48f),
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -3421,6 +3468,8 @@ private fun PlayerActionMenu(
     speed: Float,
     pitch: Float,
     visualizerEnabled: Boolean,
+    metadataEditorId: String,
+    lyricTimingEditorId: String,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
     onClose: () -> Unit,
@@ -3428,6 +3477,7 @@ private fun PlayerActionMenu(
     onArtist: () -> Unit,
     onDownload: () -> Unit,
     onLandscape: () -> Unit,
+    onSongInfo: () -> Unit,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
     onCancelTimer: () -> Unit,
@@ -3437,18 +3487,52 @@ private fun PlayerActionMenu(
     modifier: Modifier = Modifier
 ) {
     var page by remember { mutableStateOf(PlayerActionSheetPage.Main) }
+    val context = LocalContext.current
+    val metadataOptions = remember(song?.id, song?.path, song?.mimeType) {
+        song?.let { buildTagEditorOptions(context, it) }
+            .orEmpty()
+            .filter { it.kind == TagEditorOptionKind.Metadata }
+    }
+    val lyricTimingOptions = remember(song?.id, song?.path, song?.mimeType) {
+        song?.let { buildTagEditorOptions(context, it) }
+            .orEmpty()
+            .filter { it.kind == TagEditorOptionKind.LyricTiming }
+    }
+
+    fun openEditorPage(
+        kind: TagEditorOptionKind,
+        preferredId: String
+    ) {
+        val options = if (kind == TagEditorOptionKind.Metadata) metadataOptions else lyricTimingOptions
+        val preferredOption = preferredId
+            .takeIf { it.isNotBlank() }
+            ?.let { id -> options.firstOrNull { it.id == id } }
+        if (preferredOption != null) {
+            launchTagEditorOption(context, preferredOption)
+            onClose()
+        } else {
+            page = if (kind == TagEditorOptionKind.Metadata) {
+                PlayerActionSheetPage.MetadataEditor
+            } else {
+                PlayerActionSheetPage.LyricTimingEditor
+            }
+        }
+    }
+
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-            .background(Color.Black.copy(alpha = 0.74f))
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         when (page) {
             PlayerActionSheetPage.Main -> {
                 PlayerActionMenuItem("横屏歌词", onLandscape)
                 PlayerActionMenuItem("查看专辑页", onAlbum)
                 PlayerActionMenuItem("查看歌手页", onArtist)
-                PlayerActionMenuItem("外部编辑标签", { page = PlayerActionSheetPage.TagEditor })
+                PlayerActionMenuItem("查看歌曲信息", onSongInfo)
+                PlayerActionMenuItem("编辑元数据", { openEditorPage(TagEditorOptionKind.Metadata, metadataEditorId) })
+                PlayerActionMenuItem("歌词打轴", { openEditorPage(TagEditorOptionKind.LyricTiming, lyricTimingEditorId) })
                 if (song?.onlineSource == "kw" && song.path.startsWith("http")) {
                     PlayerActionMenuItem("下载 LX 歌曲", onDownload)
                 }
@@ -3482,9 +3566,20 @@ private fun PlayerActionMenu(
                     onEnabledChange = onVisualizerEnabled
                 )
             }
-            PlayerActionSheetPage.TagEditor -> {
+            PlayerActionSheetPage.MetadataEditor -> {
                 TagEditorSheetContent(
                     song = song,
+                    title = "选择元数据编辑器",
+                    kind = TagEditorOptionKind.Metadata,
+                    onBack = { page = PlayerActionSheetPage.Main },
+                    onClose = onClose
+                )
+            }
+            PlayerActionSheetPage.LyricTimingEditor -> {
+                TagEditorSheetContent(
+                    song = song,
+                    title = "选择歌词打轴工具",
+                    kind = TagEditorOptionKind.LyricTiming,
                     onBack = { page = PlayerActionSheetPage.Main },
                     onClose = onClose
                 )
@@ -3498,7 +3593,8 @@ private enum class PlayerActionSheetPage {
     Timer,
     Speed,
     Visualizer,
-    TagEditor
+    MetadataEditor,
+    LyricTimingEditor
 }
 
 @Composable
@@ -3552,7 +3648,7 @@ private fun TimerSheetContent(
             text = "自定义时长",
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.90f)
+            color = MiuixTheme.colorScheme.onSurface
         )
         DottedValueSlider(
             value = customMinutes,
@@ -3592,20 +3688,20 @@ private fun TimerStatusCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Text(
             text = title,
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.92f)
+            color = MiuixTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = subtitle,
             fontSize = 13.sp,
-            color = Color.White.copy(alpha = 0.62f)
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
     }
 }
@@ -3619,7 +3715,7 @@ private fun StopAfterCurrentRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.06f))
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3628,7 +3724,10 @@ private fun StopAfterCurrentRow(
             modifier = Modifier
                 .size(22.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color.White.copy(alpha = if (checked) 0.88f else 0.16f)),
+                .background(
+                    if (checked) MiuixTheme.colorScheme.primary
+                    else MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.18f)
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (checked) {
@@ -3636,7 +3735,7 @@ private fun StopAfterCurrentRow(
                     text = "✓",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color.Black.copy(alpha = 0.78f)
+                    color = MiuixTheme.colorScheme.onPrimary
                 )
             }
         }
@@ -3644,7 +3743,7 @@ private fun StopAfterCurrentRow(
         Text(
             text = "播放完当前歌曲后暂停",
             fontSize = 14.sp,
-            color = Color.White.copy(alpha = 0.92f),
+            color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
     }
@@ -3694,7 +3793,7 @@ private fun SpeedPitchHeader(title: String) {
             text = title,
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.90f),
+            color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
     }
@@ -3712,7 +3811,7 @@ private fun VisualizerSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.10f))
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
             .clickable { onEnabledChange(!enabled) }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3721,7 +3820,7 @@ private fun VisualizerSheetContent(
             text = "音乐可视化(Visualizer)",
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.88f),
+            color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
         Box(
@@ -3729,7 +3828,10 @@ private fun VisualizerSheetContent(
                 .width(56.dp)
                 .height(32.dp)
                 .clip(RoundedCornerShape(99.dp))
-                .background(Color.White.copy(alpha = if (enabled) 0.86f else 0.30f))
+                .background(
+                    if (enabled) MiuixTheme.colorScheme.primary
+                    else MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.26f)
+                )
                 .padding(4.dp),
             contentAlignment = if (enabled) Alignment.CenterEnd else Alignment.CenterStart
         ) {
@@ -3737,7 +3839,7 @@ private fun VisualizerSheetContent(
                 modifier = Modifier
                     .size(24.dp)
                     .clip(CircleShape)
-                    .background(if (enabled) Color.Black.copy(alpha = 0.76f) else Color.White.copy(alpha = 0.90f))
+                    .background(MiuixTheme.colorScheme.background)
             )
         }
     }
@@ -3745,7 +3847,7 @@ private fun VisualizerSheetContent(
     Text(
         text = "开启时会请求录音权限，用来读取当前播放音频的频谱。",
         fontSize = 13.sp,
-        color = Color.White.copy(alpha = 0.54f),
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         modifier = Modifier.padding(horizontal = 4.dp)
     )
 }
@@ -3753,15 +3855,19 @@ private fun VisualizerSheetContent(
 @Composable
 private fun TagEditorSheetContent(
     song: Song?,
+    title: String,
+    kind: TagEditorOptionKind,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    val options = remember(song?.id, song?.path, song?.mimeType) {
-        song?.let { buildTagEditorOptions(context, it) }.orEmpty()
+    val options = remember(song?.id, song?.path, song?.mimeType, kind) {
+        song?.let { buildTagEditorOptions(context, it) }
+            .orEmpty()
+            .filter { it.kind == kind }
     }
 
-    HalfSheetTitle(title = "选择标签编辑器", onBack = onBack)
+    HalfSheetTitle(title = title, onBack = onBack)
     Spacer(modifier = Modifier.height(18.dp))
 
     if (song == null) {
@@ -3770,12 +3876,18 @@ private fun TagEditorSheetContent(
     }
 
     if (song.path.startsWith("http://") || song.path.startsWith("https://")) {
-        TagEditorEmptyState("在线 / WebDAV 歌曲暂不支持外部编辑标签")
+        TagEditorEmptyState("在线 / WebDAV 歌曲暂不支持外部编辑")
         return
     }
 
     if (options.isEmpty()) {
-        TagEditorEmptyState("未找到 Lyrico、LunaBeat 或音乐标签，请先安装后再试")
+        TagEditorEmptyState(
+            if (kind == TagEditorOptionKind.Metadata) {
+                "未找到 Lyrico、LunaBeat 或音乐标签，请先安装后再试"
+            } else {
+                "未找到 LunaBeat 歌词打轴，请先安装后再试"
+            }
+        )
         return
     }
 
@@ -3793,7 +3905,7 @@ private fun TagEditorSheetContent(
     Text(
         text = "会把当前歌曲路径传给所选应用，并在返回后刷新这首歌。",
         fontSize = 13.sp,
-        color = Color.White.copy(alpha = 0.48f),
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
     )
 }
@@ -3807,7 +3919,7 @@ private fun TagEditorOptionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.10f))
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3816,14 +3928,14 @@ private fun TagEditorOptionRow(
             modifier = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.16f)),
+                .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = option.label.first().toString(),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White.copy(alpha = 0.92f)
+                color = MiuixTheme.colorScheme.primary
             )
         }
         Spacer(modifier = Modifier.width(14.dp))
@@ -3832,12 +3944,12 @@ private fun TagEditorOptionRow(
                 text = option.label,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White.copy(alpha = 0.94f)
+                color = MiuixTheme.colorScheme.onSurface
             )
             Text(
                 text = option.summary,
                 fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.54f),
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -3851,7 +3963,7 @@ private fun TagEditorEmptyState(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.09f))
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
             .padding(horizontal = 18.dp, vertical = 28.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -3859,7 +3971,7 @@ private fun TagEditorEmptyState(text: String) {
             text = text,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.72f),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             textAlign = TextAlign.Center
         )
     }
@@ -3872,7 +3984,7 @@ private fun HalfSheetTitle(title: String, onBack: () -> Unit) {
             text = "‹",
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.70f),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .clip(CircleShape)
@@ -3883,7 +3995,7 @@ private fun HalfSheetTitle(title: String, onBack: () -> Unit) {
             text = title,
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.94f),
+            color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.align(Alignment.Center)
         )
     }
@@ -3899,7 +4011,10 @@ private fun HalfSheetPill(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) Color.White.copy(alpha = 0.82f) else Color.White.copy(alpha = 0.10f))
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+                else MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center
@@ -3908,7 +4023,7 @@ private fun HalfSheetPill(
             text = text,
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = if (selected) Color.Black.copy(alpha = 0.78f) else Color.White.copy(alpha = 0.84f),
+            color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -3926,6 +4041,10 @@ private fun DottedValueSlider(
 ) {
     val safeValue = value.coerceIn(valueRange.start, valueRange.endInclusive)
     val fraction = ((safeValue - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
+    val activeDotColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.72f)
+    val inactiveDotColor = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.28f)
+    val activeLineColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.88f)
+    val activeKnobColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.92f)
 
     fun update(width: Float, x: Float) {
         val raw = valueRange.start + (x / width.coerceAtLeast(1f)).coerceIn(0f, 1f) *
@@ -3957,21 +4076,21 @@ private fun DottedValueSlider(
             for (index in 0 until dotCount) {
                 val dotFraction = index.toFloat() / (dotCount - 1).coerceAtLeast(1)
                 drawCircle(
-                    color = Color.White.copy(alpha = if (dotFraction <= fraction) 0.74f else 0.34f),
+                    color = if (dotFraction <= fraction) activeDotColor else inactiveDotColor,
                     radius = if (index % 5 == 0) 4.2f else 3.2f,
                     center = Offset(x = gap * index, y = centerY)
                 )
             }
             val knobX = size.width * fraction
             drawLine(
-                color = Color.White.copy(alpha = 0.86f),
+                color = activeLineColor,
                 start = Offset(knobX, centerY - 36f),
                 end = Offset(knobX, centerY + 36f),
                 strokeWidth = 6f,
                 cap = StrokeCap.Round
             )
             drawCircle(
-                color = Color.White.copy(alpha = 0.92f),
+                color = activeKnobColor,
                 radius = 24f,
                 center = Offset(knobX, centerY - 54f)
             )
@@ -3981,13 +4100,13 @@ private fun DottedValueSlider(
                 text = it,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.Black.copy(alpha = 0.78f),
+                color = MiuixTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = knobOffset)
                     .padding(top = 2.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color.White.copy(alpha = 0.88f))
+                    .background(MiuixTheme.colorScheme.primary)
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             )
         }
@@ -4002,14 +4121,13 @@ private fun PlayerActionMenuItem(
     Text(
         text = text,
         fontSize = 14.sp,
-        color = Color.White.copy(alpha = 0.92f),
+        fontWeight = FontWeight.Bold,
+        color = MiuixTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.06f))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 8.dp, vertical = 13.dp)
     )
 }
 
@@ -4076,9 +4194,9 @@ private fun AudioVisualizer(
         val usableWidth = (size.width - horizontalPadding * 2f).coerceAtLeast(1f)
         val gap = usableWidth / barCount
         val barWidth = (gap * 0.34f).coerceIn(2.dp.toPx(), 3.8.dp.toPx())
-        val minHeight = 3.5.dp.toPx()
-        val visualHeight = min(size.height * 0.42f, 30.dp.toPx())
-        val centerY = size.height - 18.dp.toPx()
+        val minHeight = 2.5.dp.toPx()
+        val visualHeight = min(size.height * 0.34f, 18.dp.toPx())
+        val centerY = size.height - 11.dp.toPx()
         val glowWidth = (barWidth * 2.7f).coerceAtLeast(5.dp.toPx())
         val halfCount = (barCount - 1) / 2f
         for (index in 0 until barCount) {
@@ -4147,6 +4265,7 @@ private fun mapFftToLogBars(
 private fun AlbumArtView(
     song: Song?,
     embeddedCover: Bitmap?,
+    cornerRadius: androidx.compose.ui.unit.Dp = 20.dp,
     modifier: Modifier = Modifier
 ) {
     val uri = if ((song?.albumId ?: 0L) > 0) {
@@ -4156,7 +4275,7 @@ private fun AlbumArtView(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(cornerRadius))
             .background(MiuixTheme.colorScheme.surfaceContainer),
         contentAlignment = Alignment.Center
     ) {
@@ -4166,17 +4285,12 @@ private fun AlbumArtView(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(20.dp)),
+                    .clip(RoundedCornerShape(cornerRadius)),
                 contentScale = ContentScale.Crop,
                 sizePx = 768
             )
         } else {
-            Icon(
-                imageVector = MiuixIcons.Regular.Music,
-                contentDescription = null,
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.size(64.dp)
-            )
+            DefaultAlbumCover(modifier = Modifier.fillMaxSize())
         }
     }
 }

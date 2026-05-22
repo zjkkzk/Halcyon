@@ -81,13 +81,16 @@ import com.ella.music.data.neteaseAlbumUrl
 import com.ella.music.data.neteaseArtistUrl
 import com.ella.music.data.neteaseSongUrl
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.ArtistPickerSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.SongItem
+import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.TagEditorOption
+import com.ella.music.ui.components.TagEditorOptionKind
 import com.ella.music.ui.components.buildTagEditorOptions
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.launchTagEditorOption
@@ -158,7 +161,7 @@ fun LibraryScreen(
     fun navigateToArtistOrChoose(artistText: String) {
         val artists = splitArtistNames(artistText)
             .filterNot { it.equals("Unknown", ignoreCase = true) }
-            .distinctBy { it.lowercase() }
+            .distinctBy { it.tagIdentityKey() }
         when (artists.size) {
             0 -> Toast.makeText(context, "这首歌没有可跳转的歌手信息", Toast.LENGTH_SHORT).show()
             1 -> onNavigateToArtist(artists.first())
@@ -561,65 +564,15 @@ fun LibraryScreen(
             }
         }
 
-        actionSong?.let { song ->
-            WindowBottomSheet(
-                show = true,
-                enableNestedScroll = false,
-                title = song.title.ifBlank { "歌曲操作" },
-                onDismissRequest = { actionSong = null }
-            ) {
-                SongActionMenu(
-                    song = song,
-                    onDismiss = { actionSong = null },
-                    onAddToPlaylist = {
-                        actionSong = null
-                        playlistPickerSongs = listOf(song)
-                    },
-                    onPlayNext = {
-                        actionSong = null
-                        playerViewModel.playNext(song)
-                        Toast.makeText(context, "已添加到下一首播放", Toast.LENGTH_SHORT).show()
-                    },
-                    onShare = {
-                        actionSong = null
-                        shareLocalSong(context, song)
-                    },
-                    onSpectrum = {
-                        actionSong = null
-                        openSongSpectrumWithAspectPro(context, song)
-                    },
-                    onInfo = {
-                        actionSong = null
-                        songInfoSheetSong = song
-                    },
-                    onAiInterpret = {
-                        actionSong = null
-                        aiInterpretationSong = song
-                    },
-                    onArtist = {
-                        actionSong = null
-                        navigateToArtistOrChoose(song.artist)
-                    },
-                    onAlbum = {
-                        actionSong = null
-                        val albumId = song.albumIdentityId()
-                        if (albumId > 0L) {
-                            onNavigateToAlbum(albumId)
-                        } else {
-                            Toast.makeText(context, "这首歌没有可跳转的专辑信息", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    onEditTag = {
-                        actionSong = null
-                        tagEditorSong = song
-                    },
-                    onDelete = {
-                        actionSong = null
-                        requestDeleteSongs(listOf(song))
-                    }
-                )
-            }
-        }
+        SongMoreActionHost(
+            actionSong = actionSong,
+            mainViewModel = mainViewModel,
+            playerViewModel = playerViewModel,
+            onDismissAction = { actionSong = null },
+            onNavigateToAlbum = onNavigateToAlbum,
+            onNavigateToArtist = onNavigateToArtist,
+            onDeleteSong = { song -> requestDeleteSongs(listOf(song)) }
+        )
 
         if (artistChoices.isNotEmpty()) {
             WindowBottomSheet(
@@ -692,7 +645,7 @@ fun LibraryScreen(
             ) {
                 SongTagEditorMenu(
                     song = song,
-                    options = buildTagEditorOptions(context, song),
+                    options = buildTagEditorOptions(context, song).filter { it.kind == TagEditorOptionKind.Metadata },
                     onDismiss = { tagEditorSong = null },
                     onOptionClick = { option ->
                         launchTagEditorOption(context, option)
@@ -852,7 +805,6 @@ private fun SongInfoMenu(
         SongInfoRow("大小", formatLibraryFileSize(song.fileSize))
         SongInfoRow("文件名", song.fileName.ifBlank { song.path.substringAfterLast('/') })
         SongInfoRow("路径", song.path)
-        LibraryMenuItem("关闭", onDismiss)
     }
 }
 
@@ -977,6 +929,10 @@ private fun NeteaseKeyInfoMenu(
                 onClick = { onOpenUrl(neteaseSongUrl(info.musicId)) }
             )
         }
+        info.aliases
+            .joinToString(" / ")
+            .takeIf { it.isNotBlank() }
+            ?.let { SongInfoRow("别名", it) }
         if (info.albumId.isNotBlank()) {
             SongInfoActionRow(
                 label = "网易云专辑",
@@ -995,13 +951,10 @@ private fun NeteaseKeyInfoMenu(
                 SongInfoRow("网易云歌手", artist.name)
             }
         }
-        SongInfoRow("格式", info.format)
-        SongInfoRow("码率", info.bitrate.takeIf { it.isNotBlank() }?.let { "${it} bps" }.orEmpty())
         SongInfoRow("注释", info.comment)
         SongInfoRow("原始 163 key", info.raw)
         SongInfoRow("解密 JSON", info.decodedJson)
         LibraryMenuItem("返回歌曲信息", onBack)
-        LibraryMenuItem("关闭", onDismiss)
     }
 }
 

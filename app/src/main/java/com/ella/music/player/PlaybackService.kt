@@ -4,7 +4,11 @@ import android.app.PendingIntent
 import android.app.NotificationManager
 import android.os.Build
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Log
+import android.util.LruCache
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.annotation.OptIn
@@ -374,6 +378,10 @@ class PlaybackService : MediaLibraryService() {
             const val CHANNEL_NAME = "播放控制"
             const val FLAG_ALWAYS_SHOW_TICKER_FALLBACK = 0x1000000
             const val FLAG_ONLY_UPDATE_TICKER_FALLBACK = 0x2000000
+            const val LARGE_ICON_MAX_SIZE = 512
+        }
+        private val largeIconCache = object : LruCache<String, Bitmap>(6 * 1024) {
+            override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
         }
 
         override fun createNotification(
@@ -396,8 +404,10 @@ class PlaybackService : MediaLibraryService() {
             val player = mediaSession.player
             val metadata = player.mediaMetadata
             val tickerPayload = PlaybackTickerState.current()
+            val largeIcon = resolveLargeIcon(metadata)
             val builder = NotificationCompat.Builder(service, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_flyme_ticker)
+                .setLargeIcon(largeIcon)
                 .setContentTitle(metadata.title?.takeIf { it.isNotBlank() } ?: service.getString(R.string.app_name))
                 .setContentText(metadata.artist?.takeIf { it.isNotBlank() } ?: metadata.albumTitle ?: "")
                 .setTicker(tickerPayload?.text)
@@ -458,6 +468,66 @@ class PlaybackService : MediaLibraryService() {
                 notification.flags = notification.flags or FLAG_ONLY_UPDATE_TICKER_FALLBACK
             }
             return MediaNotification(NOTIFICATION_ID, notification)
+        }
+
+        private fun resolveLargeIcon(metadata: MediaMetadata): Bitmap? {
+            metadata.artworkData?.takeIf { it.isNotEmpty() }?.let { data ->
+                val key = "data:${data.contentHashCode()}:${data.size}"
+                largeIconCache.get(key)?.let { return it }
+                return decodeArtworkData(data)?.also { largeIconCache.put(key, it) }
+            }
+
+            val uri = metadata.artworkUri ?: return null
+            if (uri.scheme.equals("http", ignoreCase = true) || uri.scheme.equals("https", ignoreCase = true)) {
+                return null
+            }
+            val key = "uri:$uri"
+            largeIconCache.get(key)?.let { return it }
+            return decodeArtworkUri(uri)?.also { largeIconCache.put(key, it) }
+        }
+
+        private fun decodeArtworkData(data: ByteArray): Bitmap? {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = bounds.notificationArtworkSampleSize()
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            return runCatching {
+                BitmapFactory.decodeByteArray(data, 0, data.size, options)?.centerCropSquare()
+            }.getOrNull()
+        }
+
+        private fun decodeArtworkUri(uri: Uri): Bitmap? {
+            return runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                service.contentResolver.openInputStream(uri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, bounds)
+                }
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = bounds.notificationArtworkSampleSize()
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                service.contentResolver.openInputStream(uri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                }?.centerCropSquare()
+            }.getOrNull()
+        }
+
+        private fun BitmapFactory.Options.notificationArtworkSampleSize(): Int {
+            var sample = 1
+            while (outWidth / sample > LARGE_ICON_MAX_SIZE || outHeight / sample > LARGE_ICON_MAX_SIZE) {
+                sample *= 2
+            }
+            return sample.coerceAtLeast(1)
+        }
+
+        private fun Bitmap.centerCropSquare(): Bitmap {
+            if (width == height) return this
+            val size = minOf(width, height)
+            val x = ((width - size) / 2).coerceAtLeast(0)
+            val y = ((height - size) / 2).coerceAtLeast(0)
+            return Bitmap.createBitmap(this, x, y, size, size)
         }
 
         override fun handleCustomCommand(session: MediaSession, action: String, extras: android.os.Bundle): Boolean = false

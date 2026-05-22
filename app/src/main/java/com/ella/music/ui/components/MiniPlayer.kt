@@ -66,7 +66,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.icon.extended.Pause
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -231,12 +230,7 @@ fun MiniPlayer(
                         sizePx = 128
                     )
                 } else {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Music,
-                        contentDescription = null,
-                        tint = MiuixTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    DefaultAlbumCover(modifier = Modifier.size(44.dp))
                 }
             }
             CircularProgressRing(

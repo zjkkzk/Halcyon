@@ -35,6 +35,7 @@ import com.ella.music.data.parseNameSplitSetting
 import com.ella.music.data.repository.MusicRepository
 import com.ella.music.data.splitGenreNames
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -95,6 +96,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 NameSplitConfigStore.genreProtectedNames = parseNameSplitSetting(it)
             }
         }
+        viewModelScope.launch {
+            settingsManager.tagIgnoreCase.collect {
+                NameSplitConfigStore.tagIgnoreCase = it
+            }
+        }
     }
 
     fun selectTab(index: Int) {
@@ -152,14 +158,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         currentSongs.forEach { song ->
             splitArtistNames(song.artist).forEach { rawName ->
-                val key = rawName.lowercase()
+                val key = rawName.tagIdentityKey()
                 val accumulator = counts.getOrPut(key) { ArtistAccumulator(rawName) }
                 accumulator.songCount += 1
                 albumIdsByArtist.getOrPut(key) { mutableSetOf() } += song.albumIdentityId()
             }
             if (includeAlbumArtists) {
                 splitArtistNames(song.albumArtist).forEach { rawName ->
-                    val key = rawName.lowercase()
+                    val key = rawName.tagIdentityKey()
                     counts.getOrPut(key) { ArtistAccumulator(rawName) }
                     albumIdsByArtist.getOrPut(key) { mutableSetOf() } += song.albumIdentityId()
                 }
@@ -169,7 +175,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (includeAlbumArtists) {
             currentAlbums.forEach { album ->
                 splitArtistNames(album.albumArtist.ifBlank { album.artist }).forEach { rawName ->
-                    val key = rawName.lowercase()
+                    val key = rawName.tagIdentityKey()
                     counts.getOrPut(key) { ArtistAccumulator(rawName) }
                     if (album.id > 0L) {
                         albumIdsByArtist.getOrPut(key) { mutableSetOf() } += album.id
@@ -217,15 +223,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getMetadataCategoryItems(type: String): List<MetadataCategoryItem> {
         val groups = linkedMapOf<String, MutableList<Song>>()
+        val displayNames = linkedMapOf<String, String>()
         songs.value.forEach { song ->
             song.metadataCategoryNames(type).forEach { name ->
-                groups.getOrPut(name) { mutableListOf() } += song
+                val key = name.tagIdentityKey()
+                displayNames.putIfAbsent(key, name)
+                groups.getOrPut(key) { mutableListOf() } += song
             }
         }
         return groups
-            .map { (name, items) ->
+            .map { (key, items) ->
                 MetadataCategoryItem(
-                    name = name,
+                    name = displayNames[key] ?: key,
                     songCount = items.size,
                     albumCount = items.map { it.albumIdentityId() }.distinct().size,
                     duration = items.sumOf { it.duration },
@@ -243,7 +252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val target = name.trim()
         if (target.isBlank()) return emptyList()
         return songs.value
-            .filter { song -> song.metadataCategoryNames(type).any { it.equals(target, ignoreCase = true) } }
+            .filter { song -> song.metadataCategoryNames(type).any { it.equals(target, ignoreCase = NameSplitConfigStore.tagIgnoreCase) } }
             .sortedWith(
                 compareBy<Song, String>(String.CASE_INSENSITIVE_ORDER) { it.album }
                     .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
@@ -256,7 +265,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val target = name.trim()
         if (target.isBlank()) return false
         return songs.value.any { song ->
-            song.metadataCategoryNames(type).any { it.equals(target, ignoreCase = true) }
+            song.metadataCategoryNames(type).any { it.equals(target, ignoreCase = NameSplitConfigStore.tagIgnoreCase) }
         }
     }
 

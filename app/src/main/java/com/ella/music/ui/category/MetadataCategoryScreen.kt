@@ -70,6 +70,7 @@ import com.ella.music.viewmodel.PlayerViewModel
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
@@ -726,6 +727,7 @@ private fun MetadataCategoryCard(
         "folder" -> {
             FolderCategoryRow(
                 item = item,
+                sortMode = sortMode,
                 albumArtUri = albumArtUri,
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -839,6 +841,7 @@ private fun MetadataCategoryCard(
 @OptIn(ExperimentalFoundationApi::class)
 private fun FolderCategoryRow(
     item: MetadataCategoryItem,
+    sortMode: MetadataCategorySortMode,
     albumArtUri: android.net.Uri?,
     onClick: () -> Unit,
     onLongClick: () -> Unit
@@ -887,7 +890,7 @@ private fun FolderCategoryRow(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${item.songCount} 首歌曲 · ${item.name}",
+                text = "${item.folderSortSummary(sortMode)} · ${item.name}",
                 fontSize = 13.sp,
                 lineHeight = 17.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -1039,7 +1042,7 @@ private fun MetadataCategoryItem.folderSortSummary(sortMode: MetadataCategorySor
         MetadataCategorySortMode.AlbumCount -> "${albumCount} 张专辑"
         MetadataCategorySortMode.Duration -> duration.formatDuration()
         MetadataCategorySortMode.DateModified,
-        MetadataCategorySortMode.DateModifiedAsc -> dateModified.formatDateText()
+        MetadataCategorySortMode.DateModifiedAsc -> dateModified.formatDateTimeText()
         else -> "${songCount} 首歌曲"
     }
 }
@@ -1161,12 +1164,7 @@ private fun MetadataAlbumRow(
                     sizePx = 256
                 )
             } else {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Music,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
+                DefaultAlbumCover(modifier = Modifier.fillMaxSize())
             }
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -1236,4 +1234,10 @@ private fun Long.formatDateText(): String {
     if (this <= 0L) return "未知修改时间"
     val millis = if (this < 10_000_000_000L) this * 1000L else this
     return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(millis))
+}
+
+private fun Long.formatDateTimeText(): String {
+    if (this <= 0L) return "未知修改时间"
+    val millis = if (this < 10_000_000_000L) this * 1000L else this
+    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }

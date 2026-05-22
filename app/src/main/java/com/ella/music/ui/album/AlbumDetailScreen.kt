@@ -46,6 +46,7 @@ import com.ella.music.data.model.Album
 import com.ella.music.data.model.Song
 import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.AppleStylePlayButton
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
@@ -379,6 +380,7 @@ private fun AlbumSongRow(
         loadAudioInfo = mainViewModel::getAudioInfo,
         leadingLabel = if (showTrackNumber) song.displayTrackNumber() else null,
         leadingLabelBeforeCover = showTrackNumber,
+        showAlbumInSubtitle = false,
         onClick = {
             val safeIndex = index.coerceAtLeast(0)
             playerViewModel.setPlaylist(sortedAlbumSongs, safeIndex)
@@ -413,11 +415,7 @@ private fun AlbumHeader(
                 sizePx = 3000
             )
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-            )
+            DefaultAlbumCover(modifier = Modifier.fillMaxSize())
         }
 
         Box(

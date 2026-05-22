@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.splitArtistNames
+import com.ella.music.data.tagIdentityKey
 import com.ella.music.data.model.Song
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.ellaPageBackground
@@ -75,17 +76,23 @@ fun HomeScreen(
     val settingsManager = remember(context) { SettingsManager(context) }
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
+    val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = ellaPageBackground()
     val cardText = if (isDark) Color.White else Color(0xFF15151A)
-    val featuredSongs = remember(songs) { songs.shuffled().take(3) }
-    val artistCount = remember(songs, showAlbumArtists) {
+    val featuredSongs = remember(songs) {
+        when {
+            songs.size <= 3 -> songs
+            else -> listOf(songs.first(), songs[songs.size / 2], songs.last())
+        }
+    }
+    val artistCount = remember(songs, showAlbumArtists, tagIgnoreCase) {
         songs
             .flatMap {
                 if (showAlbumArtists) splitArtistNames(it.artist) + splitArtistNames(it.albumArtist)
                 else splitArtistNames(it.artist)
             }
-            .distinctBy { it.lowercase() }
+            .distinctBy { it.tagIdentityKey() }
             .size
     }
     val songsById = remember(songs) { songs.associateBy { it.id } }

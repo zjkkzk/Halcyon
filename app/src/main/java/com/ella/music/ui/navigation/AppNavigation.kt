@@ -312,6 +312,7 @@ fun AppNavigation(
                 playerViewModel = playerViewModel,
                 onBack = { navController.popBackStack() },
                 onAlbumClick = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },
+                onArtistClick = { targetArtist -> navController.navigate(Screen.ArtistDetail.createRoute(targetArtist)) },
                 onMetadataCategoryClick = { type, name ->
                     navController.navigate(Screen.MetadataCategoryDetail.createRoute(type, name))
                 },

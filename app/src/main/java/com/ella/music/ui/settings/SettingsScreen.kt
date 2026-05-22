@@ -45,6 +45,7 @@ import androidx.core.content.ContextCompat
 import com.ella.music.BuildConfig
 import com.ella.music.data.PlaybackStatsStore
 import com.ella.music.data.SettingsManager
+import com.ella.music.ui.components.TagEditorOptionIds
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
@@ -497,6 +498,11 @@ fun SettingsDetailScreen(
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = true)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
+    val metadataEditorId by settingsManager.metadataEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
+    val lyricTimingEditorId by settingsManager.lyricTimingEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
+    val shortcutLibraryLabel by settingsManager.shortcutLibraryLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_LIBRARY_LABEL)
+    val shortcutPlaylistsLabel by settingsManager.shortcutPlaylistsLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_PLAYLISTS_LABEL)
+    val shortcutFolderLabel by settingsManager.shortcutFolderLabel.collectAsState(initial = SettingsManager.DEFAULT_SHORTCUT_FOLDER_LABEL)
     val openAiApiKey by settingsManager.openAiApiKey.collectAsState(initial = "")
     val openAiBaseUrl by settingsManager.openAiBaseUrl.collectAsState(initial = SettingsManager.DEFAULT_OPENAI_BASE_URL)
     val openAiModel by settingsManager.openAiModel.collectAsState(initial = SettingsManager.DEFAULT_OPENAI_MODEL)
@@ -504,6 +510,7 @@ fun SettingsDetailScreen(
     val artistProtectedNames by settingsManager.artistProtectedNames.collectAsState(initial = "")
     val genreSeparators by settingsManager.genreSeparators.collectAsState(initial = "")
     val genreProtectedNames by settingsManager.genreProtectedNames.collectAsState(initial = "")
+    val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val themeLabels = listOf("跟随系统", "浅色", "深色")
     val selectedThemeMode = themeMode.coerceIn(themeLabels.indices)
@@ -519,6 +526,34 @@ fun SettingsDetailScreen(
                 }
             )
         }
+    }
+    val metadataEditorOptions = remember {
+        listOf(
+            TagEditorOptionIds.ASK_EACH_TIME to "每次选择",
+            TagEditorOptionIds.LYRICO to "Lyrico",
+            TagEditorOptionIds.LUNABEAT_METADATA to "LunaBeat（编辑元数据）",
+            TagEditorOptionIds.MUSIC_TAG to "音乐标签"
+        )
+    }
+    val lyricTimingEditorOptions = remember {
+        listOf(
+            TagEditorOptionIds.ASK_EACH_TIME to "每次选择",
+            TagEditorOptionIds.LUNABEAT_LYRIC_TIMING to "LunaBeat（歌词打轴）"
+        )
+    }
+    val metadataEditorIndex = metadataEditorOptions
+        .indexOfFirst { it.first == metadataEditorId }
+        .takeIf { it >= 0 }
+        ?: 0
+    val lyricTimingEditorIndex = lyricTimingEditorOptions
+        .indexOfFirst { it.first == lyricTimingEditorId }
+        .takeIf { it >= 0 }
+        ?: 0
+    val metadataEditorEntries = remember(metadataEditorOptions) {
+        metadataEditorOptions.map { DropdownItem(title = it.second) }
+    }
+    val lyricTimingEditorEntries = remember(lyricTimingEditorOptions) {
+        lyricTimingEditorOptions.map { DropdownItem(title = it.second) }
     }
     val desktopLyricColorPresets = remember {
         listOf(
@@ -716,6 +751,67 @@ fun SettingsDetailScreen(
                     }
                 }
 
+                SmallTitle(text = "音乐标签刮削")
+
+                SettingsCardGroup {
+                    Column {
+                        WindowSpinnerPreference(
+                            title = "元数据编辑软件",
+                            summary = "当前：${metadataEditorOptions[metadataEditorIndex].second}",
+                            items = metadataEditorEntries,
+                            selectedIndex = metadataEditorIndex,
+                            onSelectedIndexChange = { index ->
+                                scope.launch {
+                                    settingsManager.setMetadataEditorId(
+                                        metadataEditorOptions.getOrNull(index)?.first.orEmpty()
+                                    )
+                                }
+                            }
+                        )
+                        WindowSpinnerPreference(
+                            title = "歌词打轴软件",
+                            summary = "当前：${lyricTimingEditorOptions[lyricTimingEditorIndex].second}",
+                            items = lyricTimingEditorEntries,
+                            selectedIndex = lyricTimingEditorIndex,
+                            onSelectedIndexChange = { index ->
+                                scope.launch {
+                                    settingsManager.setLyricTimingEditorId(
+                                        lyricTimingEditorOptions.getOrNull(index)?.first.orEmpty()
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+
+                SmallTitle(text = "桌面快捷方式")
+
+                SettingsCardGroup {
+                    Column {
+                        SplitSettingTextField(
+                            label = "音乐库",
+                            value = shortcutLibraryLabel,
+                            summary = "长按桌面图标时显示的快捷方式名称",
+                            singleLine = true,
+                            onValueChange = { value -> scope.launch { settingsManager.setShortcutLibraryLabel(value) } }
+                        )
+                        SplitSettingTextField(
+                            label = "歌单",
+                            value = shortcutPlaylistsLabel,
+                            summary = "长按桌面图标时显示的快捷方式名称",
+                            singleLine = true,
+                            onValueChange = { value -> scope.launch { settingsManager.setShortcutPlaylistsLabel(value) } }
+                        )
+                        SplitSettingTextField(
+                            label = "文件夹",
+                            value = shortcutFolderLabel,
+                            summary = "长按桌面图标时显示的快捷方式名称",
+                            singleLine = true,
+                            onValueChange = { value -> scope.launch { settingsManager.setShortcutFolderLabel(value) } }
+                        )
+                    }
+                }
+
                 SmallTitle(text = "扫描")
 
                 SettingsCardGroup {
@@ -779,6 +875,14 @@ fun SettingsDetailScreen(
                             value = genreProtectedNames,
                             summary = "一行一个；例如带 / 的复合流派名",
                             onValueChange = { value -> scope.launch { settingsManager.setGenreProtectedNames(value) } }
+                        )
+                        SwitchPreference(
+                            title = "标签忽略大小写",
+                            summary = "开启后 LiSA 与 LISA 等大小写不同的标签会合并显示",
+                            checked = tagIgnoreCase,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.setTagIgnoreCase(it) }
+                            }
                         )
                     }
                 }
@@ -1064,6 +1168,7 @@ private fun SplitSettingTextField(
     label: String,
     value: String,
     summary: String,
+    singleLine: Boolean = false,
     onValueChange: (String) -> Unit
 ) {
     var localValue by remember(label) { mutableStateOf(value) }
@@ -1104,7 +1209,7 @@ private fun SplitSettingTextField(
             },
             label = label,
             useLabelAsPlaceholder = true,
-            singleLine = false,
+            singleLine = singleLine,
             insideMargin = DpSize(12.dp, 10.dp),
             backgroundColor = MiuixTheme.colorScheme.surfaceContainer,
             cornerRadius = 12.dp,

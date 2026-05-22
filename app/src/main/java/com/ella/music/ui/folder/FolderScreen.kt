@@ -68,6 +68,7 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import androidx.compose.ui.window.Dialog
+import com.ella.music.data.model.albumIdentityId
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Add
@@ -81,6 +82,8 @@ import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -254,6 +257,7 @@ fun FolderScreen(
                                 path = rootFolderPath,
                                 name = rootFolderPath.substringAfterLast('/').ifBlank { "根目录" },
                                 songCount = rootDirectSongs.size,
+                                albumCount = rootDirectSongs.map { it.albumIdentityId() }.distinct().size,
                                 duration = rootDirectSongs.sumOf { it.duration },
                                 dateModified = rootDirectSongs.maxOfOrNull { it.dateModified } ?: 0L
                             )
@@ -278,6 +282,7 @@ fun FolderScreen(
                 ) { folder ->
                     FolderListRow(
                         folder = folder,
+                        sortMode = folderSortMode,
                         onClick = { onFolderClick(folder.path) },
                         onLongClick = { folderToBlock = folder.path }
                     )
@@ -290,6 +295,7 @@ fun FolderScreen(
 @Composable
 private fun FolderListRow(
     folder: FolderTreeEntry,
+    sortMode: FolderListSortMode,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
@@ -323,7 +329,7 @@ private fun FolderListRow(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${folder.songCount} 首歌曲 · ${folder.path}",
+                text = "${folder.summaryFor(sortMode)} · ${folder.path}",
                 fontSize = 13.sp,
                 lineHeight = 17.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -539,7 +545,8 @@ private enum class FolderListSortMode(val label: String) {
     SongCount("歌曲数"),
     Duration("歌曲时长"),
     DateModified("修改时间"),
-    DateModifiedAsc("修改时间升序")
+    DateModifiedAsc("修改时间升序"),
+    AlbumCount("专辑数")
 }
 
 private fun List<FolderTreeEntry>.sortedForFolderList(
@@ -549,8 +556,19 @@ private fun List<FolderTreeEntry>.sortedForFolderList(
         FolderListSortMode.Name -> sortedBy { it.name.lowercase(Locale.ROOT) }
         FolderListSortMode.SongCount -> sortedByDescending { it.songCount }
         FolderListSortMode.Duration -> sortedByDescending { it.duration }
+        FolderListSortMode.AlbumCount -> sortedByDescending { it.albumCount }
         FolderListSortMode.DateModified -> sortedByDescending { it.dateModified }
         FolderListSortMode.DateModifiedAsc -> sortedBy { it.dateModified }
+    }
+}
+
+private fun FolderTreeEntry.summaryFor(mode: FolderListSortMode): String {
+    return when (mode) {
+        FolderListSortMode.Duration -> duration.formatFolderDuration()
+        FolderListSortMode.AlbumCount -> "${albumCount} 张专辑"
+        FolderListSortMode.DateModified,
+        FolderListSortMode.DateModifiedAsc -> dateModified.formatFolderDateTime()
+        else -> "${songCount} 首歌曲"
     }
 }
 
@@ -559,6 +577,12 @@ private fun Long.formatFolderDuration(): String {
     val hours = totalMinutes / 60L
     val minutes = totalMinutes % 60L
     return if (hours > 0) "${hours}小时${minutes}分钟" else "${minutes}分钟"
+}
+
+private fun Long.formatFolderDateTime(): String {
+    if (this <= 0L) return "未知修改时间"
+    val millis = if (this < 10_000_000_000L) this * 1000L else this
+    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(millis))
 }
 
 @Composable

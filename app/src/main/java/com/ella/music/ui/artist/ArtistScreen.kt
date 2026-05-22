@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,15 +69,18 @@ import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.AppleStylePlayButton
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.buildTagEditorOptions
+import com.ella.music.ui.components.TagEditorOptionKind
 import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.openSongSpectrumWithAspectPro
 import com.ella.music.ui.components.shareLocalSong
 import com.ella.music.ui.components.SongItem
+import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
@@ -103,6 +107,7 @@ fun ArtistScreen(
     playerViewModel: PlayerViewModel,
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit,
+    onArtistClick: (String) -> Unit = {},
     onMetadataCategoryClick: (String, String) -> Unit = { _, _ -> },
     onNavigateToPlayer: () -> Unit
 ) {
@@ -119,7 +124,7 @@ fun ArtistScreen(
     val sortMode = ArtistDetailSongSortMode.entries.getOrElse(sortIndex) { ArtistDetailSongSortMode.Title }
     var albumSortMode by remember { mutableStateOf(ArtistDetailAlbumSortMode.YearAsc) }
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable(artistName) { mutableStateOf(0) }
     var scrollToTopRequest by remember { mutableStateOf(0) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
@@ -186,6 +191,10 @@ fun ArtistScreen(
 
     BackHandler(enabled = sortExpanded) {
         sortExpanded = false
+    }
+
+    LaunchedEffect(tabs.size) {
+        if (selectedTab !in tabs.indices) selectedTab = 0
     }
 
     LaunchedEffect(scrollToTopRequest) {
@@ -329,22 +338,20 @@ fun ArtistScreen(
             )
         }
 
-        if (selectedArtistTab == ArtistTab.Songs) {
-            IconButton(
-                onClick = { sortExpanded = !sortExpanded },
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(end = 8.dp, top = 8.dp)
-                    .size(48.dp)
-                    .align(Alignment.TopEnd)
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Sort,
-                    contentDescription = "排序",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+        IconButton(
+            onClick = { sortExpanded = !sortExpanded },
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(end = 8.dp, top = 8.dp)
+                .size(48.dp)
+                .align(Alignment.TopEnd)
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Regular.Sort,
+                contentDescription = "排序",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         DoubleTapScrollOverlay(
@@ -359,7 +366,7 @@ fun ArtistScreen(
         )
 
         AnimatedVisibility(
-            visible = sortExpanded && selectedArtistTab == ArtistTab.Songs,
+            visible = sortExpanded,
             enter = expandVertically(),
             exit = shrinkVertically(),
             modifier = Modifier
@@ -421,57 +428,14 @@ fun ArtistScreen(
                 .padding(end = 22.dp, bottom = 118.dp)
         )
 
-        actionSong?.let { song ->
-            WindowBottomSheet(
-                show = true,
-                enableNestedScroll = false,
-                title = song.title.ifBlank { "歌曲操作" },
-                onDismissRequest = { actionSong = null }
-            ) {
-                ArtistSongActionMenu(
-                    song = song,
-                    onDismiss = { actionSong = null },
-                    onAddToPlaylist = {
-                        actionSong = null
-                        playlistPickerSong = song
-                    },
-                    onPlayNext = {
-                        actionSong = null
-                        playerViewModel.playNext(song)
-                    },
-                    onShare = {
-                        actionSong = null
-                        shareLocalSong(context, song)
-                    },
-                    onSpectrum = {
-                        actionSong = null
-                        openSongSpectrumWithAspectPro(context, song)
-                    },
-                    onInfo = {
-                        actionSong = null
-                        songInfoSheetSong = song
-                    },
-                    onAiInterpret = {
-                        actionSong = null
-                        aiInterpretationSong = song
-                    },
-                    onArtist = { actionSong = null },
-                    onAlbum = {
-                        actionSong = null
-                        val albumId = song.albumIdentityId()
-                        if (albumId > 0L) onAlbumClick(albumId)
-                    },
-                    onEditTag = {
-                        actionSong = null
-                        tagEditorSong = song
-                    },
-                    onDelete = {
-                        actionSong = null
-                        mainViewModel.deleteSongs(listOf(song))
-                    }
-                )
-            }
-        }
+        SongMoreActionHost(
+            actionSong = actionSong,
+            mainViewModel = mainViewModel,
+            playerViewModel = playerViewModel,
+            onDismissAction = { actionSong = null },
+            onNavigateToAlbum = onAlbumClick,
+            onNavigateToArtist = onArtistClick
+        )
 
         playlistPickerSong?.let { song ->
             WindowBottomSheet(
@@ -745,7 +709,9 @@ private fun ArtistTagEditorMenu(
     onOptionClick: (com.ella.music.ui.components.TagEditorOption) -> Unit
 ) {
     val context = LocalContext.current
-    val options = remember(song) { buildTagEditorOptions(context, song) }
+    val options = remember(song) {
+        buildTagEditorOptions(context, song).filter { it.kind == TagEditorOptionKind.Metadata }
+    }
     ArtistSheetColumn {
         ArtistSheetHandle()
         Text(
@@ -800,7 +766,6 @@ private fun ArtistSongInfoMenu(
         ArtistInfoRow("注释", tagInfo?.displayComment.orEmpty())
         ArtistInfoRow("音频", audioInfo?.let { detailedAudioInfo(it) }.orEmpty())
         ArtistInfoRow("路径", song.path)
-        ArtistMenuItem("关闭", onDismiss)
     }
 }
 
@@ -987,9 +952,10 @@ private fun ArtistHeader(
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.00f to Color.Black.copy(alpha = 0.05f),
-                            0.42f to Color.Black.copy(alpha = 0.16f),
-                            0.74f to pageBackground.copy(alpha = 0.78f),
+                            0.00f to Color.Black.copy(alpha = 0.12f),
+                            0.42f to Color.Black.copy(alpha = 0.28f),
+                            0.72f to Color.Black.copy(alpha = 0.58f),
+                            0.88f to pageBackground.copy(alpha = 0.82f),
                             1.00f to pageBackground
                         )
                     )
@@ -998,23 +964,28 @@ private fun ArtistHeader(
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 46.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 24.dp, vertical = 42.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = artistName.ifBlank { "未知歌手" },
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = headerTextColor
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = headerTextColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
                 text = "$albumCount 张专辑 · $songCount 首歌曲",
-                fontSize = 14.sp,
-                color = headerSubTextColor
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = headerSubTextColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             AppleStylePlayButton(
@@ -1143,12 +1114,7 @@ private fun ArtistAlbumRow(
                     sizePx = 256
                 )
             } else {
-                Icon(
-                    imageVector = MiuixIcons.Regular.MapAlbum,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
+                DefaultAlbumCover(modifier = Modifier.fillMaxSize())
             }
         }
 

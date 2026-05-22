@@ -1,11 +1,13 @@
 package com.ella.music.ui.folder
 
 import com.ella.music.data.model.Song
+import com.ella.music.data.model.albumIdentityId
 
 internal data class FolderTreeEntry(
     val path: String,
     val name: String,
     val songCount: Int,
+    val albumCount: Int,
     val duration: Long,
     val dateModified: Long = 0L
 )
@@ -44,6 +46,7 @@ internal fun List<Song>.childFoldersOf(parentPath: String): List<FolderTreeEntry
                 path = path,
                 name = path.substringAfterLast('/').ifBlank { "根目录" },
                 songCount = songs.size,
+                albumCount = songs.map { it.albumIdentityId() }.distinct().size,
                 duration = songs.sumOf { it.duration },
                 dateModified = songs.maxOfOrNull { it.dateModified } ?: 0L
             )

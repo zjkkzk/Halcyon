@@ -66,6 +66,7 @@ import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.playlistIdentityKey
 import com.ella.music.data.PlaylistImportMode
 import com.ella.music.ui.components.AppleStylePlayButton
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
@@ -545,12 +546,7 @@ fun PlaylistDetailScreen(
                         coverModel = playlistCoverModel,
                         songCount = sortedSongs.size,
                         duration = sortedSongs.sumOf { it.duration },
-                        sortLabel = sortMode.label,
-                        onShare = {
-                            if (!isFiveStarPlaylist) {
-                                exportLauncher.launch("${playlist.name.safePlaylistFileName()}.txt")
-                            }
-                        }
+                        sortLabel = sortMode.label
                     )
                 }
 
@@ -647,13 +643,12 @@ private fun PlaylistDetailHero(
     coverModel: Any?,
     songCount: Int,
     duration: Long,
-    sortLabel: String,
-    onShare: () -> Unit
+    sortLabel: String
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 210.dp)
+            .heightIn(min = 170.dp)
             .background(
                 Brush.verticalGradient(
                     0f to MiuixTheme.colorScheme.primary.copy(alpha = 0.20f),
@@ -684,12 +679,7 @@ private fun PlaylistDetailHero(
                         sizePx = 256
                     )
                 } else {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Playlist,
-                        contentDescription = null,
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.size(46.dp)
-                    )
+                    DefaultAlbumCover(modifier = Modifier.fillMaxSize())
                 }
                 Text(
                     text = "▶ $songCount",
@@ -730,52 +720,7 @@ private fun PlaylistDetailHero(
                 )
             }
         }
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth(0.88f)
-                .clip(RoundedCornerShape(999.dp))
-                .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.72f))
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PlaylistHeroAction("收藏", enabled = false, onClick = {})
-            PlaylistHeroDivider()
-            PlaylistHeroAction("评论", enabled = true, onClick = {})
-            PlaylistHeroDivider()
-            PlaylistHeroAction("分享", enabled = true, onClick = onShare)
-        }
     }
-}
-
-@Composable
-private fun PlaylistHeroAction(
-    text: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Text(
-        text = text,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.White.copy(alpha = if (enabled) 0.92f else 0.36f),
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    )
-}
-
-@Composable
-private fun PlaylistHeroDivider() {
-    Box(
-        modifier = Modifier
-            .width(1.dp)
-            .height(24.dp)
-            .background(Color.White.copy(alpha = 0.24f))
-    )
 }
 
 @Composable
@@ -841,13 +786,15 @@ private enum class PlaylistSortMode(val label: String) {
     CreatedAt("创建时间倒序"),
     Name("名称"),
     SongCount("歌曲数"),
-    Duration("歌曲时长")
+    Duration("歌曲时长"),
+    CreatedAtAsc("创建时间")
 }
 
 private fun List<UserPlaylist>.sortedForPlaylistList(mode: PlaylistSortMode): List<UserPlaylist> {
     return when (mode) {
         PlaylistSortMode.UpdatedAt -> sortedByDescending { it.updatedAt }
         PlaylistSortMode.CreatedAt -> sortedByDescending { it.createdAt }
+        PlaylistSortMode.CreatedAtAsc -> sortedBy { it.createdAt }
         PlaylistSortMode.Name -> sortedBy { it.name.lowercase() }
         PlaylistSortMode.SongCount -> sortedByDescending { it.songs.size }
         PlaylistSortMode.Duration -> sortedByDescending { playlist -> playlist.songs.sumOf { it.duration } }
