@@ -32,6 +32,7 @@ data class NeteaseArtist(
 
 fun decodeNeteaseKey(value: String): NeteaseKeyInfo? {
     val raw = value.trim().takeIf { it.isNotBlank() } ?: return null
+    if (!raw.looksLikeNeteaseKeyValue()) return null
     val normalized = raw.extractNeteaseKeyPayload()
 
     normalized.extractNeteaseSongIdFromPlainText()?.let { id ->
@@ -53,8 +54,8 @@ fun decodeNeteaseKey(value: String): NeteaseKeyInfo? {
             musicId = json.optId("musicId", "songId", "id"),
             musicName = json.optStringCompat("musicName", "songName", "name"),
             aliases = json.optStringList("alias", "aliases", "alia"),
-            albumId = json.optId("albumId"),
-            albumName = json.optStringCompat("album", "albumName"),
+            albumId = json.optAlbumId(),
+            albumName = json.optAlbumName(),
             artists = json.optArtists(),
             comment = json.optStringCompat("comment", "description", "desc", "remark", "note", "subtitle", "subTitle")
         )
@@ -92,6 +93,25 @@ private fun String.extractNeteaseKeyPayload(): String {
         }
     }
     return text
+}
+
+fun String.looksLikeNeteaseKeyValue(): Boolean {
+    val text = trim()
+    if (text.isBlank()) return false
+    if (text.contains('\n') || text.contains('\r')) return false
+    if (Regex("""\[[0-9]{1,2}:[0-9]{2}""").containsMatchIn(text)) return false
+    if (text.trimStart().startsWith("{") && text.contains("music", ignoreCase = true)) return true
+    if (text.contains("163 key", ignoreCase = true)) {
+        val payload = text.extractNeteaseKeyPayload()
+        if (payload == text || payload.isBlank()) return false
+        return payload.extractNeteaseSongIdFromPlainText() != null ||
+            payload.trimStart().startsWith("{") ||
+            payload.matches(Regex("""[A-Za-z0-9+/=_-]{24,}"""))
+    }
+    if (text.extractNeteaseSongIdFromPlainText() != null) return true
+    if (text.length !in 24..8192) return false
+    if (Regex("""[一-龥ぁ-ゟァ-ヿ가-힣]{8,}""").containsMatchIn(text)) return false
+    return text.matches(Regex("""[A-Za-z0-9+/=_-]+"""))
 }
 
 private fun String.extractNeteaseSongIdFromPlainText(): String? {
@@ -159,15 +179,30 @@ private fun JSONObject.optStringList(vararg names: String): List<String> {
 }
 
 private fun JSONObject.optArtists(): List<NeteaseArtist> {
-    val array = optJSONArray("artist")
-        ?: optJSONArray("artists")
-        ?: optJSONArray("artistsInfo")
-        ?: return emptyList()
-    return buildList {
-        for (index in 0 until array.length()) {
-            parseArtist(array, index)?.let(::add)
+    val candidates = listOf("artist", "artists", "artistsInfo", "ar")
+    val artists = buildList {
+        candidates.forEach { key ->
+            if (!has(key) || isNull(key)) return@forEach
+            when (val value = opt(key)) {
+                is JSONArray -> {
+                    for (index in 0 until value.length()) {
+                        parseArtist(value, index)?.let(::add)
+                    }
+                }
+                is JSONObject -> parseArtist(value)?.let(::add)
+                is String -> value.splitNeteaseArtistNames()
+                    .forEach { add(NeteaseArtist(id = "", name = it)) }
+            }
         }
     }
+    if (artists.isNotEmpty()) return artists.distinctBy { "${it.id}|${it.name}" }
+
+    val singleName = optStringCompat("artistName", "artist")
+    val singleId = optId("artistId")
+    return listOfNotNull(
+        NeteaseArtist(id = singleId, name = singleName)
+            .takeIf { it.id.isNotBlank() || it.name.isNotBlank() }
+    )
 }
 
 private fun parseArtist(array: JSONArray, index: Int): NeteaseArtist? {
@@ -183,6 +218,41 @@ private fun parseArtist(array: JSONArray, index: Int): NeteaseArtist? {
         )
         else -> null
     }?.takeIf { it.name.isNotBlank() || it.id.isNotBlank() }
+}
+
+private fun parseArtist(item: JSONObject): NeteaseArtist? {
+    return NeteaseArtist(
+        name = item.optStringCompat("name", "artistName"),
+        id = item.optId("id", "artistId")
+    ).takeIf { it.name.isNotBlank() || it.id.isNotBlank() }
+}
+
+private fun String.splitNeteaseArtistNames(): List<String> {
+    return trim()
+        .replace(Regex("""\s*&\s*/\s*"""), " / ")
+        .split(Regex("""\s+[&/,;；]\s+|[,;；]"""))
+        .map { it.trim().trim('/', '&') }
+        .filter { it.isNotBlank() && it != "null" }
+}
+
+private fun JSONObject.optAlbumId(): String {
+    optId("albumId", "alId").takeIf { it.isNotBlank() }?.let { return it }
+    val album = opt("album")
+    return when (album) {
+        is JSONArray -> album.opt(1)?.toString().orEmpty().trim().takeUnless { it == "0" }.orEmpty()
+        is JSONObject -> album.optId("id", "albumId")
+        else -> ""
+    }
+}
+
+private fun JSONObject.optAlbumName(): String {
+    optStringCompat("albumName").takeIf { it.isNotBlank() }?.let { return it }
+    val album = opt("album")
+    return when (album) {
+        is JSONArray -> album.optString(0).trim()
+        is JSONObject -> album.optStringCompat("name", "albumName")
+        else -> album?.toString().orEmpty().trim().takeUnless { it == "null" }.orEmpty()
+    }
 }
 
 private const val NETEASE_KEY_AES_KEY = "#14ljk_!\\]&0U<'("

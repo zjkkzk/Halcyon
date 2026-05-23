@@ -10,6 +10,7 @@ import android.util.Log
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
+import com.ella.music.data.looksLikeNeteaseKeyValue
 import com.ella.music.data.parser.LrcParser
 import com.kyant.taglib.TagLib
 import kotlinx.coroutines.Dispatchers
@@ -452,7 +453,7 @@ class MusicScanner(private val context: Context) {
                 )
             }.cleanTagText(),
             neteaseKey = tagLibValues.findNeteaseKey()
-                .ifBlank { jaudioValues["comment"].orEmpty().takeIf { it.looksLikeNeteaseValue() }.orEmpty() }
+                .ifBlank { jaudioValues["comment"].orEmpty().takeIf { it.looksLikeNeteaseKeyValue() }.orEmpty() }
                 .cleanTagText(),
             rating = ratingStarsFromTagValues(
                 jaudioValues["rating"],
@@ -796,10 +797,11 @@ class MusicScanner(private val context: Context) {
     private fun Map<String, List<String>>.findNeteaseKey(): String {
         for ((key, values) in this) {
             val normalizedKey = key.normalizedPropertyKey()
-            val value = values.firstNotBlank().orEmpty()
-            if (value.isBlank()) continue
             if ("163" in normalizedKey || "netease" in normalizedKey || "cloudmusic" in normalizedKey) {
-                return value
+                values.asSequence()
+                    .firstOrNull { it.looksLikeNeteaseKeyValue() }
+                    ?.cleanTagText()
+                    ?.let { return it }
             }
         }
         for (value in values.flatten()) {
@@ -816,23 +818,16 @@ class MusicScanner(private val context: Context) {
         trim('\uFEFF', '\u0000', ' ', '\t', '\r', '\n')
             .replace(Regex("""\s+"""), " ")
 
-    private fun String.looksLikeNeteaseValue(): Boolean =
-        lowercase().let { "163" in it || "netease" in it || "cloudmusic" in it || "music.163.com" in it }
-
     private fun String.extractNeteaseValue(): String {
-        val text = cleanTagText()
-        if (!looksLikeNeteaseValue()) return ""
+        val rawText = trim('\uFEFF', '\u0000', ' ', '\t', '\r', '\n')
+        if (rawText.looksLikeNeteaseKeyValue()) return rawText.cleanTagText()
+        val text = rawText.cleanTagText()
         Regex("""(?:music\.163\.com/(?:#/)?song\?id=|songid[:=]\s*|song_id[:=]\s*|id=)(\d{4,})""", RegexOption.IGNORE_CASE)
             .find(text)
             ?.groupValues
             ?.getOrNull(1)
             ?.let { return it }
-        Regex("""(?:163|netease|cloudmusic|music id|song id)[^0-9]{0,20}(\d{4,})""", RegexOption.IGNORE_CASE)
-            .find(text)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.let { return it }
-        return text
+        return ""
     }
 
     private fun selectBestLyrics(candidates: List<String>): String? {

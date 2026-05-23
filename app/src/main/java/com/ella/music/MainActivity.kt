@@ -45,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -244,6 +245,7 @@ fun EllaApp(
     val scope = rememberCoroutineScope()
     var showPlayerOverlay by remember { mutableStateOf(false) }
     var playerDismissProgress by remember { mutableFloatStateOf(0f) }
+    var playerOverlayOpenToken by remember { mutableIntStateOf(0) }
     val isPlayerVisible = showPlayerOverlay || currentRoute == Screen.Player.route
     val libraryCacheLoaded by mainViewModel.libraryCacheLoaded.collectAsState()
     val initialScanPromptHandled by settingsManager.initialScanPromptHandled.collectAsState(initial = true)
@@ -399,10 +401,10 @@ fun EllaApp(
         .layerBackdrop(backdrop)
     val previousContentBlur = if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-        showPlayerOverlay
+        showPlayerOverlay &&
+        !isPlaying
     ) {
-        val maxBlur = if (isPlaying) 1.5.dp else 8.dp
-        maxBlur * playerDismissProgress.coerceIn(0f, 1f)
+        8.dp * playerDismissProgress.coerceIn(0f, 1f)
     } else {
         0.dp
     }
@@ -428,7 +430,11 @@ fun EllaApp(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 modifier = contentModifier,
-                onNavigateToPlayer = { showPlayerOverlay = true }
+                onNavigateToPlayer = {
+                    playerDismissProgress = 0f
+                    playerOverlayOpenToken++
+                    showPlayerOverlay = true
+                }
             )
             FloatingBottomControls(
                 showMiniPlayer = showMiniPlayer,
@@ -456,7 +462,11 @@ fun EllaApp(
                         }
                     }
                 },
-                onNavigatePlayer = { showPlayerOverlay = true },
+                onNavigatePlayer = {
+                    playerDismissProgress = 0f
+                    playerOverlayOpenToken++
+                    showPlayerOverlay = true
+                },
                 modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
             )
         }
@@ -485,9 +495,16 @@ fun EllaApp(
                     playerDismissProgress = 0f
                     navController.navigate(Screen.ArtistDetail.createRoute(artistName))
                 },
+                onNavigateToMetadataCategory = { type, name ->
+                    playerViewModel.setShowLyrics(false)
+                    showPlayerOverlay = false
+                    playerDismissProgress = 0f
+                    navController.navigate(Screen.MetadataCategoryDetail.createRoute(type, name))
+                },
                 onDismissProgressChange = { progress ->
                     playerDismissProgress = progress
-                }
+                },
+                openToken = playerOverlayOpenToken
             )
         }
 

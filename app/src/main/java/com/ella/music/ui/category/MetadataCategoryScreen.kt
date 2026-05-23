@@ -67,6 +67,7 @@ import com.ella.music.data.model.albumIdentityId
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.MetadataCategoryItem
 import com.ella.music.viewmodel.PlayerViewModel
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
@@ -114,13 +115,29 @@ fun MetadataCategoryScreen(
     val availableSortModes = remember(type) { MetadataCategorySortMode.entries.filter { it.availableFor(type) } }
     val sortMode = availableSortModes.getOrElse(sortIndex) { MetadataCategorySortMode.Name }
     val sortedItems = remember(items, sortMode) { items.sortedForCategory(sortMode) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val displayedItems = remember(sortedItems, searchQuery, type) {
+        val query = searchQuery.trim()
+        if (query.isBlank()) {
+            sortedItems
+        } else {
+            sortedItems.filter { it.matchesCategorySearch(query, type) }
+        }
+    }
     val gridColumns by mainViewModel.settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val safeGridColumns = if (type.usesSingleColumnCategory()) 1 else gridColumns.coerceIn(1, 4)
     val pageBackground = ellaPageBackground()
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    BackHandler(enabled = sortExpanded) {
-        sortExpanded = false
+    BackHandler(enabled = sortExpanded || searchExpanded) {
+        when {
+            searchExpanded -> {
+                searchExpanded = false
+                searchQuery = ""
+            }
+            sortExpanded -> sortExpanded = false
+        }
     }
 
     Column(
@@ -144,6 +161,16 @@ fun MetadataCategoryScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Text(
+                            text = "⌕",
+                            fontSize = 28.sp,
+                            color = MiuixTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { sortExpanded = !sortExpanded }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Sort,
@@ -159,7 +186,27 @@ fun MetadataCategoryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                endPadding = 64.dp
+                endPadding = 112.dp
+            )
+        }
+
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = "搜索${type.categoryTitle()}",
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -192,10 +239,10 @@ fun MetadataCategoryScreen(
             }
         }
 
-        if (sortedItems.isEmpty()) {
+        if (displayedItems.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "暂无${type.categoryTitle()}信息，刷新音乐库后再看看",
+                    text = if (searchQuery.isBlank()) "暂无${type.categoryTitle()}信息，刷新音乐库后再看看" else "没有匹配的${type.categoryTitle()}",
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     fontSize = 14.sp
                 )
@@ -208,13 +255,13 @@ fun MetadataCategoryScreen(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        text = "${sortedItems.size} 个分类 · ${sortMode.displayLabel(type)}",
+                        text = "${displayedItems.size} 个分类 · ${sortMode.displayLabel(type)}",
                         fontSize = 13.sp,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                items(sortedItems, key = { it.name }) { item ->
+                items(displayedItems, key = { it.name }) { item ->
                     MetadataCategoryCard(
                         type = type,
                         item = item,
@@ -273,8 +320,9 @@ fun MetadataCategoryDetailScreen(
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForMetadataDetail(sortMode) }
-    val showAlbumTab = type == "genre" || type == "year"
+    val showAlbumTab = type == "genre" || type == "year" || type == "composer" || type == "lyricist"
     val detailAlbums = remember(songs, libraryAlbums) {
         songs.toMetadataAlbums(libraryAlbums)
     }
@@ -352,9 +400,11 @@ fun MetadataCategoryDetailScreen(
                         }
                         IconButton(onClick = {
                             val selectedSongs = sortedSongs.filter { it.id in selectedIds }
-                            if (selectedSongs.isNotEmpty()) mainViewModel.deleteSongs(selectedSongs)
-                            selectedIds = emptySet()
-                            selectionMode = false
+                            if (selectedSongs.isEmpty()) {
+                                Toast.makeText(context, "请先选择歌曲", Toast.LENGTH_SHORT).show()
+                            } else {
+                                pendingDeleteSongs = selectedSongs
+                            }
                         }) {
                             Icon(
                                 imageVector = MiuixIcons.Regular.Delete,
@@ -393,7 +443,7 @@ fun MetadataCategoryDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                endPadding = 64.dp
+                endPadding = 128.dp
             )
         }
 
@@ -488,7 +538,7 @@ fun MetadataCategoryDetailScreen(
                         }
                         if (hasSameNameArtist) {
                             Text(
-                                text = "查看同名艺术家",
+                                text = "艺术家页",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MiuixTheme.colorScheme.primary,
@@ -603,6 +653,20 @@ fun MetadataCategoryDetailScreen(
                     }
                 )
             }
+
+            ConfirmDangerDialog(
+                show = pendingDeleteSongs.isNotEmpty(),
+                title = "永久删除歌曲",
+                message = "确定要永久删除选中的 ${pendingDeleteSongs.size} 首歌曲吗？此操作可能会删除本地音频文件。",
+                confirmText = "永久删除",
+                onDismiss = { pendingDeleteSongs = emptyList() },
+                onConfirm = {
+                    mainViewModel.deleteSongs(pendingDeleteSongs)
+                    pendingDeleteSongs = emptyList()
+                    selectedIds = emptySet()
+                    selectionMode = false
+                }
+            )
         }
     }
 }
@@ -748,10 +812,11 @@ private fun MetadataCategoryCard(
 
     val cardColor = remember(item.name) { item.name.categoryCardColor() }
     val hasCover = albumArtUri != null
+    val isGenreCard = type == "genre"
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(116.dp)
+            .height(if (isGenreCard) 132.dp else 116.dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -777,11 +842,11 @@ private fun MetadataCategoryCard(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 2.dp)
-                    .size(78.dp)
+                    .size(if (isGenreCard) 64.dp else 78.dp)
                     .graphicsLayer {
                         rotationZ = 13f
-                        translationX = 16.dp.toPx()
-                        translationY = 6.dp.toPx()
+                        translationX = if (isGenreCard) 12.dp.toPx() else 16.dp.toPx()
+                        translationY = if (isGenreCard) 4.dp.toPx() else 6.dp.toPx()
                     }
                     .clip(RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
@@ -808,26 +873,31 @@ private fun MetadataCategoryCard(
                 .fillMaxSize()
                 .padding(
                     start = 14.dp,
-                    top = 13.dp,
-                    end = if (hasCover) 72.dp else 14.dp,
-                    bottom = 12.dp
+                    top = if (isGenreCard) 16.dp else 13.dp,
+                    end = if (hasCover) {
+                        if (isGenreCard) 60.dp else 72.dp
+                    } else {
+                        14.dp
+                    },
+                    bottom = if (isGenreCard) 16.dp else 12.dp
                 ),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = if (isGenreCard) Arrangement.Center else Arrangement.SpaceBetween
         ) {
             Text(
                 text = item.name,
-                fontSize = 16.sp,
-                lineHeight = 20.sp,
+                fontSize = if (isGenreCard) 14.sp else 16.sp,
+                lineHeight = if (isGenreCard) 18.sp else 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
+            if (isGenreCard) Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${item.songCount} 首歌曲",
-                fontSize = 12.sp,
-                lineHeight = 15.sp,
+                fontSize = if (isGenreCard) 11.sp else 12.sp,
+                lineHeight = if (isGenreCard) 14.sp else 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White.copy(alpha = 0.78f),
                 maxLines = 1,
@@ -1020,7 +1090,7 @@ private fun MetadataCategorySortMode.availableFor(type: String): Boolean {
 private fun MetadataCategorySortMode.displayLabel(type: String): String {
     return when {
         type == "year" && this == MetadataCategorySortMode.Name -> "年份正序"
-        (type == "composer" || type == "lyricist") && this == MetadataCategorySortMode.AlbumCount -> "参与专辑"
+        (type == "composer" || type == "lyricist") && this == MetadataCategorySortMode.AlbumCount -> "参与专辑数"
         else -> label
     }
 }
@@ -1035,6 +1105,11 @@ private fun List<MetadataCategoryItem>.sortedForCategory(mode: MetadataCategoryS
         MetadataCategorySortMode.DateModified -> sortedByDescending { it.dateModified }
         MetadataCategorySortMode.DateModifiedAsc -> sortedBy { it.dateModified }
     }
+}
+
+private fun MetadataCategoryItem.matchesCategorySearch(query: String, type: String): Boolean {
+    return name.contains(query, ignoreCase = true) ||
+        (type == "folder" && name.substringAfterLast('/').contains(query, ignoreCase = true))
 }
 
 private fun MetadataCategoryItem.folderSortSummary(sortMode: MetadataCategorySortMode): String {

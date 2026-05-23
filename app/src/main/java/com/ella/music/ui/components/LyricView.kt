@@ -216,6 +216,7 @@ fun WordLyricView(
     topSpacer: androidx.compose.ui.unit.Dp = 180.dp,
     bottomSpacer: androidx.compose.ui.unit.Dp = 420.dp,
     horizontalPadding: androidx.compose.ui.unit.Dp = 22.dp,
+    lineHorizontalPadding: androidx.compose.ui.unit.Dp = LYRIC_EDGE_GUARD_DP,
     onLineClick: (LyricLine) -> Unit = {},
     onLineDoubleClick: () -> Unit = {},
     onLineLongClick: (LyricLine) -> Unit = {}
@@ -359,7 +360,7 @@ fun WordLyricView(
                         )
                     }
                     .padding(
-                        horizontal = LYRIC_EDGE_GUARD_DP,
+                        horizontal = lineHorizontalPadding,
                         vertical = if (isActive) 6.dp else 2.dp
                     ),
                 horizontalAlignment = line.ttmlAlignment()

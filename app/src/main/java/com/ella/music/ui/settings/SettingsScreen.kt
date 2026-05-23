@@ -10,6 +10,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,11 +35,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,8 +60,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.widget.Toast
 import org.json.JSONObject
+import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
@@ -65,6 +73,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -495,6 +504,8 @@ fun SettingsDetailScreen(
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
+    val playerImmersiveCover by settingsManager.playerImmersiveCover.collectAsState(initial = true)
+    val playerDynamicFlowEnabled by settingsManager.playerDynamicFlowEnabled.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = true)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
@@ -512,6 +523,11 @@ fun SettingsDetailScreen(
     val genreProtectedNames by settingsManager.genreProtectedNames.collectAsState(initial = "")
     val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
+    val homeDailyMixVisible by settingsManager.homeDailyMixVisible.collectAsState(initial = true)
+    val homeSectionOrder by settingsManager.homeSectionOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_SECTION_ORDER)
+    val homeHiddenSections by settingsManager.homeHiddenSections.collectAsState(initial = "")
+    val homeLibraryTileOrder by settingsManager.homeLibraryTileOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
+    val homeHiddenLibraryTiles by settingsManager.homeHiddenLibraryTiles.collectAsState(initial = "")
     val themeLabels = listOf("跟随系统", "浅色", "深色")
     val selectedThemeMode = themeMode.coerceIn(themeLabels.indices)
     val themeEntries = remember { themeLabels.map { DropdownItem(title = it) } }
@@ -569,6 +585,28 @@ fun SettingsDetailScreen(
     }
     val selectedDesktopLyricColorIndex =
         desktopLyricColorPresets.indexOfFirst { it.second == desktopLyricTextColor }.takeIf { it >= 0 } ?: 0
+    val homeSectionItems = remember {
+        listOf(
+            HomePreferenceItem("library", "音乐库", "首页音乐库入口区块"),
+            HomePreferenceItem("online", "在线音乐", "LX 在线音乐入口"),
+            HomePreferenceItem("recent", "最近听过", "最近播放歌曲")
+        )
+    }
+    val homeLibraryTileItems = remember {
+        listOf(
+            HomePreferenceItem("artist", "艺术家", "按艺术家浏览"),
+            HomePreferenceItem("album", "专辑", "按专辑浏览"),
+            HomePreferenceItem("folder", "文件夹", "按文件夹分类浏览"),
+            HomePreferenceItem("folder_tree", "文件夹层次结构", "按嵌套目录浏览"),
+            HomePreferenceItem("playlist", "歌单", "收藏与自建歌单"),
+            HomePreferenceItem("analytics", "听歌统计", "历史、热力图和排行"),
+            HomePreferenceItem("genre", "流派", "按流派浏览"),
+            HomePreferenceItem("year", "年份", "按年份归档"),
+            HomePreferenceItem("composer", "作曲家", "按作曲家浏览"),
+            HomePreferenceItem("lyricist", "作词家", "按作词家浏览")
+        )
+    }
+    var showHomeDisplayPage by remember { mutableStateOf(false) }
     val dynamicCoverPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -630,10 +668,14 @@ fun SettingsDetailScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         SmallTopAppBar(
-            title = if (showOnlyLyrics) "歌词" else "应用偏好",
+            title = when {
+                showHomeDisplayPage -> "首页显示"
+                showOnlyLyrics -> "歌词"
+                else -> "应用偏好"
+            },
             color = pageBackground,
             navigationIcon = {
-                IconButton(onClick = onBack) {
+                IconButton(onClick = { if (showHomeDisplayPage) showHomeDisplayPage = false else onBack() }) {
                     Icon(
                         imageVector = MiuixIcons.Regular.Back,
                         contentDescription = "返回",
@@ -651,6 +693,31 @@ fun SettingsDetailScreen(
                 .padding(horizontal = 12.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (showHomeDisplayPage) {
+                HomeDisplaySettingsPage(
+                    sectionItems = homeSectionItems,
+                    sectionOrder = homeSectionOrder,
+                    hiddenSections = homeHiddenSections,
+                    tileItems = homeLibraryTileItems,
+                    tileOrder = homeLibraryTileOrder,
+                    hiddenTiles = homeHiddenLibraryTiles,
+                    onHiddenSectionsChange = { value ->
+                        scope.launch { settingsManager.setHomeHiddenSections(value) }
+                    },
+                    onHiddenTilesChange = { value ->
+                        scope.launch { settingsManager.setHomeHiddenLibraryTiles(value) }
+                    },
+                    onSectionOrderChange = { value ->
+                        scope.launch { settingsManager.setHomeSectionOrder(value) }
+                    },
+                    onTileOrderChange = { value ->
+                        scope.launch { settingsManager.setHomeLibraryTileOrder(value) }
+                    }
+                )
+                Spacer(modifier = Modifier.height(160.dp))
+                return@Column
+            }
 
             if (!showOnlyLyrics) {
                 SmallTitle(text = "外观")
@@ -705,10 +772,46 @@ fun SettingsDetailScreen(
                             checked = dynamicCoverEnabled,
                             onCheckedChange = ::setDynamicCoverEnabled
                         )
+                        SwitchPreference(
+                            title = "沉浸专辑封面",
+                            summary = "开启后播放页封面延伸到顶部；关闭后使用收敛的圆角封面布局",
+                            checked = playerImmersiveCover,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.setPlayerImmersiveCover(it) }
+                            }
+                        )
+                        SwitchPreference(
+                            title = "动态流光",
+                            summary = "播放页背景流光动画；关闭后保留静态取色背景以降低播放中掉帧",
+                            checked = playerDynamicFlowEnabled,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.setPlayerDynamicFlowEnabled(it) }
+                            }
+                        )
                         ArrowPreference(
                             title = "歌词字体",
                             summary = lyricFontName.ifBlank { "系统默认" },
                             onClick = onNavigateToLyricFont
+                        )
+                    }
+                }
+
+                SmallTitle(text = "首页自定义")
+
+                SettingsCardGroup {
+                    Column {
+                        SwitchPreference(
+                            title = "每日精选",
+                            summary = "控制首页顶部每日精选大卡片显示",
+                            checked = homeDailyMixVisible,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.setHomeDailyMixVisible(it) }
+                            }
+                        )
+                        ArrowPreference(
+                            title = "首页显示项目",
+                            summary = "显示项目、首页区块顺序和音乐库宫格顺序",
+                            onClick = { showHomeDisplayPage = true }
                         )
                     }
                 }
@@ -1221,6 +1324,188 @@ private fun SplitSettingTextField(
         )
     }
 }
+
+private data class HomePreferenceItem(
+    val id: String,
+    val title: String,
+    val summary: String
+)
+
+@Composable
+private fun HomeDisplaySettingsPage(
+    sectionItems: List<HomePreferenceItem>,
+    sectionOrder: String,
+    hiddenSections: String,
+    tileItems: List<HomePreferenceItem>,
+    tileOrder: String,
+    hiddenTiles: String,
+    onHiddenSectionsChange: (String) -> Unit,
+    onHiddenTilesChange: (String) -> Unit,
+    onSectionOrderChange: (String) -> Unit,
+    onTileOrderChange: (String) -> Unit
+) {
+    val orderedSections = remember(sectionItems, sectionOrder) {
+        sectionItems.orderedByCsv(sectionOrder, SettingsManager.DEFAULT_HOME_SECTION_ORDER)
+    }
+    val orderedTiles = remember(tileItems, tileOrder) {
+        tileItems.orderedByCsv(tileOrder, SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
+    }
+    val hiddenSectionIds = remember(hiddenSections) { hiddenSections.csvIdSet() }
+    val hiddenTileIds = remember(hiddenTiles) { hiddenTiles.csvIdSet() }
+
+    HomeDisplayGroup(
+        title = "首页区块",
+        items = orderedSections,
+        hiddenIds = hiddenSectionIds,
+        onHiddenIdsChange = onHiddenSectionsChange
+    )
+    SmallTitle(text = "音乐库宫格")
+    HomeDisplayGroup(
+        title = null,
+        items = orderedTiles,
+        hiddenIds = hiddenTileIds,
+        onHiddenIdsChange = onHiddenTilesChange
+    )
+    SmallTitle(text = "显示顺序")
+    SettingsCardGroup {
+        Column {
+            SplitSettingTextField(
+                label = "首页区块顺序",
+                value = sectionOrder,
+                summary = "用英文逗号分隔：library,online,recent",
+                singleLine = true,
+                onValueChange = onSectionOrderChange
+            )
+            SplitSettingTextField(
+                label = "音乐库宫格顺序",
+                value = tileOrder,
+                summary = "artist,album,folder,folder_tree,playlist,analytics,genre,year,composer,lyricist",
+                onValueChange = onTileOrderChange
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeDisplayGroup(
+    title: String?,
+    items: List<HomePreferenceItem>,
+    hiddenIds: Set<String>,
+    onHiddenIdsChange: (String) -> Unit
+) {
+    if (title != null) {
+        SmallTitle(text = title)
+    }
+    SettingsCardGroup {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HomeDisplayCommand(
+                    text = "全选",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onHiddenIdsChange("") }
+                )
+                HomeDisplayCommand(
+                    text = "反选",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        val allIds = items.map { it.id }.toSet()
+                        val nextHidden = allIds - hiddenIds
+                        onHiddenIdsChange(nextHidden.toCsv())
+                    }
+                )
+            }
+            items.forEach { item ->
+                val checked = item.id !in hiddenIds
+                HomeDisplayCheckRow(
+                    item = item,
+                    checked = checked,
+                    onClick = {
+                        val nextHidden = if (checked) {
+                            hiddenIds + item.id
+                        } else {
+                            hiddenIds - item.id
+                        }
+                        onHiddenIdsChange(nextHidden.toCsv())
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeDisplayCommand(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        cornerRadius = 14.dp,
+        insideMargin = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+        onClick = onClick
+    ) {
+        BasicComponent(
+            title = text
+        )
+    }
+}
+
+@Composable
+private fun HomeDisplayCheckRow(
+    item: HomePreferenceItem,
+    checked: Boolean,
+    onClick: () -> Unit
+) {
+    BasicComponent(
+        title = item.title,
+        summary = item.summary,
+        modifier = Modifier.clickable(onClick = onClick),
+        endActions = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = item.id,
+                    fontSize = 11.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                if (checked) {
+                    Icon(
+                        imageVector = MiuixIcons.Basic.Check,
+                        contentDescription = null,
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    )
+}
+
+private fun List<HomePreferenceItem>.orderedByCsv(order: String, defaultOrder: String): List<HomePreferenceItem> {
+    val byId = associateBy { it.id }
+    val orderIds = order.csvIds(defaultOrder)
+    return (orderIds.mapNotNull { byId[it] } + filterNot { it.id in orderIds }).distinctBy { it.id }
+}
+
+private fun String.csvIdSet(): Set<String> =
+    split(',', '，', ';', '；')
+        .map { it.trim().lowercase(Locale.ROOT) }
+        .filter { it.isNotBlank() }
+        .toSet()
+
+private fun String.csvIds(defaultValue: String): List<String> {
+    val ids = csvIdSet().toList()
+    val defaults = defaultValue.csvIdSet().toList()
+    return (ids + defaults).distinct()
+}
+
+private fun Set<String>.toCsv(): String = sorted().joinToString(",")
 
 @Composable
 private fun SettingsCardGroup(content: @Composable () -> Unit) {

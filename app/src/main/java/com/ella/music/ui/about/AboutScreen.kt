@@ -375,7 +375,7 @@ private fun AboutContent(
                     )
                     BasicComponent(
                         title = "accompanist-lyrics-core",
-                        summary = "歌词解析与 TTML/LRC 结构参考",
+                        summary = "歌词解析与 TTML/LRC 结构参考（Apache-2.0）",
                         onClick = { uriHandler.openUri("https://github.com/6xingyv/accompanist-lyrics-core") },
                     )
                 }

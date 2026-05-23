@@ -32,9 +32,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -48,7 +46,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -56,6 +53,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -119,6 +118,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
@@ -126,6 +126,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -150,7 +151,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.data.NeteaseKeyInfo
 import com.ella.music.data.audioQualitySummary
+import com.ella.music.data.decodeNeteaseKey
+import com.ella.music.data.neteaseAlbumUrl
+import com.ella.music.data.neteaseArtistUrl
+import com.ella.music.data.neteaseSongUrl
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import com.ella.music.data.model.AudioInfo
@@ -173,6 +179,7 @@ import com.ella.music.ui.components.buildTagEditorOptions
 import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.SongInfoSheet
 import com.ella.music.ui.components.shareLyricCard
+import com.ella.music.ui.components.shareLocalSong
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -202,9 +209,12 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit = {},
     onNavigateToArtist: (String) -> Unit = {},
-    onDismissProgressChange: (Float) -> Unit = {}
+    onNavigateToMetadataCategory: (String, String) -> Unit = { _, _ -> },
+    onDismissProgressChange: (Float) -> Unit = {},
+    openToken: Int = 0
 ) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val view = LocalView.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -229,9 +239,13 @@ fun PlayerScreen(
     val audioSessionId by PlaybackAudioSession.audioSessionId.collectAsState()
     val audioVisualizerEnabled by settingsManager.audioVisualizerEnabled.collectAsState(initial = false)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
+    val immersiveAlbumCover by settingsManager.playerImmersiveCover.collectAsState(initial = true)
+    val playerDynamicFlowEnabled by settingsManager.playerDynamicFlowEnabled.collectAsState(initial = false)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
     val metadataEditorId by settingsManager.metadataEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
     val lyricTimingEditorId by settingsManager.lyricTimingEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
+    val sleepTimerCustomMinutes by settingsManager.sleepTimerCustomMinutes.collectAsState(initial = 45)
+    val sleepTimerStopAfterCurrent by settingsManager.sleepTimerStopAfterCurrent.collectAsState(initial = false)
     val playlist by playerViewModel.playlist.collectAsState()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
@@ -296,6 +310,11 @@ fun PlayerScreen(
     val dismissProgress = (dragDismissOffset.value / dismissThresholdPx).coerceIn(0f, 1f)
     val dismissInProgress = dismissProgress > 0.001f || dismissingPlayer
     val dragCornerRadius = 30.dp * dismissProgress
+    LaunchedEffect(openToken) {
+        dismissingPlayer = false
+        dragDismissOffset.snapTo(0f)
+        onDismissProgressChange(0f)
+    }
     SideEffect {
         onDismissProgressChange(dismissProgress)
     }
@@ -360,6 +379,7 @@ fun PlayerScreen(
         value = withContext(Dispatchers.IO) { song?.let(playerViewModel::getSongTagInfo) }
     }
     val songAnnotation = tagInfo?.displayComment.orEmpty()
+    val neteaseInfo = remember(tagInfo?.neteaseKey) { decodeNeteaseKey(tagInfo?.neteaseKey.orEmpty()) }
     fun navigateToArtistOrChoose(artistText: String) {
         val artists = splitArtistNames(artistText)
             .filterNot { it.equals("Unknown", ignoreCase = true) }
@@ -370,11 +390,273 @@ fun PlayerScreen(
             else -> artistChoices = artists
         }
     }
+    fun openNetease(url: String?) {
+        if (url.isNullOrBlank()) {
+            Toast.makeText(context, "没有可跳转的网易云信息", Toast.LENGTH_SHORT).show()
+        } else {
+            uriHandler.openUri(url)
+        }
+    }
+    val playerPagerState = rememberPagerState(
+        initialPage = PLAYER_PAGE_COVER,
+        pageCount = { PLAYER_PAGE_COUNT }
+    )
+    LaunchedEffect(showLyrics) {
+        if (immersiveAlbumCover) return@LaunchedEffect
+        val target = if (showLyrics) PLAYER_PAGE_LYRICS else PLAYER_PAGE_COVER
+        if (showLyrics && playerPagerState.currentPage != target && !playerPagerState.isScrollInProgress) {
+            playerPagerState.animateScrollToPage(target)
+        } else if (!showLyrics && playerPagerState.currentPage == PLAYER_PAGE_LYRICS && !playerPagerState.isScrollInProgress) {
+            playerPagerState.animateScrollToPage(target)
+        }
+    }
+    LaunchedEffect(playerPagerState.currentPage) {
+        if (immersiveAlbumCover) return@LaunchedEffect
+        val lyricPageVisible = playerPagerState.currentPage == PLAYER_PAGE_LYRICS
+        if (showLyrics != lyricPageVisible) {
+            playerViewModel.setShowLyrics(lyricPageVisible)
+        }
+    }
+    LaunchedEffect(immersiveAlbumCover) {
+        if (immersiveAlbumCover && playerPagerState.currentPage != PLAYER_PAGE_COVER) {
+            playerViewModel.setShowLyrics(false)
+            playerPagerState.scrollToPage(PLAYER_PAGE_COVER)
+        }
+    }
     BackHandler { dismissWithPlayerMotion() }
+
+    @Composable
+    fun CoverPageContent(
+        onShowLyrics: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        var actionMenuInitialPage by remember { mutableStateOf(PlayerActionSheetPage.Main) }
+        CoverPlayerPage(
+            context = context,
+            song = song,
+            embeddedCover = embeddedCover,
+            annotation = songAnnotation,
+            dynamicCoverFailedPath = dynamicCoverFailedPath,
+            dynamicCoverEnabled = dynamicCoverEnabled,
+            immersiveAlbumCover = immersiveAlbumCover,
+            isPlaying = isPlaying,
+            currentPosition = currentPosition,
+            duration = duration,
+            shuffleEnabled = shuffleEnabled,
+            repeatMode = repeatMode,
+            audioInfo = audioInfo,
+            palette = palette,
+            flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+            dynamicFlowEnabled = playerDynamicFlowEnabled,
+            lyrics = lyrics,
+            currentLyricIndex = currentLyricIndex,
+            miniLyricLine = miniLyricLine,
+            showTranslation = showLyricTranslation,
+            showPronunciation = showLyricPronunciation,
+            fontFamily = lyricFontFamily,
+            fontWeight = lyricFontWeight,
+            menuExpanded = menuExpanded,
+            queueExpanded = queueExpanded,
+            playlist = playlist,
+            sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
+            stopAfterCurrentEnabled = stopAfterCurrentEnabled,
+            sleepTimerCustomMinutes = sleepTimerCustomMinutes,
+            sleepTimerStopAfterCurrent = sleepTimerStopAfterCurrent,
+            onDynamicCoverFailed = { dynamicCoverFailedPath = it },
+            onToggleMenu = {
+                actionMenuInitialPage = PlayerActionSheetPage.Main
+                menuExpanded = !menuExpanded
+            },
+            onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
+            onDismissMenu = { menuExpanded = false },
+            onToggleQueue = { queueExpanded = !queueExpanded },
+            onDismissQueue = { queueExpanded = false },
+            onShowLyrics = onShowLyrics,
+            onLyricLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
+            onLyricLineLongClick = ::openLyricSharePicker,
+            onSeek = { fraction -> playerViewModel.seekTo((fraction * duration).toLong()) },
+            onCyclePlaybackMode = { playerViewModel.cyclePlaybackMode() },
+            onPrevious = { playerViewModel.skipToPrevious() },
+            onPlayPause = { playerViewModel.togglePlayPause() },
+            onNext = { playerViewModel.skipToNext() },
+            onQueueSongClick = { index ->
+                queueExpanded = false
+                playerViewModel.playQueueIndex(index)
+            },
+            onClearQueue = {
+                queueExpanded = false
+                playerViewModel.clearPlaylist()
+            },
+            onAlbum = {
+                menuExpanded = false
+                val albumId = song?.albumIdentityId() ?: 0L
+                if (albumId > 0L) onNavigateToAlbum(albumId)
+                else Toast.makeText(context, "这首歌没有可跳转的专辑信息", Toast.LENGTH_SHORT).show()
+            },
+            onArtist = {
+                menuExpanded = false
+                navigateToArtistOrChoose(song?.artist.orEmpty())
+            },
+            onDownload = {
+                menuExpanded = false
+                val current = song
+                if (current != null) {
+                    enqueuePlayerDownload(context, current)
+                    Toast.makeText(context, "已开始下载到 Music/Ella", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onLandscape = {
+                menuExpanded = false
+                landscapeExpanded = true
+            },
+            onSongInfo = {
+                menuExpanded = false
+                songInfoExpanded = true
+            },
+            onShareSong = {
+                val current = song
+                if (current != null) shareLocalSong(context, current)
+                else Toast.makeText(context, "当前没有可分享的歌曲", Toast.LENGTH_SHORT).show()
+            },
+            onOpenTimer = {
+                actionMenuInitialPage = PlayerActionSheetPage.Timer
+                menuExpanded = true
+            },
+            onOpenMetadataEditor = {
+                val metadataOptions = song
+                    ?.let { buildTagEditorOptions(context, it) }
+                    .orEmpty()
+                    .filter { it.kind == TagEditorOptionKind.Metadata }
+                val preferredOption = metadataEditorId
+                    .takeIf { it.isNotBlank() }
+                    ?.let { id -> metadataOptions.firstOrNull { it.id == id } }
+                if (preferredOption != null) {
+                    launchTagEditorOption(context, preferredOption)
+                    menuExpanded = false
+                } else {
+                    actionMenuInitialPage = PlayerActionSheetPage.MetadataEditor
+                    menuExpanded = true
+                }
+            },
+            onStopAfterCurrent = {
+                scope.launch { settingsManager.setSleepTimerStopAfterCurrent(it) }
+                playerViewModel.setStopAfterCurrentEnabled(it)
+                Toast.makeText(
+                    context,
+                    if (it) "当前歌曲播放完后暂停" else "已关闭播完当前暂停",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onTimer = { minutes ->
+                scope.launch { settingsManager.setSleepTimerCustomMinutes(minutes) }
+                if (sleepTimerStopAfterCurrent) {
+                    playerViewModel.setStopAfterCurrentEnabled(true)
+                }
+                playerViewModel.startSleepTimer(minutes)
+                Toast.makeText(context, "${minutes} 分钟后暂停播放", Toast.LENGTH_SHORT).show()
+            },
+            onCustomTimerMinutes = { minutes ->
+                scope.launch { settingsManager.setSleepTimerCustomMinutes(minutes) }
+            },
+            onCancelTimer = {
+                playerViewModel.cancelSleepTimer()
+                Toast.makeText(context, "已取消定时播放", Toast.LENGTH_SHORT).show()
+            },
+            onSpeed = { playerViewModel.setPlaybackSpeed(it) },
+            onPitch = { playerViewModel.setPlaybackPitch(it) },
+            playbackSpeed = playbackSpeed,
+            playbackPitch = playbackPitch,
+            isFavorite = isCurrentSongFavorite,
+            audioSessionId = audioSessionId,
+            visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
+            metadataEditorId = metadataEditorId,
+            lyricTimingEditorId = lyricTimingEditorId,
+            onVisualizerEnabled = ::setAudioVisualizerEnabled,
+            actionMenuInitialPage = actionMenuInitialPage,
+            modifier = modifier
+        )
+    }
+
+    @Composable
+    fun LyricsPageContent(
+        onDismissLyrics: () -> Unit,
+        enableSwipeDismiss: Boolean,
+        modifier: Modifier = Modifier
+    ) {
+        LyricsPlayerPage(
+            song = song,
+            embeddedCover = embeddedCover,
+            annotation = songAnnotation,
+            lyrics = lyrics,
+            currentLyricIndex = currentLyricIndex,
+            currentPosition = currentPosition,
+            showTranslation = showLyricTranslation,
+            showPronunciation = showLyricPronunciation,
+            keepScreenOn = lyricPageKeepScreenOn,
+            lyricSourceMode = lyricSourceMode,
+            fontFamily = lyricFontFamily,
+            fontWeight = lyricFontWeight,
+            fontScale = lyricFontScale,
+            palette = palette,
+            flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+            currentPositionMs = currentPosition,
+            isPlaying = isPlaying,
+            isFavorite = isCurrentSongFavorite,
+            audioSessionId = audioSessionId,
+            visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
+            onLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
+            onLineDoubleClick = { playerViewModel.togglePlayPause() },
+            onLineLongClick = ::openLyricSharePicker,
+            onDismissLyrics = onDismissLyrics,
+            onTogglePronunciation = {
+                playerViewModel.setLyricPagePronunciation(!showLyricPronunciation)
+            },
+            onToggleTranslation = {
+                playerViewModel.setLyricPageTranslation(!showLyricTranslation)
+            },
+            onToggleKeepScreenOn = {
+                scope.launch { settingsManager.setLyricPageKeepScreenOn(!lyricPageKeepScreenOn) }
+            },
+            onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
+            onFontScale = { scale ->
+                scope.launch { settingsManager.setLyricFontScale((scale * 100f).toInt()) }
+            },
+            onLyricSourceMode = { mode ->
+                playerViewModel.setLyricSourceMode(mode)
+            },
+            onArtist = {
+                navigateToArtistOrChoose(song?.artist.orEmpty())
+            },
+            enableSwipeDismiss = enableSwipeDismiss,
+            useBlurBackground = immersiveAlbumCover,
+            modifier = modifier
+        )
+    }
+
+    @Composable
+    fun DetailPageContent(modifier: Modifier = Modifier) {
+        PlayerDetailPage(
+            song = song,
+            tagInfo = tagInfo,
+            neteaseInfo = neteaseInfo,
+            onAlbum = {
+                val albumId = song?.albumIdentityId() ?: 0L
+                if (albumId > 0L) onNavigateToAlbum(albumId)
+                else Toast.makeText(context, "这首歌没有可跳转的专辑信息", Toast.LENGTH_SHORT).show()
+            },
+            onComposer = { name -> onNavigateToMetadataCategory("composer", name) },
+            onLyricist = { name -> onNavigateToMetadataCategory("lyricist", name) },
+            onNeteaseSong = { openNetease(neteaseInfo?.musicId?.takeIf { it.isNotBlank() }?.let(::neteaseSongUrl)) },
+            onNeteaseArtist = { id -> openNetease(neteaseArtistUrl(id)) },
+            onNeteaseAlbum = { openNetease(neteaseInfo?.albumId?.takeIf { it.isNotBlank() }?.let(::neteaseAlbumUrl)) },
+            modifier = modifier
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(palette.middle)
             .pointerInput(showLyrics, dismissingPlayer, dismissTargetPx, dismissThresholdPx) {
                 var closeGesture = false
                 var gestureOffset = 0f
@@ -447,7 +729,7 @@ fun PlayerScreen(
                 .graphicsLayer {
                     val progress = (dragDismissOffset.value / dismissThresholdPx).coerceIn(0f, 1f)
                     translationY = dragDismissOffset.value
-                    val pageScale = 1f - progress * 0.06f
+                    val pageScale = if (immersiveAlbumCover) 1f - progress * 0.06f else 1f
                     scaleX = pageScale
                     scaleY = pageScale
                     transformOrigin = TransformOrigin(0.5f, 0f)
@@ -473,182 +755,70 @@ fun PlayerScreen(
                         )
                     )
             )
-            PlayerFlowBackground(
-                palette = palette,
-                flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                animate = !dismissInProgress,
-                modifier = Modifier.fillMaxSize()
-            )
-            ImmersiveCoverBackground(
-                palette = palette,
-                flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (immersiveAlbumCover) {
+                ImmersiveCoverBackground(
+                    palette = palette,
+                    flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                PlayerFlowBackground(
+                    palette = palette,
+                    flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+                    animate = playerDynamicFlowEnabled && !dismissInProgress,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Black.copy(alpha = 0.08f),
+                                    0.42f to Color.Black.copy(alpha = 0.18f),
+                                    1.0f to Color.Black.copy(alpha = 0.34f)
+                                )
+                            )
+                        )
+                )
+            }
 
-            AnimatedContent(
-                targetState = showLyrics,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180)))
-                        .using(SizeTransform(clip = true))
-                },
-                modifier = Modifier.fillMaxSize()
-            ) { showLyric ->
-                if (showLyric) {
-                    LyricsPlayerPage(
-                        song = song,
-                        embeddedCover = embeddedCover,
-                        annotation = songAnnotation,
-                        lyrics = lyrics,
-                        currentLyricIndex = currentLyricIndex,
-                        currentPosition = currentPosition,
-                        showTranslation = showLyricTranslation,
-                        showPronunciation = showLyricPronunciation,
-                        keepScreenOn = lyricPageKeepScreenOn,
-                        lyricSourceMode = lyricSourceMode,
-                        fontFamily = lyricFontFamily,
-                        fontWeight = lyricFontWeight,
-                        fontScale = lyricFontScale,
-                        palette = palette,
-                        flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                        currentPositionMs = currentPosition,
-                        isPlaying = isPlaying,
-                        isFavorite = isCurrentSongFavorite,
-                        audioSessionId = audioSessionId,
-                        visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
-                        onLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
-                        onLineDoubleClick = { playerViewModel.togglePlayPause() },
-                        onLineLongClick = ::openLyricSharePicker,
+            if (immersiveAlbumCover) {
+                if (showLyrics) {
+                    LyricsPageContent(
                         onDismissLyrics = { playerViewModel.setShowLyrics(false) },
-                        onTogglePronunciation = {
-                            playerViewModel.setLyricPagePronunciation(!showLyricPronunciation)
-                        },
-                        onToggleTranslation = {
-                            playerViewModel.setLyricPageTranslation(!showLyricTranslation)
-                        },
-                        onToggleKeepScreenOn = {
-                            scope.launch { settingsManager.setLyricPageKeepScreenOn(!lyricPageKeepScreenOn) }
-                        },
-                        onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
-                        onFontScale = { scale ->
-                            scope.launch { settingsManager.setLyricFontScale((scale * 100f).toInt()) }
-                        },
-                        onLyricSourceMode = { mode ->
-                            playerViewModel.setLyricSourceMode(mode)
-                        },
-                        onArtist = {
-                            playerViewModel.setShowLyrics(false)
-                            navigateToArtistOrChoose(song?.artist.orEmpty())
-                        },
+                        enableSwipeDismiss = true,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    CoverPlayerPage(
-                        context = context,
-                        song = song,
-                        embeddedCover = embeddedCover,
-                        annotation = songAnnotation,
-                        dynamicCoverFailedPath = dynamicCoverFailedPath,
-                        dynamicCoverEnabled = dynamicCoverEnabled,
-                        isPlaying = isPlaying,
-                        currentPosition = currentPosition,
-                        duration = duration,
-                        shuffleEnabled = shuffleEnabled,
-                        repeatMode = repeatMode,
-                        audioInfo = audioInfo,
-                        palette = palette,
-                        flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                        lyrics = lyrics,
-                        currentLyricIndex = currentLyricIndex,
-                        miniLyricLine = miniLyricLine,
-                        showTranslation = showLyricTranslation,
-                        showPronunciation = showLyricPronunciation,
-                        fontFamily = lyricFontFamily,
-                        fontWeight = lyricFontWeight,
-                        menuExpanded = menuExpanded,
-                        queueExpanded = queueExpanded,
-                        playlist = playlist,
-                        sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
-                        stopAfterCurrentEnabled = stopAfterCurrentEnabled,
-                        onDynamicCoverFailed = { dynamicCoverFailedPath = it },
-                        onToggleMenu = { menuExpanded = !menuExpanded },
-                        onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
-                        onDismissMenu = { menuExpanded = false },
-                        onToggleQueue = { queueExpanded = !queueExpanded },
-                        onDismissQueue = { queueExpanded = false },
+                    CoverPageContent(
                         onShowLyrics = { playerViewModel.setShowLyrics(true) },
-                        onLyricLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
-                        onLyricLineLongClick = ::openLyricSharePicker,
-                        onSeek = { fraction -> playerViewModel.seekTo((fraction * duration).toLong()) },
-                        onCyclePlaybackMode = { playerViewModel.cyclePlaybackMode() },
-                        onPrevious = { playerViewModel.skipToPrevious() },
-                        onPlayPause = { playerViewModel.togglePlayPause() },
-                        onNext = { playerViewModel.skipToNext() },
-                        onQueueSongClick = { index ->
-                            queueExpanded = false
-                            playerViewModel.playQueueIndex(index)
-                        },
-                        onClearQueue = {
-                            queueExpanded = false
-                            playerViewModel.clearPlaylist()
-                        },
-                        onAlbum = {
-                            menuExpanded = false
-                            val albumId = song?.albumIdentityId() ?: 0L
-                            if (albumId > 0L) onNavigateToAlbum(albumId)
-                            else Toast.makeText(context, "这首歌没有可跳转的专辑信息", Toast.LENGTH_SHORT).show()
-                        },
-                        onArtist = {
-                            menuExpanded = false
-                            navigateToArtistOrChoose(song?.artist.orEmpty())
-                        },
-                        onDownload = {
-                            menuExpanded = false
-                            val current = song
-                            if (current != null) {
-                                enqueuePlayerDownload(context, current)
-                                Toast.makeText(context, "已开始下载到 Music/Ella", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onLandscape = {
-                            menuExpanded = false
-                            landscapeExpanded = true
-                        },
-                        onSongInfo = {
-                            menuExpanded = false
-                            songInfoExpanded = true
-                        },
-                        onStopAfterCurrent = {
-                            playerViewModel.setStopAfterCurrentEnabled(it)
-                            Toast.makeText(
-                                context,
-                                if (it) "当前歌曲播放完后暂停" else "已关闭播完当前暂停",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        onTimer = { minutes ->
-                            playerViewModel.startSleepTimer(minutes)
-                            Toast.makeText(context, "${minutes} 分钟后暂停播放", Toast.LENGTH_SHORT).show()
-                        },
-                        onCancelTimer = {
-                            playerViewModel.cancelSleepTimer()
-                            Toast.makeText(context, "已取消定时播放", Toast.LENGTH_SHORT).show()
-                        },
-                        onSpeed = {
-                            playerViewModel.setPlaybackSpeed(it)
-                        },
-                        onPitch = {
-                            playerViewModel.setPlaybackPitch(it)
-                        },
-                        playbackSpeed = playbackSpeed,
-                        playbackPitch = playbackPitch,
-                        isFavorite = isCurrentSongFavorite,
-                        audioSessionId = audioSessionId,
-                        visualizerEnabled = audioVisualizerEnabled && hasVisualizerPermission,
-                        metadataEditorId = metadataEditorId,
-                        lyricTimingEditorId = lyricTimingEditorId,
-                        onVisualizerEnabled = ::setAudioVisualizerEnabled,
                         modifier = Modifier.fillMaxSize()
                     )
+                }
+            } else {
+                HorizontalPager(
+                    state = playerPagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    userScrollEnabled = !dismissingPlayer,
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    when (page) {
+                        PLAYER_PAGE_COVER -> CoverPageContent(
+                            onShowLyrics = {
+                                scope.launch { playerPagerState.animateScrollToPage(PLAYER_PAGE_LYRICS) }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        PLAYER_PAGE_LYRICS -> LyricsPageContent(
+                            onDismissLyrics = {
+                                scope.launch { playerPagerState.animateScrollToPage(PLAYER_PAGE_COVER) }
+                            },
+                            enableSwipeDismiss = false,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        PLAYER_PAGE_DETAILS -> DetailPageContent(modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
 
@@ -742,6 +912,7 @@ private fun CoverPlayerPage(
     annotation: String,
     dynamicCoverFailedPath: String?,
     dynamicCoverEnabled: Boolean,
+    immersiveAlbumCover: Boolean,
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
@@ -750,6 +921,7 @@ private fun CoverPlayerPage(
     audioInfo: AudioInfo?,
     palette: PlayerPalette,
     flowEffectMode: Int,
+    dynamicFlowEnabled: Boolean,
     lyrics: List<com.ella.music.data.model.LyricLine>,
     currentLyricIndex: Int,
     miniLyricLine: com.ella.music.data.model.LyricLine?,
@@ -762,6 +934,8 @@ private fun CoverPlayerPage(
     playlist: List<Song>,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
+    sleepTimerCustomMinutes: Int,
+    sleepTimerStopAfterCurrent: Boolean,
     playbackSpeed: Float,
     playbackPitch: Float,
     isFavorite: Boolean,
@@ -791,11 +965,16 @@ private fun CoverPlayerPage(
     onDownload: () -> Unit,
     onLandscape: () -> Unit,
     onSongInfo: () -> Unit,
+    onShareSong: () -> Unit,
+    onOpenTimer: () -> Unit,
+    onOpenMetadataEditor: () -> Unit,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
+    onCustomTimerMinutes: (Int) -> Unit,
     onCancelTimer: () -> Unit,
     onSpeed: (Float) -> Unit,
     onPitch: (Float) -> Unit,
+    actionMenuInitialPage: PlayerActionSheetPage,
     modifier: Modifier = Modifier
 ) {
     val bluetoothDeviceName = rememberBluetoothOutputName()
@@ -823,6 +1002,7 @@ private fun CoverPlayerPage(
                 audioInfo = audioInfo,
                 palette = palette,
                 flowEffectMode = flowEffectMode,
+                dynamicFlowEnabled = dynamicFlowEnabled,
                 lyrics = lyrics,
                 currentLyricIndex = currentLyricIndex,
                 showTranslation = showTranslation,
@@ -856,146 +1036,275 @@ private fun CoverPlayerPage(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                if (dynamicCoverFile != null) {
-                    DynamicCoverVideo(
-                        file = dynamicCoverFile,
-                        isPlaying = isPlaying,
-                        onPlaybackError = { onDynamicCoverFailed(dynamicCoverFile.absolutePath) },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    FullBleedCover(song = song, embeddedCover = embeddedCover, modifier = Modifier.fillMaxSize())
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.18f),
-                                    Color.White.copy(alpha = 0.06f),
-                                    Color.White.copy(alpha = 0.16f)
-                                )
-                            )
-                        )
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.48f to palette.middle.copy(alpha = 0.42f),
-                                    0.78f to palette.middle.copy(alpha = 0.86f),
-                                    1.0f to palette.middle
-                                )
-                            )
-                        )
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(playerContentSurfaceBrush(palette, flowEffectMode))
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PlayerSongMetaText(
-                        song = song,
-                        annotation = annotation,
-                        titleFontSize = 22.sp,
-                        artistFontSize = 14.sp,
-                        artistAlpha = 0.54f,
-                        onArtistClick = onArtist,
-                        modifier = Modifier
-                            .weight(1f)
-                            .widthIn(max = 230.dp)
-                    )
-                    Spacer(modifier = Modifier.width(20.dp))
-                    PlayerHeaderAction(
-                        kind = PlayerHeaderActionKind.Favorite,
-                        selected = isFavorite,
-                        onClick = onToggleFavorite
-                    )
-                    PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
-                }
-
-                if (miniLyricLine != null) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    MiniLyricsPreview(
-                        lyrics = lyrics,
-                        currentIndex = currentLyricIndex,
-                        showTranslation = showTranslation,
-                        showPronunciation = showPronunciation,
-                        currentPositionMs = currentPosition,
-                        isPlaying = isPlaying,
-                        fontFamily = fontFamily,
-                        fontWeight = fontWeight,
-                        onLineClick = { onShowLyrics() },
+                if (immersiveAlbumCover) {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(168.dp)
-                            .padding(vertical = 6.dp)
-                    )
-                }
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (dynamicCoverFile != null) {
+                            DynamicCoverVideo(
+                                file = dynamicCoverFile,
+                                isPlaying = isPlaying,
+                                onPlaybackError = { onDynamicCoverFailed(dynamicCoverFile.absolutePath) },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            FullBleedCover(song = song, embeddedCover = embeddedCover, modifier = Modifier.fillMaxSize())
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.18f),
+                                            Color.White.copy(alpha = 0.06f),
+                                            Color.White.copy(alpha = 0.16f)
+                                        )
+                                    )
+                                )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to Color.Transparent,
+                                            0.48f to palette.middle.copy(alpha = 0.42f),
+                                            0.78f to palette.middle.copy(alpha = 0.86f),
+                                            1.0f to palette.middle
+                                        )
+                                    )
+                                )
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(playerContentSurfaceBrush(palette, flowEffectMode))
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PlayerSongMetaText(
+                                song = song,
+                                annotation = annotation,
+                                titleFontSize = 22.sp,
+                                artistFontSize = 14.sp,
+                                artistAlpha = 0.54f,
+                                onArtistClick = onArtist,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .widthIn(max = 230.dp)
+                            )
+                            Spacer(modifier = Modifier.width(20.dp))
+                            PlayerHeaderAction(
+                                kind = PlayerHeaderActionKind.Favorite,
+                                selected = isFavorite,
+                                onClick = onToggleFavorite
+                            )
+                            PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
+                        }
 
-                Spacer(modifier = Modifier.weight(1f))
-                PlayerProgressBlock(
-                    currentPosition = currentPosition,
-                    duration = duration,
-                    audioInfo = audioInfo,
-                    bluetoothDeviceName = bluetoothDeviceName,
-                    palette = palette,
-                    onSeek = onSeek
-                )
-                Spacer(modifier = Modifier.height(18.dp))
-                PlayerTransportControls(
-                    isPlaying = isPlaying,
-                    shuffleEnabled = shuffleEnabled,
-                    repeatMode = repeatMode,
-                    palette = palette,
-                    queueExpanded = queueExpanded,
-                    playlist = playlist,
-                    currentSongId = song?.id,
-                    onCyclePlaybackMode = onCyclePlaybackMode,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    onToggleQueue = onToggleQueue,
-                    onDismissQueue = onDismissQueue,
-                    onQueueSongClick = onQueueSongClick,
-                    onClearQueue = onClearQueue,
-                    modifier = Modifier.height(86.dp)
-                )
-                AudioVisualizer(
-                    enabled = visualizerEnabled,
-                    audioSessionId = audioSessionId,
-                    isPlaying = isPlaying,
-                    positionMs = currentPosition,
-                    accent = Color.White.copy(alpha = 0.86f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(42.dp)
-                )
-            }
+                        if (miniLyricLine != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            MiniLyricsPreview(
+                                lyrics = lyrics,
+                                currentIndex = currentLyricIndex,
+                                showTranslation = showTranslation,
+                                showPronunciation = showPronunciation,
+                                currentPositionMs = currentPosition,
+                                isPlaying = isPlaying,
+                                fontFamily = fontFamily,
+                                fontWeight = fontWeight,
+                                onLineClick = { onShowLyrics() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(132.dp)
+                                    .padding(vertical = 2.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+                        PlayerProgressBlock(
+                            currentPosition = currentPosition,
+                            duration = duration,
+                            audioInfo = audioInfo,
+                            bluetoothDeviceName = bluetoothDeviceName,
+                            palette = palette,
+                            onSeek = onSeek
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PlayerTransportControls(
+                            isPlaying = isPlaying,
+                            shuffleEnabled = shuffleEnabled,
+                            repeatMode = repeatMode,
+                            palette = palette,
+                            queueExpanded = queueExpanded,
+                            playlist = playlist,
+                            currentSongId = song?.id,
+                            onCyclePlaybackMode = onCyclePlaybackMode,
+                            onPrevious = onPrevious,
+                            onPlayPause = onPlayPause,
+                            onNext = onNext,
+                            onToggleQueue = onToggleQueue,
+                            onDismissQueue = onDismissQueue,
+                            onQueueSongClick = onQueueSongClick,
+                            onClearQueue = onClearQueue,
+                            modifier = Modifier.height(76.dp)
+                        )
+                        AudioVisualizer(
+                            enabled = visualizerEnabled,
+                            audioSessionId = audioSessionId,
+                            isPlaying = isPlaying,
+                            positionMs = currentPosition,
+                            accent = Color.White.copy(alpha = 0.86f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(30.dp)
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(22.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(24.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (dynamicCoverFile != null) {
+                                DynamicCoverVideo(
+                                    file = dynamicCoverFile,
+                                    isPlaying = isPlaying,
+                                    onPlaybackError = { onDynamicCoverFailed(dynamicCoverFile.absolutePath) },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                AlbumArtView(
+                                    song = song,
+                                    embeddedCover = embeddedCover,
+                                    cornerRadius = 24.dp,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(22.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PlayerSongMetaText(
+                                song = song,
+                                annotation = annotation,
+                                titleFontSize = 23.sp,
+                                artistFontSize = 14.sp,
+                                artistAlpha = 0.62f,
+                                onArtistClick = onArtist,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(18.dp))
+                            PlayerHeaderAction(
+                                kind = PlayerHeaderActionKind.Favorite,
+                                selected = isFavorite,
+                                onClick = onToggleFavorite
+                            )
+                        }
+
+                        if (miniLyricLine != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            MiniLyricsPreview(
+                                lyrics = lyrics,
+                                currentIndex = currentLyricIndex,
+                                showTranslation = showTranslation,
+                                showPronunciation = showPronunciation,
+                                currentPositionMs = currentPosition,
+                                isPlaying = isPlaying,
+                                fontFamily = fontFamily,
+                                fontWeight = fontWeight,
+                                onLineClick = { onShowLyrics() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (showTranslation) 150.dp else 170.dp)
+                                    .padding(vertical = 2.dp)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(18.dp))
+                        }
+
+                        Spacer(modifier = Modifier.weight(1f))
+                        PlayerQuickActionRow(
+                            onSongInfo = onSongInfo,
+                            onShareSong = onShareSong,
+                            onTimer = onOpenTimer,
+                            onEditMetadata = onOpenMetadataEditor,
+                            onMore = onToggleMenu,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(34.dp))
+                        PlayerProgressBlock(
+                            currentPosition = currentPosition,
+                            duration = duration,
+                            audioInfo = audioInfo,
+                            bluetoothDeviceName = bluetoothDeviceName,
+                            palette = palette,
+                            onSeek = onSeek
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        PlayerTransportControls(
+                            isPlaying = isPlaying,
+                            shuffleEnabled = shuffleEnabled,
+                            repeatMode = repeatMode,
+                            palette = palette,
+                            queueExpanded = queueExpanded,
+                            playlist = playlist,
+                            currentSongId = song?.id,
+                            onCyclePlaybackMode = onCyclePlaybackMode,
+                            onPrevious = onPrevious,
+                            onPlayPause = onPlayPause,
+                            onNext = onNext,
+                            onToggleQueue = onToggleQueue,
+                            onDismissQueue = onDismissQueue,
+                            onQueueSongClick = onQueueSongClick,
+                            onClearQueue = onClearQueue,
+                            modifier = Modifier.height(74.dp)
+                        )
+                        if (visualizerEnabled) {
+                            AudioVisualizer(
+                                enabled = true,
+                                audioSessionId = audioSessionId,
+                                isPlaying = isPlaying,
+                                positionMs = currentPosition,
+                                accent = Color.White.copy(alpha = 0.72f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(22.dp)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(36.dp))
+                        }
+                    }
+                }
             }
         }
 
@@ -1016,6 +1325,8 @@ private fun CoverPlayerPage(
                     lyricTimingEditorId = lyricTimingEditorId,
                     sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
                     stopAfterCurrentEnabled = stopAfterCurrentEnabled,
+                    sleepTimerCustomMinutes = sleepTimerCustomMinutes,
+                    sleepTimerStopAfterCurrent = sleepTimerStopAfterCurrent,
                     onClose = onDismissMenu,
                     onAlbum = onAlbum,
                     onArtist = onArtist,
@@ -1024,10 +1335,12 @@ private fun CoverPlayerPage(
                     onSongInfo = onSongInfo,
                     onStopAfterCurrent = onStopAfterCurrent,
                     onTimer = onTimer,
+                    onCustomTimerMinutes = onCustomTimerMinutes,
                     onCancelTimer = onCancelTimer,
                     onSpeed = onSpeed,
                     onPitch = onPitch,
-                    onVisualizerEnabled = onVisualizerEnabled
+                    onVisualizerEnabled = onVisualizerEnabled,
+                    initialPage = actionMenuInitialPage
                 )
             }
         }
@@ -1058,6 +1371,7 @@ private fun LandscapeCoverPlayerPage(
     audioSessionId: Int,
     visualizerEnabled: Boolean,
     flowEffectMode: Int,
+    dynamicFlowEnabled: Boolean,
     onDynamicCoverFailed: (String) -> Unit,
     onToggleMenu: () -> Unit,
     onToggleQueue: () -> Unit,
@@ -1081,15 +1395,18 @@ private fun LandscapeCoverPlayerPage(
         PlayerFlowBackground(
             palette = palette,
             flowEffectMode = flowEffectMode,
+            animate = dynamicFlowEnabled,
             modifier = Modifier.fillMaxSize()
         )
-        FluidLyricBackground(
-            palette = palette,
-            positionMs = currentPosition,
-            isPlaying = isPlaying,
-            flowEffectMode = flowEffectMode,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (dynamicFlowEnabled) {
+            FluidLyricBackground(
+                palette = palette,
+                positionMs = currentPosition,
+                isPlaying = isPlaying,
+                flowEffectMode = flowEffectMode,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -1245,9 +1562,12 @@ private fun LyricsPlayerPage(
     onFontScale: (Float) -> Unit,
     onLyricSourceMode: (Int) -> Unit,
     onArtist: () -> Unit,
+    enableSwipeDismiss: Boolean,
+    useBlurBackground: Boolean,
     modifier: Modifier = Modifier
 ) {
     var lyricMenuExpanded by remember { mutableStateOf(false) }
+    var dismissDragX by remember { mutableFloatStateOf(0f) }
 
     val lyricBackgroundMotion = remember(currentPositionMs, isPlaying) {
         if (isPlaying) {
@@ -1257,35 +1577,46 @@ private fun LyricsPlayerPage(
         }
     }
 
-    Box(modifier = modifier.background(palette.middle)) {
-        PlayerBlurBackground(
-            song = song,
-            embeddedCover = embeddedCover,
-            palette = palette,
-            motion = lyricBackgroundMotion,
-            isPlaying = isPlaying,
-            modifier = Modifier.fillMaxSize()
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0f to palette.top.copy(alpha = 0.34f),
-                            0.36f to palette.middle.copy(alpha = 0.18f),
-                            1f to Color.Black.copy(alpha = 0.48f)
-                        )
-                    )
-                )
-        )
+    val swipeDismissModifier = if (enableSwipeDismiss) {
+        Modifier.pointerInput(onDismissLyrics) {
+            detectDragGestures(
+                onDragStart = { dismissDragX = 0f },
+                onDrag = { change, dragAmount ->
+                    if (abs(dragAmount.x) > abs(dragAmount.y)) {
+                        dismissDragX += dragAmount.x
+                        change.consume()
+                    }
+                },
+                onDragCancel = { dismissDragX = 0f },
+                onDragEnd = {
+                    if (dismissDragX > 96.dp.toPx()) {
+                        onDismissLyrics()
+                    }
+                    dismissDragX = 0f
+                }
+            )
+        }
+    } else {
+        Modifier
+    }
 
+    Box(modifier = modifier.then(swipeDismissModifier)) {
+        if (useBlurBackground) {
+            PlayerBlurBackground(
+                song = song,
+                embeddedCover = embeddedCover,
+                palette = palette,
+                motion = lyricBackgroundMotion,
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 28.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -1325,19 +1656,6 @@ private fun LyricsPlayerPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectDragGestures(
-                            onDragStart = { totalDrag = 0f },
-                            onDrag = { change, dragAmount ->
-                                totalDrag += dragAmount.x
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                if (kotlin.math.abs(totalDrag) > 72f) onDismissLyrics()
-                            }
-                        )
-                    }
             ) {
                 WordLyricView(
                     lyrics = lyrics,
@@ -1351,7 +1669,8 @@ private fun LyricsPlayerPage(
                     fontWeight = fontWeight,
                     topSpacer = 110.dp,
                     bottomSpacer = if (visualizerEnabled) 214.dp else 260.dp,
-                    horizontalPadding = 12.dp,
+                    horizontalPadding = 0.dp,
+                    lineHorizontalPadding = 0.dp,
                     onLineClick = onLineClick,
                     onLineDoubleClick = onLineDoubleClick,
                     onLineLongClick = onLineLongClick,
@@ -1408,6 +1727,250 @@ private fun LyricsPlayerPage(
             }
         }
     }
+}
+
+@Composable
+private fun PlayerDetailPage(
+    song: Song?,
+    tagInfo: SongTagInfo?,
+    neteaseInfo: NeteaseKeyInfo?,
+    onAlbum: () -> Unit,
+    onComposer: (String) -> Unit,
+    onLyricist: (String) -> Unit,
+    onNeteaseSong: () -> Unit,
+    onNeteaseArtist: (String) -> Unit,
+    onNeteaseAlbum: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val composerNames = remember(tagInfo?.composer, song?.composer) {
+        splitArtistNames(tagInfo?.composer?.ifBlank { song?.composer.orEmpty() }.orEmpty())
+    }
+    val lyricistNames = remember(tagInfo?.lyricist, song?.lyricist) {
+        splitArtistNames(tagInfo?.lyricist?.ifBlank { song?.lyricist.orEmpty() }.orEmpty())
+    }
+    var showNeteaseArtistPicker by remember(neteaseInfo) { mutableStateOf(false) }
+    val neteaseArtists = remember(neteaseInfo) {
+        neteaseInfo?.artists.orEmpty().filter { it.id.isNotBlank() }
+    }
+
+    if (showNeteaseArtistPicker && neteaseArtists.isNotEmpty()) {
+        WindowBottomSheet(
+            show = true,
+            onDismissRequest = { showNeteaseArtistPicker = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "选择网易云歌手",
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                )
+                neteaseArtists.forEach { artist ->
+                    PlayerDetailArtistPickerRow(
+                        title = artist.name.ifBlank { "ID ${artist.id}" },
+                        onClick = {
+                            showNeteaseArtistPicker = false
+                            onNeteaseArtist(artist.id)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .windowInsetsPadding(WindowInsets.navigationBars),
+        contentPadding = PaddingValues(horizontal = 28.dp, vertical = 36.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Text(
+                text = "歌曲详情",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            PlayerDetailInfoLine("歌曲", song?.title.orEmpty().ifBlank { "未知歌曲" })
+            PlayerDetailInfoLine("歌手", song?.artist.orEmpty().ifBlank { "未知歌手" })
+            PlayerDetailInfoLine("专辑", song?.album.orEmpty().ifBlank { "未知专辑" })
+            tagInfo?.displayComment?.takeIf { it.isNotBlank() }?.let {
+                PlayerDetailInfoLine("注释", it)
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+        }
+
+        item {
+            PlayerDetailActionRow(
+                title = "专辑",
+                summary = song?.album.orEmpty().ifBlank { "无专辑信息" },
+                enabled = (song?.albumIdentityId() ?: 0L) > 0L,
+                onClick = onAlbum
+            )
+        }
+
+        composerNames.forEach { composer ->
+            item(key = "composer_$composer") {
+                PlayerDetailActionRow(
+                    title = "作曲家",
+                    summary = composer,
+                    enabled = composer.isNotBlank(),
+                    onClick = { onComposer(composer) }
+                )
+            }
+        }
+
+        lyricistNames.forEach { lyricist ->
+            item(key = "lyricist_$lyricist") {
+                PlayerDetailActionRow(
+                    title = "作词家",
+                    summary = lyricist,
+                    enabled = lyricist.isNotBlank(),
+                    onClick = { onLyricist(lyricist) }
+                )
+            }
+        }
+
+        if (neteaseInfo?.hasDecodedContent == true) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "网易云",
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            if (neteaseInfo.musicId.isNotBlank()) {
+                item {
+                    PlayerDetailActionRow(
+                        title = "网易云歌曲页",
+                        summary = neteaseInfo.musicName.ifBlank { neteaseInfo.musicId },
+                        onClick = onNeteaseSong
+                    )
+                }
+            }
+            neteaseInfo.artists
+                .joinToString(" / ") { it.name.ifBlank { it.id } }
+                .takeIf { it.isNotBlank() }
+                ?.let { artistSummary ->
+                    item(key = "netease_artists") {
+                        PlayerDetailActionRow(
+                            title = "网易云歌手页",
+                            summary = artistSummary,
+                            enabled = neteaseArtists.isNotEmpty(),
+                            onClick = {
+                                if (neteaseArtists.size == 1) {
+                                    onNeteaseArtist(neteaseArtists.first().id)
+                                } else {
+                                    showNeteaseArtistPicker = true
+                                }
+                            }
+                        )
+                    }
+                }
+            if (neteaseInfo.albumId.isNotBlank()) {
+                item {
+                    PlayerDetailActionRow(
+                        title = "网易云专辑页",
+                        summary = neteaseInfo.albumName.ifBlank { neteaseInfo.albumId },
+                        onClick = onNeteaseAlbum
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerDetailInfoLine(label: String, value: String) {
+    if (value.isBlank()) return
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.44f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            color = Color.White.copy(alpha = 0.88f),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun PlayerDetailActionRow(
+    title: String,
+    summary: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = if (enabled) 0.11f else 0.055f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White.copy(alpha = if (enabled) 0.92f else 0.42f),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = summary.ifBlank { "无可用信息" },
+                color = Color.White.copy(alpha = if (enabled) 0.58f else 0.30f),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Text(
+            text = "›",
+            color = Color.White.copy(alpha = if (enabled) 0.72f else 0.24f),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun PlayerDetailArtistPickerRow(
+    title: String,
+    onClick: () -> Unit
+) {
+    Text(
+        text = title,
+        color = MiuixTheme.colorScheme.onSurface,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f))
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    )
 }
 
 @Composable
@@ -1988,9 +2551,8 @@ private fun LandscapeTransportControls(
                 .clickable(onClick = onPlayPause),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (isPlaying) MiuixIcons.Regular.Pause else MiuixIcons.Regular.Play,
-                contentDescription = if (isPlaying) "暂停" else "播放",
+            CenteredPlayPauseGlyph(
+                isPlaying = isPlaying,
                 tint = Color.White.copy(alpha = 0.96f),
                 modifier = Modifier.size(34.dp)
             )
@@ -2042,6 +2604,115 @@ private fun SmallCover(song: Song?, embeddedCover: Bitmap?, modifier: Modifier =
 private enum class PlayerHeaderActionKind {
     Favorite,
     More
+}
+
+@Composable
+private fun PlayerQuickActionRow(
+    onSongInfo: () -> Unit,
+    onShareSong: () -> Unit,
+    onTimer: () -> Unit,
+    onEditMetadata: () -> Unit,
+    onMore: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PlayerQuickAction("信息", PlayerQuickActionKind.Info, onSongInfo)
+        PlayerQuickAction("分享", PlayerQuickActionKind.Share, onShareSong)
+        PlayerQuickAction("定时", PlayerQuickActionKind.Timer, onTimer)
+        PlayerQuickAction("编辑", PlayerQuickActionKind.Edit, onEditMetadata)
+        PlayerQuickAction("更多", PlayerQuickActionKind.More, onMore)
+    }
+}
+
+private enum class PlayerQuickActionKind {
+    Info,
+    Share,
+    Timer,
+    Edit,
+    More
+}
+
+@Composable
+private fun PlayerQuickAction(
+    label: String,
+    kind: PlayerQuickActionKind,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+        modifier = Modifier
+            .width(48.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            QuickActionIcon(
+                kind = kind,
+                color = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = Color.White.copy(alpha = 0.62f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun QuickActionIcon(
+    kind: PlayerQuickActionKind,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val stroke = size.minDimension * 0.10f
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        when (kind) {
+            PlayerQuickActionKind.Info -> {
+                drawCircle(color = color, radius = size.minDimension * 0.42f, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round))
+                drawLine(color, Offset(cx, size.height * 0.46f), Offset(cx, size.height * 0.70f), stroke, cap = StrokeCap.Round)
+                drawCircle(color = color, radius = stroke * 0.68f, center = Offset(cx, size.height * 0.30f))
+            }
+            PlayerQuickActionKind.Share -> {
+                val a = Offset(size.width * 0.26f, size.height * 0.58f)
+                val b = Offset(size.width * 0.68f, size.height * 0.30f)
+                val c = Offset(size.width * 0.70f, size.height * 0.74f)
+                drawLine(color, a, b, stroke, cap = StrokeCap.Round)
+                drawLine(color, a, c, stroke, cap = StrokeCap.Round)
+                listOf(a, b, c).forEach { drawCircle(color = color, radius = stroke * 1.35f, center = it) }
+            }
+            PlayerQuickActionKind.Timer -> {
+                drawCircle(color = color, radius = size.minDimension * 0.40f, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = StrokeCap.Round))
+                drawLine(color, Offset(cx, cy), Offset(cx, size.height * 0.30f), stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(cx, cy), Offset(size.width * 0.66f, size.height * 0.58f), stroke, cap = StrokeCap.Round)
+            }
+            PlayerQuickActionKind.Edit -> {
+                drawLine(color, Offset(size.width * 0.28f, size.height * 0.72f), Offset(size.width * 0.72f, size.height * 0.28f), stroke * 1.3f, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.22f, size.height * 0.78f), Offset(size.width * 0.40f, size.height * 0.72f), stroke, cap = StrokeCap.Round)
+            }
+            PlayerQuickActionKind.More -> {
+                listOf(0.25f, 0.5f, 0.75f).forEach { x ->
+                    drawCircle(color = color, radius = stroke * 0.95f, center = Offset(size.width * x, cy))
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -2263,17 +2934,16 @@ private fun PlayerTransportControls(
         }
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(64.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.16f))
+                .background(Color.White.copy(alpha = 0.18f))
                 .clickable(onClick = onPlayPause),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (isPlaying) MiuixIcons.Regular.Pause else MiuixIcons.Regular.Play,
-                contentDescription = if (isPlaying) "暂停" else "播放",
+            CenteredPlayPauseGlyph(
+                isPlaying = isPlaying,
                 tint = Color.White.copy(alpha = 0.96f),
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(if (isPlaying) 38.dp else 40.dp)
             )
         }
         IconButton(onClick = onNext) {
@@ -2307,6 +2977,39 @@ private fun PlayerTransportControls(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CenteredPlayPauseGlyph(
+    isPlaying: Boolean,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    if (isPlaying) {
+        Icon(
+            imageVector = MiuixIcons.Regular.Pause,
+            contentDescription = "暂停",
+            tint = tint,
+            modifier = modifier
+        )
+    } else {
+        Canvas(modifier = modifier) {
+            val side = size.minDimension
+            val triangleWidth = side * 0.46f
+            val triangleHeight = side * 0.58f
+            val left = size.width / 2f - triangleWidth / 3f
+            val right = left + triangleWidth
+            val top = size.height / 2f - triangleHeight / 2f
+            val bottom = size.height / 2f + triangleHeight / 2f
+            val path = Path().apply {
+                moveTo(left, top)
+                lineTo(right, size.height / 2f)
+                lineTo(left, bottom)
+                close()
+            }
+            drawPath(path = path, color = tint)
         }
     }
 }
@@ -2545,18 +3248,60 @@ private fun PlayerFlowBackground(
     animate: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val drift = if (animate) {
-        val transition = rememberInfiniteTransition(label = "player_flow_background")
-        val animatedDrift by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 18_000, easing = LinearEasing),
+    val transition = rememberInfiniteTransition(label = "player_flow_background")
+    val slowRotation = if (animate) {
+        val value by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 180_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "player_flow_background_slow"
+        )
+        value
+    } else {
+        0f
+    }
+    val midRotation = if (animate) {
+        val value by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = -360f,
+                animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 150_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "player_flow_background_mid"
+        )
+        value
+    } else {
+        0f
+    }
+    val fastRotation = if (animate) {
+        val value by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = -360f,
+                animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 120_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "player_flow_background_fast"
+        )
+        value
+    } else {
+        0f
+    }
+    val sweepDrift = if (animate) {
+        val value by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 46_000, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "player_flow_background_drift"
         )
-        animatedDrift
+        value
     } else {
         0f
     }
@@ -2564,49 +3309,105 @@ private fun PlayerFlowBackground(
     Canvas(modifier = modifier.background(palette.middle)) {
         val w = size.width
         val h = size.height
-        val angle = drift * kotlin.math.PI.toFloat() * 2f
-        val baseTop = palette.top
-        val baseMid = palette.middle
-        val baseBottom = palette.bottom
+        val maxSide = max(w, h)
+        val baseTop = palette.top.boosted().lighten(0.18f)
+        val baseMid = palette.middle.boosted().lighten(0.12f)
+        val baseBottom = palette.bottom.boosted().lighten(0.08f)
 
         drawRect(
             brush = Brush.verticalGradient(
-                colors = listOf(baseTop, baseMid, baseBottom)
+                colors = listOf(
+                    baseTop.copy(alpha = 0.96f),
+                    baseMid.copy(alpha = 0.98f),
+                    baseBottom.copy(alpha = 1f)
+                )
             )
         )
 
-        val centers = listOf(
-            Offset((0.16f + 0.10f * kotlin.math.sin(angle)) * w, (0.22f + 0.08f * kotlin.math.cos(angle * 0.7f)) * h),
-            Offset((0.86f + 0.08f * kotlin.math.cos(angle * 0.9f)) * w, (0.18f + 0.10f * kotlin.math.sin(angle)) * h),
-            Offset((0.46f + 0.16f * kotlin.math.sin(angle * 0.42f)) * w, (0.64f + 0.08f * kotlin.math.cos(angle * 0.8f)) * h)
-        )
-        val glows = listOf(
-            palette.accent.copy(alpha = 0.30f),
-            palette.top.lighten(0.22f).copy(alpha = 0.22f),
-            Color.White.copy(alpha = 0.10f)
-        )
-        centers.forEachIndexed { index, center ->
-            val radius = max(w, h) * (0.34f + index * 0.08f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glows[index], Color.Transparent),
-                    center = center,
-                    radius = radius
-                ),
-                radius = radius,
-                center = center
-            )
+        fun drawLegacyLayer(
+            center: Offset,
+            widthFactor: Float,
+            heightFactor: Float,
+            degrees: Float,
+            color: Color,
+            alpha: Float
+        ) {
+            val layerSize = Size(maxSide * widthFactor, maxSide * heightFactor)
+            rotate(degrees = degrees, pivot = center) {
+                drawOval(
+                    brush = Brush.radialGradient(
+                        colorStops = arrayOf(
+                            0.00f to color.lighten(0.30f).copy(alpha = alpha * 0.76f),
+                            0.38f to color.copy(alpha = alpha * 0.46f),
+                            0.68f to color.darken(0.10f).copy(alpha = alpha * 0.12f),
+                            1.00f to Color.Transparent
+                        ),
+                        center = center,
+                        radius = max(layerSize.width, layerSize.height) * 0.72f
+                    ),
+                    topLeft = Offset(center.x - layerSize.width / 2f, center.y - layerSize.height / 2f),
+                    size = layerSize
+                )
+            }
         }
 
-        val sweepStart = Offset((-0.36f + drift * 1.72f) * w, -0.08f * h)
-        val sweepEnd = Offset((0.12f + drift * 1.72f) * w, 1.08f * h)
+        drawLegacyLayer(
+            center = Offset(w * 0.50f, h * 0.48f),
+            widthFactor = 1.62f,
+            heightFactor = 1.34f,
+            degrees = slowRotation,
+            color = palette.accent.boosted(),
+            alpha = 0.30f
+        )
+        drawLegacyLayer(
+            center = Offset(w * 0.12f, -h * 0.06f),
+            widthFactor = 1.45f,
+            heightFactor = 1.16f,
+            degrees = midRotation,
+            color = palette.top.boosted().lighten(0.12f),
+            alpha = 0.24f
+        )
+        drawLegacyLayer(
+            center = Offset(w * 0.18f, h * 1.05f),
+            widthFactor = 1.38f,
+            heightFactor = 1.04f,
+            degrees = fastRotation,
+            color = palette.bottom.boosted().lighten(0.10f),
+            alpha = 0.22f
+        )
+
+        drawRect(Color.White.copy(alpha = 0.05f))
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.04f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.20f, h * 0.02f),
+                radius = maxSide * 0.86f
+            )
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    palette.accent.lighten(0.30f).copy(alpha = 0.12f),
+                    Color.Transparent
+                ),
+                center = Offset(w * 0.90f, h * 0.72f),
+                radius = maxSide * 0.72f
+            )
+        )
+
+        val sweepStart = Offset((-0.36f + sweepDrift * 1.72f) * w, -0.08f * h)
+        val sweepEnd = Offset((0.12f + sweepDrift * 1.72f) * w, 1.08f * h)
         drawRect(
             brush = Brush.linearGradient(
                 colorStops = arrayOf(
                     0.0f to Color.Transparent,
-                    0.46f to Color.Transparent,
-                    0.50f to Color.White.copy(alpha = 0.12f),
-                    0.56f to Color.Transparent,
+                    0.42f to Color.Transparent,
+                    0.50f to Color.White.copy(alpha = 0.08f),
+                    0.58f to Color.Transparent,
                     1.0f to Color.Transparent
                 ),
                 start = sweepStart,
@@ -2616,8 +3417,16 @@ private fun PlayerFlowBackground(
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
+                    Color.White.copy(alpha = 0.08f),
+                    Color.Transparent
+                )
+            )
+        )
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
                     Color.Transparent,
-                    Color.Black.copy(alpha = 0.30f)
+                    Color.Black.copy(alpha = 0.24f)
                 )
             )
         )
@@ -2939,14 +3748,21 @@ private fun MiniLyricsPreview(
     val safeIndex = currentIndex.takeIf { it in lyrics.indices }
         ?: lyrics.indexOfFirst { it.hasMiniLyric() }.takeIf { it >= 0 }
         ?: return
-    val previousIndex = lyrics.indices
+    val usesBilingualPreview = showTranslation && lyrics.any {
+        !it.translation.isNullOrBlank() || !it.backgroundTranslation.isNullOrBlank()
+    }
+    val sideLineCount = if (usesBilingualPreview) 1 else 2
+    val previousIndices = lyrics.indices
         .asSequence()
         .filter { it < safeIndex && lyrics[it].hasMiniLyric() }
-        .lastOrNull()
-    val nextIndex = lyrics.indices
+        .toList()
+        .takeLast(sideLineCount)
+    val nextIndices = lyrics.indices
         .asSequence()
-        .firstOrNull { it > safeIndex && lyrics[it].hasMiniLyric() }
-    val previewItems = listOfNotNull(previousIndex, safeIndex, nextIndex)
+        .filter { it > safeIndex && lyrics[it].hasMiniLyric() }
+        .take(sideLineCount)
+        .toList()
+    val previewItems = previousIndices + safeIndex + nextIndices
     val smoothPositionMs = rememberSmoothMiniLyricPosition(
         currentPositionMs = currentPositionMs,
         isPlaying = isPlaying,
@@ -2971,7 +3787,7 @@ private fun MiniLyricsPreview(
                     drawRect(fade, blendMode = BlendMode.DstIn)
                 }
             },
-        verticalArrangement = if (previewItems.size == 1) Arrangement.Center else Arrangement.spacedBy(8.dp)
+        verticalArrangement = if (previewItems.size == 1) Arrangement.Center else Arrangement.spacedBy(10.dp)
     ) {
         previewItems.forEach { index ->
             val line = lyrics[index]
@@ -2981,25 +3797,23 @@ private fun MiniLyricsPreview(
                 showPronunciation = showPronunciation
             )
             val blockWeight = when {
-                !isActive && visiblePartCount >= 4 -> 0.56f
-                !isActive -> 0.74f
-                visiblePartCount >= 5 -> 1.92f
-                visiblePartCount >= 4 -> 1.72f
-                visiblePartCount >= 3 -> 1.36f
-                else -> 1.16f
+                visiblePartCount >= 5 -> 1.22f
+                visiblePartCount >= 4 -> 1.12f
+                visiblePartCount >= 3 -> 1.02f
+                else -> 0.92f
             }
             val distance = kotlin.math.abs(index - safeIndex)
             val alpha by animateFloatAsState(
                 targetValue = when {
-                    isActive -> 1f
-                    distance == 1 -> 0.48f
-                    else -> 0.28f
+                    distance == 0 -> 0.86f
+                    distance == 1 -> 0.66f
+                    else -> 0.42f
                 },
                 animationSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
                 label = "mini_lyric_alpha"
             )
             val scale by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.94f,
+                targetValue = 1f,
                 animationSpec = tween(durationMillis = 240, easing = LinearOutSlowInEasing),
                 label = "mini_lyric_scale"
             )
@@ -3022,7 +3836,7 @@ private fun MiniLyricsPreview(
                         scaleY = scale
                     }
                     .clickable { onLineClick(line) }
-                    .padding(vertical = if (isActive && visiblePartCount < 4) 3.dp else 1.dp)
+                    .padding(vertical = 1.dp)
             )
         }
     }
@@ -3271,6 +4085,7 @@ private fun MiniPlainLyricText(
         text = AnnotatedString(text),
         style = TextStyle(
             fontSize = fontSize,
+            lineHeight = (fontSize.value * 1.38f).sp,
             fontFamily = fontFamily,
             fontWeight = fontWeight,
             color = color
@@ -3319,6 +4134,7 @@ private fun MiniWordText(
         text = annotated,
         style = TextStyle(
             fontSize = fontSize,
+            lineHeight = (fontSize.value * 1.38f).sp,
             fontFamily = fontFamily,
             fontWeight = fontWeight,
             textAlign = textAlign
@@ -3460,6 +4276,11 @@ private fun rememberSmoothMiniLyricPosition(
 private fun com.ella.music.data.model.LyricLine.miniLyricRenderKey(): String =
     "$timeMs|$endMs|$text|$backgroundText"
 
+private const val PLAYER_PAGE_DETAILS = 0
+private const val PLAYER_PAGE_COVER = 1
+private const val PLAYER_PAGE_LYRICS = 2
+private const val PLAYER_PAGE_COUNT = 3
+
 private const val MINI_LYRIC_SWEEP_FEATHER_FRACTION = 0.04f
 
 @Composable
@@ -3472,6 +4293,8 @@ private fun PlayerActionMenu(
     lyricTimingEditorId: String,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
+    sleepTimerCustomMinutes: Int,
+    sleepTimerStopAfterCurrent: Boolean,
     onClose: () -> Unit,
     onAlbum: () -> Unit,
     onArtist: () -> Unit,
@@ -3480,13 +4303,15 @@ private fun PlayerActionMenu(
     onSongInfo: () -> Unit,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
+    onCustomTimerMinutes: (Int) -> Unit,
     onCancelTimer: () -> Unit,
     onSpeed: (Float) -> Unit,
     onPitch: (Float) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
+    initialPage: PlayerActionSheetPage = PlayerActionSheetPage.Main,
     modifier: Modifier = Modifier
 ) {
-    var page by remember { mutableStateOf(PlayerActionSheetPage.Main) }
+    var page by remember(initialPage) { mutableStateOf(initialPage) }
     val context = LocalContext.current
     val metadataOptions = remember(song?.id, song?.path, song?.mimeType) {
         song?.let { buildTagEditorOptions(context, it) }
@@ -3545,8 +4370,11 @@ private fun PlayerActionMenu(
                     onBack = { page = PlayerActionSheetPage.Main },
                     sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
                     stopAfterCurrentEnabled = stopAfterCurrentEnabled,
+                    sleepTimerCustomMinutes = sleepTimerCustomMinutes,
+                    sleepTimerStopAfterCurrent = sleepTimerStopAfterCurrent,
                     onStopAfterCurrent = onStopAfterCurrent,
                     onTimer = onTimer,
+                    onCustomTimerMinutes = onCustomTimerMinutes,
                     onCancelTimer = onCancelTimer
                 )
             }
@@ -3602,11 +4430,16 @@ private fun TimerSheetContent(
     onBack: () -> Unit,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
+    sleepTimerCustomMinutes: Int,
+    sleepTimerStopAfterCurrent: Boolean,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
+    onCustomTimerMinutes: (Int) -> Unit,
     onCancelTimer: () -> Unit
 ) {
-    var customMinutes by remember { mutableFloatStateOf(45f) }
+    var customMinutes by remember(sleepTimerCustomMinutes) {
+        mutableFloatStateOf(sleepTimerCustomMinutes.coerceIn(5, 120).toFloat())
+    }
     var nowRealtimeMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     val remainingMs = sleepTimerEndRealtimeMs
         ?.minus(nowRealtimeMs)
@@ -3655,7 +4488,10 @@ private fun TimerSheetContent(
             valueRange = 5f..120f,
             steps = 23,
             label = "${customMinutes.toInt()} 分钟",
-            onValueChange = { customMinutes = it },
+            onValueChange = {
+                customMinutes = it
+                onCustomTimerMinutes(it.toInt().coerceIn(5, 120))
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(92.dp)
@@ -3670,7 +4506,7 @@ private fun TimerSheetContent(
     }
 
     StopAfterCurrentRow(
-        checked = stopAfterCurrentEnabled,
+        checked = stopAfterCurrentEnabled || sleepTimerStopAfterCurrent,
         onCheckedChange = onStopAfterCurrent
     )
     if (timerActive) {

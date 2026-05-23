@@ -83,10 +83,12 @@ import com.ella.music.data.neteaseSongUrl
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import com.ella.music.ui.LibrarySortUiState
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.ArtistPickerSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.TagEditorOption
@@ -156,6 +158,7 @@ fun LibraryScreen(
     var aiInterpretationSong by remember { mutableStateOf<Song?>(null) }
     var listCoversEnabled by remember { mutableStateOf(false) }
     var pendingSystemDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var pendingConfirmDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var scrollToTopRequest by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     fun navigateToArtistOrChoose(artistText: String) {
@@ -287,9 +290,11 @@ fun LibraryScreen(
                         }
                         IconButton(onClick = {
                             val selectedSongs = sortedSongs.filter { it.id in selectedIds }
-                            requestDeleteSongs(selectedSongs)
-                            selectedIds = emptySet()
-                            selectionMode = false
+                            if (selectedSongs.isEmpty()) {
+                                Toast.makeText(context, "请先选择歌曲", Toast.LENGTH_SHORT).show()
+                            } else {
+                                pendingConfirmDeleteSongs = selectedSongs
+                            }
                         }) {
                             Icon(
                                 imageVector = MiuixIcons.Regular.Delete,
@@ -539,6 +544,13 @@ fun LibraryScreen(
                             }
                         }
                     )
+                } else if (sortedSongs.size > 30) {
+                    LazyListScrollIndicator(
+                        state = listState,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                    )
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -635,6 +647,20 @@ fun LibraryScreen(
                 }
             )
         }
+
+        ConfirmDangerDialog(
+            show = pendingConfirmDeleteSongs.isNotEmpty(),
+            title = "永久删除歌曲",
+            message = "确定要永久删除选中的 ${pendingConfirmDeleteSongs.size} 首歌曲吗？此操作可能会删除本地音频文件。",
+            confirmText = "永久删除",
+            onDismiss = { pendingConfirmDeleteSongs = emptyList() },
+            onConfirm = {
+                requestDeleteSongs(pendingConfirmDeleteSongs)
+                pendingConfirmDeleteSongs = emptyList()
+                selectedIds = emptySet()
+                selectionMode = false
+            }
+        )
 
         tagEditorSong?.let { song ->
             WindowBottomSheet(
@@ -900,6 +926,8 @@ private fun NeteaseKeyInfoMenu(
     onBack: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showArtistPicker by remember(info) { mutableStateOf(false) }
+    val neteaseArtists = remember(info) { info.artists.filter { it.id.isNotBlank() } }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -913,18 +941,28 @@ private fun NeteaseKeyInfoMenu(
     ) {
         SheetHandle()
         Text(
-            text = "163 key",
+            text = if (showArtistPicker) "选择网易云歌手" else "163 key",
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
             color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
         )
+        if (showArtistPicker) {
+            neteaseArtists.forEach { artist ->
+                LibraryMenuItem(
+                    text = artist.name.ifBlank { "ID ${artist.id}" },
+                    onClick = { onOpenUrl(neteaseArtistUrl(artist.id)) }
+                )
+            }
+            LibraryMenuItem("返回 163 key", onClick = { showArtistPicker = false })
+            return@Column
+        }
         if (!info.hasDecodedContent) {
             SongInfoRow("状态", "没有解析出可跳转的网易云信息")
         }
         if (info.musicId.isNotBlank()) {
             SongInfoActionRow(
-                label = "网易云歌曲",
+                label = "网易云歌曲页",
                 value = listOf(info.musicName, "ID ${info.musicId}").filter { it.isNotBlank() }.joinToString(" · "),
                 onClick = { onOpenUrl(neteaseSongUrl(info.musicId)) }
             )
@@ -935,21 +973,28 @@ private fun NeteaseKeyInfoMenu(
             ?.let { SongInfoRow("别名", it) }
         if (info.albumId.isNotBlank()) {
             SongInfoActionRow(
-                label = "网易云专辑",
+                label = "网易云专辑页",
                 value = listOf(info.albumName, "ID ${info.albumId}").filter { it.isNotBlank() }.joinToString(" · "),
                 onClick = { onOpenUrl(neteaseAlbumUrl(info.albumId)) }
             )
         }
-        info.artists.forEach { artist ->
-            if (artist.id.isNotBlank()) {
-                SongInfoActionRow(
-                    label = "网易云歌手",
-                    value = listOf(artist.name, "ID ${artist.id}").filter { it.isNotBlank() }.joinToString(" · "),
-                    onClick = { onOpenUrl(neteaseArtistUrl(artist.id)) }
-                )
-            } else {
-                SongInfoRow("网易云歌手", artist.name)
-            }
+        val artistSummary = info.artists
+            .joinToString(" / ") { it.name.ifBlank { it.id } }
+            .takeIf { it.isNotBlank() }
+        if (neteaseArtists.isNotEmpty()) {
+            SongInfoActionRow(
+                label = "网易云歌手页",
+                value = artistSummary.orEmpty(),
+                onClick = {
+                    if (neteaseArtists.size == 1) {
+                        onOpenUrl(neteaseArtistUrl(neteaseArtists.first().id))
+                    } else {
+                        showArtistPicker = true
+                    }
+                }
+            )
+        } else {
+            artistSummary?.let { SongInfoRow("网易云歌手页", it) }
         }
         SongInfoRow("注释", info.comment)
         SongInfoRow("原始 163 key", info.raw)

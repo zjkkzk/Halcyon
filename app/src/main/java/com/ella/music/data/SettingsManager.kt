@@ -55,6 +55,8 @@ class SettingsManager(private val context: Context) {
         val KEY_LYRIC_PAGE_KEEP_SCREEN_ON = booleanPreferencesKey("lyric_page_keep_screen_on")
         val KEY_MINI_PLAYER_LYRIC_TRANSLATION = booleanPreferencesKey("mini_player_lyric_translation")
         val KEY_PLAYER_HDR_GLOW = booleanPreferencesKey("player_hdr_glow")
+        val KEY_PLAYER_IMMERSIVE_COVER = booleanPreferencesKey("player_immersive_cover")
+        val KEY_PLAYER_DYNAMIC_FLOW_ENABLED = booleanPreferencesKey("player_dynamic_flow_enabled")
         val KEY_AUDIO_VISUALIZER_ENABLED = booleanPreferencesKey("audio_visualizer_enabled")
         val KEY_DYNAMIC_COVER_ENABLED = booleanPreferencesKey("dynamic_cover_enabled")
         val KEY_SHOW_PLAY_NEXT_IN_LISTS = booleanPreferencesKey("show_play_next_in_lists")
@@ -62,6 +64,8 @@ class SettingsManager(private val context: Context) {
         val KEY_SHOW_ALBUM_ARTISTS = booleanPreferencesKey("show_album_artists")
         val KEY_METADATA_EDITOR_ID = stringPreferencesKey("metadata_editor_id")
         val KEY_LYRIC_TIMING_EDITOR_ID = stringPreferencesKey("lyric_timing_editor_id")
+        val KEY_SLEEP_TIMER_CUSTOM_MINUTES = intPreferencesKey("sleep_timer_custom_minutes")
+        val KEY_SLEEP_TIMER_STOP_AFTER_CURRENT = booleanPreferencesKey("sleep_timer_stop_after_current")
         val KEY_SHORTCUT_LIBRARY_LABEL = stringPreferencesKey("shortcut_library_label")
         val KEY_SHORTCUT_PLAYLISTS_LABEL = stringPreferencesKey("shortcut_playlists_label")
         val KEY_SHORTCUT_FOLDER_LABEL = stringPreferencesKey("shortcut_folder_label")
@@ -102,6 +106,11 @@ class SettingsManager(private val context: Context) {
         val KEY_SORT_FOLDER_LIST = intPreferencesKey("sort_folder_list")
         val KEY_SORT_FOLDER_DETAIL_SONG = intPreferencesKey("sort_folder_detail_song")
         val KEY_CATEGORY_GRID_COLUMNS = intPreferencesKey("category_grid_columns")
+        val KEY_HOME_DAILY_MIX_VISIBLE = booleanPreferencesKey("home_daily_mix_visible")
+        val KEY_HOME_SECTION_ORDER = stringPreferencesKey("home_section_order")
+        val KEY_HOME_HIDDEN_SECTIONS = stringPreferencesKey("home_hidden_sections")
+        val KEY_HOME_LIBRARY_TILE_ORDER = stringPreferencesKey("home_library_tile_order")
+        val KEY_HOME_HIDDEN_LIBRARY_TILES = stringPreferencesKey("home_hidden_library_tiles")
 
         val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
         val KEY_BLUETOOTH_LYRIC_TRANSLATION = booleanPreferencesKey("bluetooth_lyric_translation")
@@ -128,6 +137,8 @@ class SettingsManager(private val context: Context) {
         const val DEFAULT_SHORTCUT_LIBRARY_LABEL = "音乐库"
         const val DEFAULT_SHORTCUT_PLAYLISTS_LABEL = "歌单"
         const val DEFAULT_SHORTCUT_FOLDER_LABEL = "文件夹"
+        const val DEFAULT_HOME_SECTION_ORDER = "library,online,recent"
+        const val DEFAULT_HOME_LIBRARY_TILE_ORDER = "artist,album,folder,folder_tree,playlist,analytics,genre,year,composer,lyricist"
     }
 
     private fun metadataCategorySortKey(type: String): Preferences.Key<Int> =
@@ -178,6 +189,10 @@ class SettingsManager(private val context: Context) {
     val miniPlayerLyricTranslation: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_MINI_PLAYER_LYRIC_TRANSLATION] ?: true }
     val playerHdrGlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_PLAYER_HDR_GLOW] ?: false }
+    val playerImmersiveCover: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PLAYER_IMMERSIVE_COVER] ?: true }
+    val playerDynamicFlowEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PLAYER_DYNAMIC_FLOW_ENABLED] ?: false }
     val audioVisualizerEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_AUDIO_VISUALIZER_ENABLED] ?: false }
     val dynamicCoverEnabled: Flow<Boolean> =
@@ -192,6 +207,10 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_METADATA_EDITOR_ID] ?: "" }
     val lyricTimingEditorId: Flow<String> =
         context.dataStore.data.map { it[KEY_LYRIC_TIMING_EDITOR_ID] ?: "" }
+    val sleepTimerCustomMinutes: Flow<Int> =
+        context.dataStore.data.map { it[KEY_SLEEP_TIMER_CUSTOM_MINUTES]?.coerceIn(5, 120) ?: 45 }
+    val sleepTimerStopAfterCurrent: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_SLEEP_TIMER_STOP_AFTER_CURRENT] ?: false }
     val shortcutLibraryLabel: Flow<String> =
         context.dataStore.data.map { it[KEY_SHORTCUT_LIBRARY_LABEL] ?: DEFAULT_SHORTCUT_LIBRARY_LABEL }
     val shortcutPlaylistsLabel: Flow<String> =
@@ -249,6 +268,16 @@ class SettingsManager(private val context: Context) {
     val categoryGridColumns: Flow<Int> = context.dataStore.data.map {
         (it[KEY_CATEGORY_GRID_COLUMNS] ?: 2).coerceIn(1, 4)
     }
+    val homeDailyMixVisible: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_HOME_DAILY_MIX_VISIBLE] ?: true }
+    val homeSectionOrder: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_SECTION_ORDER] ?: DEFAULT_HOME_SECTION_ORDER }
+    val homeHiddenSections: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_HIDDEN_SECTIONS] ?: "" }
+    val homeLibraryTileOrder: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_LIBRARY_TILE_ORDER] ?: DEFAULT_HOME_LIBRARY_TILE_ORDER }
+    val homeHiddenLibraryTiles: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_HIDDEN_LIBRARY_TILES] ?: "" }
     fun metadataCategorySortIndex(type: String): Flow<Int> =
         context.dataStore.data.map { it[metadataCategorySortKey(type)] ?: 0 }
 
@@ -387,6 +416,14 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_PLAYER_HDR_GLOW] = enabled }
     }
 
+    suspend fun setPlayerImmersiveCover(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYER_IMMERSIVE_COVER] = enabled }
+    }
+
+    suspend fun setPlayerDynamicFlowEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYER_DYNAMIC_FLOW_ENABLED] = enabled }
+    }
+
     suspend fun setAudioVisualizerEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_AUDIO_VISUALIZER_ENABLED] = enabled }
     }
@@ -426,6 +463,14 @@ class SettingsManager(private val context: Context) {
             val safeId = id.trim()
             if (safeId.isBlank()) it.remove(KEY_LYRIC_TIMING_EDITOR_ID) else it[KEY_LYRIC_TIMING_EDITOR_ID] = safeId
         }
+    }
+
+    suspend fun setSleepTimerCustomMinutes(minutes: Int) {
+        context.dataStore.edit { it[KEY_SLEEP_TIMER_CUSTOM_MINUTES] = minutes.coerceIn(5, 120) }
+    }
+
+    suspend fun setSleepTimerStopAfterCurrent(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_SLEEP_TIMER_STOP_AFTER_CURRENT] = enabled }
     }
 
     suspend fun setShortcutLibraryLabel(label: String) {
@@ -621,6 +666,26 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_CATEGORY_GRID_COLUMNS] = columns.coerceIn(1, 4) }
     }
 
+    suspend fun setHomeDailyMixVisible(visible: Boolean) {
+        context.dataStore.edit { it[KEY_HOME_DAILY_MIX_VISIBLE] = visible }
+    }
+
+    suspend fun setHomeSectionOrder(order: String) {
+        context.dataStore.edit { it[KEY_HOME_SECTION_ORDER] = order.trim() }
+    }
+
+    suspend fun setHomeHiddenSections(hidden: String) {
+        context.dataStore.edit { it[KEY_HOME_HIDDEN_SECTIONS] = hidden.trim() }
+    }
+
+    suspend fun setHomeLibraryTileOrder(order: String) {
+        context.dataStore.edit { it[KEY_HOME_LIBRARY_TILE_ORDER] = order.trim() }
+    }
+
+    suspend fun setHomeHiddenLibraryTiles(hidden: String) {
+        context.dataStore.edit { it[KEY_HOME_HIDDEN_LIBRARY_TILES] = hidden.trim() }
+    }
+
     suspend fun setMetadataCategorySortIndex(type: String, index: Int) {
         context.dataStore.edit { it[metadataCategorySortKey(type)] = index.coerceAtLeast(0) }
     }
@@ -708,6 +773,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_LYRIC_PAGE_KEEP_SCREEN_ON)
             setBoolean(KEY_MINI_PLAYER_LYRIC_TRANSLATION)
             setBoolean(KEY_PLAYER_HDR_GLOW)
+            setBoolean(KEY_PLAYER_IMMERSIVE_COVER)
             setBoolean(KEY_AUDIO_VISUALIZER_ENABLED)
             setBoolean(KEY_DYNAMIC_COVER_ENABLED)
             setBoolean(KEY_SHOW_PLAY_NEXT_IN_LISTS)
@@ -719,6 +785,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_BLUETOOTH_LYRIC_TRANSLATION)
             setBoolean(KEY_OPEN_PLAYER_ON_PLAY)
             setBoolean(KEY_STARTUP_AUTO_PLAY)
+            setBoolean(KEY_HOME_DAILY_MIX_VISIBLE)
 
             setInt(KEY_THEME_MODE)
             setInt(KEY_MIN_DURATION)
@@ -770,6 +837,10 @@ class SettingsManager(private val context: Context) {
             setString(KEY_ARTIST_PROTECTED_NAMES)
             setString(KEY_GENRE_SEPARATORS)
             setString(KEY_GENRE_PROTECTED_NAMES)
+            setString(KEY_HOME_SECTION_ORDER)
+            setString(KEY_HOME_HIDDEN_SECTIONS)
+            setString(KEY_HOME_LIBRARY_TILE_ORDER)
+            setString(KEY_HOME_HIDDEN_LIBRARY_TILES)
         }
     }
 

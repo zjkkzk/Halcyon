@@ -66,6 +66,7 @@ import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.ella.music.data.NeteaseArtist
 
 @Composable
 fun SongMoreActionHost(
@@ -92,8 +93,24 @@ fun SongMoreActionHost(
     var infoSong by remember { mutableStateOf<Song?>(null) }
     var aiSong by remember { mutableStateOf<Song?>(null) }
     var artistChoices by remember { mutableStateOf<List<String>>(emptyList()) }
+    var dangerConfirmTitle by remember { mutableStateOf("") }
+    var dangerConfirmMessage by remember { mutableStateOf("") }
+    var dangerConfirmText by remember { mutableStateOf("删除") }
+    var dangerConfirmAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     fun closeAction() = onDismissAction()
+
+    fun requestDangerConfirm(
+        title: String,
+        message: String,
+        confirmText: String = "删除",
+        action: () -> Unit
+    ) {
+        dangerConfirmTitle = title
+        dangerConfirmMessage = message
+        dangerConfirmText = confirmText
+        dangerConfirmAction = action
+    }
 
     fun runResolvedSongAction(
         sourceSong: Song,
@@ -180,26 +197,55 @@ fun SongMoreActionHost(
                 } else null,
                 onRemoveFromPlaylist = onSongRemovedFromPlaylist?.let {
                     {
-                        it(song)
                         closeAction()
+                        requestDangerConfirm(
+                            title = "从歌单移除",
+                            message = "确定要从当前歌单移除《${song.title.ifBlank { song.fileName.ifBlank { "这首歌" } }}》吗？不会删除本地文件。",
+                            confirmText = "移除"
+                        ) {
+                            it(song)
+                        }
                     }
                 },
                 onDelete = if (showDelete) {
                     {
-                        if (onDeleteSong != null) {
-                            onDeleteSong(song)
-                        } else if (deleteFromLibrary) {
-                            mainViewModel.deleteSongs(listOf(song))
-                        } else {
-                            mainViewModel.removeSongsFromLibrary(listOf(song))
-                        }
                         closeAction()
+                        requestDangerConfirm(
+                            title = if (deleteFromLibrary) "永久删除歌曲" else "从音乐库移除",
+                            message = if (deleteFromLibrary) {
+                                "确定要永久删除《${song.title.ifBlank { song.fileName.ifBlank { "这首歌" } }}》吗？此操作可能会删除本地音频文件。"
+                            } else {
+                                "确定要从音乐库移除《${song.title.ifBlank { song.fileName.ifBlank { "这首歌" } }}》吗？本地文件不会被删除。"
+                            },
+                            confirmText = if (deleteFromLibrary) "永久删除" else "移除"
+                        ) {
+                            if (onDeleteSong != null) {
+                                onDeleteSong(song)
+                            } else if (deleteFromLibrary) {
+                                mainViewModel.deleteSongs(listOf(song))
+                            } else {
+                                mainViewModel.removeSongsFromLibrary(listOf(song))
+                            }
+                        }
                     }
                 } else null,
                 showSpectrum = showLocalFileActions
             )
         }
     }
+
+    ConfirmDangerDialog(
+        show = dangerConfirmAction != null,
+        title = dangerConfirmTitle,
+        message = dangerConfirmMessage,
+        confirmText = dangerConfirmText,
+        onDismiss = { dangerConfirmAction = null },
+        onConfirm = {
+            val action = dangerConfirmAction
+            dangerConfirmAction = null
+            action?.invoke()
+        }
+    )
 
     if (artistChoices.isNotEmpty()) {
         WindowBottomSheet(
@@ -478,6 +524,7 @@ fun SongInfoSheet(
 ) {
     val context = LocalContext.current
     var showNeteaseKeyInfo by remember(song.id) { mutableStateOf(false) }
+    var showNeteaseArtistPicker by remember(song.id) { mutableStateOf(false) }
     val audioInfo by produceState<AudioInfo?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
         value = withContext(Dispatchers.IO) { audioInfoLoader(song) }
     }
@@ -485,6 +532,28 @@ fun SongInfoSheet(
         value = withContext(Dispatchers.IO) { tagInfoLoader(song) }
     }
     val neteaseInfo = remember(tagInfo?.neteaseKey) { decodeNeteaseKey(tagInfo?.neteaseKey.orEmpty()) }
+    val neteaseArtists = remember(neteaseInfo) {
+        neteaseInfo?.artists.orEmpty().filter { it.id.isNotBlank() }
+    }
+
+    if (showNeteaseArtistPicker && neteaseArtists.isNotEmpty()) {
+        SongSheetColumn {
+            Text(
+                text = "选择网易云歌手",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+            )
+            neteaseArtists.forEach { artist ->
+                SongMenuItem(artist.name.ifBlank { "ID ${artist.id}" }, onClick = {
+                    openUrl(context, neteaseArtistUrl(artist.id))
+                })
+            }
+            SongMenuItem("返回 163 key", onClick = { showNeteaseArtistPicker = false })
+        }
+        return
+    }
 
     if (showNeteaseKeyInfo && neteaseInfo != null) {
         SongSheetColumn {
@@ -509,15 +578,20 @@ fun SongInfoSheet(
             neteaseInfo.musicId.takeIf { it.isNotBlank() }?.let { id ->
                 SongMenuItem("网易云歌曲页", onClick = { openUrl(context, neteaseSongUrl(id)) })
             }
+            if (neteaseArtists.isNotEmpty()) {
+                SongMenuItem(
+                    title = "网易云歌手页",
+                    onClick = {
+                        if (neteaseArtists.size == 1) {
+                            openUrl(context, neteaseArtistUrl(neteaseArtists.first().id))
+                        } else {
+                            showNeteaseArtistPicker = true
+                        }
+                    }
+                )
+            }
             neteaseInfo.albumId.takeIf { it.isNotBlank() }?.let { id ->
                 SongMenuItem("网易云专辑页", onClick = { openUrl(context, neteaseAlbumUrl(id)) })
-            }
-            neteaseInfo.artists.forEach { artist ->
-                if (artist.id.isNotBlank()) {
-                    SongMenuItem("网易云歌手页：${artist.name.ifBlank { artist.id }}", onClick = {
-                        openUrl(context, neteaseArtistUrl(artist.id))
-                    })
-                }
             }
             SongInfoRow("原始 163 key", neteaseInfo.raw)
             SongMenuItem("返回", onClick = { showNeteaseKeyInfo = false })

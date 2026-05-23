@@ -4,16 +4,27 @@ import android.os.SystemClock
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -21,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.floor
+import kotlin.math.max
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -99,3 +111,68 @@ fun FastIndexBar(
 
 fun List<String>.toFastIndexLetters(): List<String> =
     distinct().sortedWith(compareBy<String> { if (it == "#") "ZZZ" else it })
+
+@Composable
+fun LazyListScrollIndicator(
+    state: LazyListState,
+    modifier: Modifier = Modifier
+) {
+    val info by remember {
+        derivedStateOf {
+            val layoutInfo = state.layoutInfo
+            val total = layoutInfo.totalItemsCount
+            val visible = layoutInfo.visibleItemsInfo.size
+            val first = state.firstVisibleItemIndex
+            Triple(first, visible, total)
+        }
+    }
+    ScrollIndicator(firstVisibleIndex = info.first, visibleCount = info.second, totalCount = info.third, modifier = modifier)
+}
+
+@Composable
+fun LazyGridScrollIndicator(
+    state: LazyGridState,
+    modifier: Modifier = Modifier
+) {
+    val info by remember {
+        derivedStateOf {
+            val layoutInfo = state.layoutInfo
+            val total = layoutInfo.totalItemsCount
+            val visible = layoutInfo.visibleItemsInfo.size
+            val first = state.firstVisibleItemIndex
+            Triple(first, visible, total)
+        }
+    }
+    ScrollIndicator(firstVisibleIndex = info.first, visibleCount = info.second, totalCount = info.third, modifier = modifier)
+}
+
+@Composable
+private fun ScrollIndicator(
+    firstVisibleIndex: Int,
+    visibleCount: Int,
+    totalCount: Int,
+    modifier: Modifier = Modifier
+) {
+    if (totalCount <= 0 || visibleCount <= 0 || totalCount <= visibleCount) return
+    val visibleFraction = (visibleCount.toFloat() / totalCount.toFloat()).coerceIn(0.08f, 1f)
+    val maxFirst = max(1, totalCount - visibleCount)
+    val offsetFraction = (firstVisibleIndex.toFloat() / maxFirst.toFloat()).coerceIn(0f, 1f)
+    BoxWithConstraints(
+        modifier = modifier
+            .width(12.dp)
+            .fillMaxHeight()
+            .padding(horizontal = 4.dp, vertical = 28.dp)
+    ) {
+        val thumbHeight = maxHeight * visibleFraction
+        val thumbOffset = (maxHeight - thumbHeight) * offsetFraction
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = thumbOffset)
+                .height(thumbHeight.coerceAtLeast(24.dp))
+                .width(4.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.48f))
+        )
+    }
+}

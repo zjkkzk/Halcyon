@@ -66,6 +66,7 @@ import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.playlistIdentityKey
 import com.ella.music.data.PlaylistImportMode
 import com.ella.music.ui.components.AppleStylePlayButton
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
@@ -105,9 +106,12 @@ fun PlaylistScreen(
     val librarySongs by mainViewModel.songs.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var sortExpanded by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     var playlistSortMode by remember { mutableStateOf(PlaylistSortMode.UpdatedAt) }
     var pendingImportUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var showImportModeSheet by remember { mutableStateOf(false) }
+    var playlistPendingDelete by remember { mutableStateOf<UserPlaylist?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val favorites = playlists.firstOrNull { it.id == FAVORITES_PLAYLIST_ID }
@@ -115,6 +119,16 @@ fun PlaylistScreen(
         playlists
             .filterNot { it.id == FAVORITES_PLAYLIST_ID }
             .sortedForPlaylistList(playlistSortMode)
+    }
+    val displayedCustomPlaylists = remember(customPlaylists, searchQuery) {
+        val query = searchQuery.trim()
+        if (query.isBlank()) customPlaylists else customPlaylists.filter { it.matchesPlaylistSearch(query) }
+    }
+    val showFavorites = remember(favorites, searchQuery) {
+        favorites != null && (searchQuery.isBlank() || favorites.matchesPlaylistSearch(searchQuery.trim()))
+    }
+    val showFiveStar = remember(searchQuery) {
+        searchQuery.isBlank() || "五星歌曲".contains(searchQuery.trim(), ignoreCase = true)
     }
     val fiveStarSongs by produceState(initialValue = emptyList(), librarySongs) {
         value = mainViewModel.getFiveStarSongs()
@@ -147,8 +161,14 @@ fun PlaylistScreen(
                 }
         }
     }
-    BackHandler(enabled = sortExpanded) {
-        sortExpanded = false
+    BackHandler(enabled = sortExpanded || searchExpanded) {
+        when {
+            searchExpanded -> {
+                searchExpanded = false
+                searchQuery = ""
+            }
+            sortExpanded -> sortExpanded = false
+        }
     }
 
     Column(
@@ -171,6 +191,16 @@ fun PlaylistScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Text(
+                            text = "⌕",
+                            fontSize = 28.sp,
+                            color = MiuixTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { sortExpanded = !sortExpanded }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Sort,
@@ -213,7 +243,28 @@ fun PlaylistScreen(
                 onClick = { scope.launch { listState.animateScrollToItem(0) } },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                endPadding = 216.dp
+            )
+        }
+
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = "搜索歌单",
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -251,7 +302,7 @@ fun PlaylistScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            if (favorites != null) {
+            if (favorites != null && showFavorites) {
                 item(key = favorites.id) {
                     PlaylistRow(
                         playlist = favorites,
@@ -261,7 +312,7 @@ fun PlaylistScreen(
                 }
             }
 
-            item(key = FIVE_STAR_PLAYLIST_ID) {
+            if (showFiveStar) item(key = FIVE_STAR_PLAYLIST_ID) {
                 PlaylistRow(
                     playlist = UserPlaylist(
                         id = FIVE_STAR_PLAYLIST_ID,
@@ -285,21 +336,21 @@ fun PlaylistScreen(
                 )
             }
 
-            if (customPlaylists.isEmpty()) {
+            if (displayedCustomPlaylists.isEmpty()) {
                 item {
                     Text(
-                        text = "还没有自定义歌单",
+                        text = if (searchQuery.isBlank()) "还没有自定义歌单" else "没有匹配的歌单",
                         fontSize = 14.sp,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
                     )
                 }
             } else {
-                items(customPlaylists, key = { it.id }) { playlist ->
+                items(displayedCustomPlaylists, key = { it.id }) { playlist ->
                     PlaylistRow(
                         playlist = playlist,
                         onClick = { onPlaylistClick(playlist.id) },
-                        onDelete = { mainViewModel.deletePlaylist(playlist.id) }
+                        onDelete = { playlistPendingDelete = playlist }
                     )
                 }
             }
@@ -325,6 +376,19 @@ fun PlaylistScreen(
                 pendingImportUris = emptyList()
             },
             onModeSelected = ::importPendingPlaylists
+        )
+    }
+    playlistPendingDelete?.let { playlist ->
+        ConfirmDangerDialog(
+            show = true,
+            title = "删除歌单",
+            message = "确定要删除歌单「${playlist.name}」吗？歌单内歌曲不会从本地删除。",
+            confirmText = "删除",
+            onDismiss = { playlistPendingDelete = null },
+            onConfirm = {
+                mainViewModel.deletePlaylist(playlist.id)
+                playlistPendingDelete = null
+            }
         )
     }
 }
@@ -370,6 +434,7 @@ fun PlaylistDetailScreen(
     var sortMode by remember { mutableStateOf(PlaylistSongSortMode.AddedAt) }
     var searchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var removeFromPlaylistSong by remember { mutableStateOf<Song?>(null) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForPlaylistDetail(sortMode) }
     val displayedSongs = remember(sortedSongs, searchQuery) {
         val query = searchQuery.trim()
@@ -474,7 +539,8 @@ fun PlaylistDetailScreen(
                 onClick = { scope.launch { listState.animateScrollToItem(0) } },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                endPadding = 160.dp
             )
         }
 
@@ -599,7 +665,7 @@ fun PlaylistDetailScreen(
                         onAddToQueue = { playerViewModel.addToPlaylist(song) },
                         onRemove = if (playlist.isFiveStarRating) null else {
                             {
-                                mainViewModel.removeSongFromPlaylist(playlist.id, song.playlistIdentityKey())
+                                removeFromPlaylistSong = song
                             }
                         },
                         onMore = { actionSong = song },
@@ -627,9 +693,23 @@ fun PlaylistDetailScreen(
                 onNavigateToAlbum = onNavigateToAlbum,
                 onNavigateToArtist = onNavigateToArtist,
                 onSongRemovedFromPlaylist = if (playlist.isFiveStarRating) null else {
-                    { song -> mainViewModel.removeSongFromPlaylist(playlist.id, song.playlistIdentityKey()) }
+                    { song -> removeFromPlaylistSong = song }
                 }
             )
+
+            removeFromPlaylistSong?.let { song ->
+                ConfirmDangerDialog(
+                    show = true,
+                    title = "从歌单移除",
+                    message = "确定要从「${playlist.name}」移除《${song.title.ifBlank { song.fileName.ifBlank { "这首歌" } }}》吗？不会删除本地文件。",
+                    confirmText = "移除",
+                    onDismiss = { removeFromPlaylistSong = null },
+                    onConfirm = {
+                        mainViewModel.removeSongFromPlaylist(playlist.id, song.playlistIdentityKey())
+                        removeFromPlaylistSong = null
+                    }
+                )
+            }
         }
     }
 }
@@ -782,16 +862,20 @@ private fun PlaylistPlayAllBar(
 }
 
 private enum class PlaylistSortMode(val label: String) {
+    Custom("自定义"),
+    CustomDesc("自定义倒序"),
     UpdatedAt("最近更新"),
     CreatedAt("创建时间倒序"),
+    CreatedAtAsc("创建时间"),
     Name("名称"),
     SongCount("歌曲数"),
-    Duration("歌曲时长"),
-    CreatedAtAsc("创建时间")
+    Duration("歌曲时长")
 }
 
 private fun List<UserPlaylist>.sortedForPlaylistList(mode: PlaylistSortMode): List<UserPlaylist> {
     return when (mode) {
+        PlaylistSortMode.Custom -> sortedByDescending { it.createdAt }
+        PlaylistSortMode.CustomDesc -> sortedBy { it.createdAt }
         PlaylistSortMode.UpdatedAt -> sortedByDescending { it.updatedAt }
         PlaylistSortMode.CreatedAt -> sortedByDescending { it.createdAt }
         PlaylistSortMode.CreatedAtAsc -> sortedBy { it.createdAt }
@@ -801,7 +885,19 @@ private fun List<UserPlaylist>.sortedForPlaylistList(mode: PlaylistSortMode): Li
     }
 }
 
+private fun UserPlaylist.matchesPlaylistSearch(query: String): Boolean {
+    if (query.isBlank()) return true
+    return name.contains(query, ignoreCase = true) ||
+        songs.any { song ->
+            song.title.contains(query, ignoreCase = true) ||
+                song.artist.contains(query, ignoreCase = true) ||
+                song.album.contains(query, ignoreCase = true)
+        }
+}
+
 private enum class PlaylistSongSortMode(val label: String) {
+    Custom("自定义"),
+    CustomDesc("自定义倒序"),
     AddedAt("加入时间"),
     Title("歌曲名称"),
     FileName("文件名"),
@@ -816,6 +912,8 @@ private enum class PlaylistSongSortMode(val label: String) {
 
 private fun List<Song>.sortedForPlaylistDetail(mode: PlaylistSongSortMode): List<Song> {
     return when (mode) {
+        PlaylistSongSortMode.Custom -> this
+        PlaylistSongSortMode.CustomDesc -> asReversed()
         PlaylistSongSortMode.AddedAt -> this
         PlaylistSongSortMode.Title -> sortedBy { it.title.lowercase() }
         PlaylistSongSortMode.FileName -> sortedBy { song ->

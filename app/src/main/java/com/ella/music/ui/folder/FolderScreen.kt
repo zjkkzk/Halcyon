@@ -107,15 +107,21 @@ fun FolderScreen(
     val folderSortMode = FolderListSortMode.entries.getOrElse(folderSortIndex) { FolderListSortMode.Name }
     var folderToBlock by remember { mutableStateOf<String?>(null) }
     var sortExpanded by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     var scrollToTopRequest by remember { mutableStateOf(0) }
 
     val rootFolderPath = remember(songs) { songs.commonFolderRoot() }
     val rootDirectSongs = remember(songs, rootFolderPath) { songs.directSongsInFolder(rootFolderPath) }
     val rootChildFolders = remember(songs, rootFolderPath) { songs.childFoldersOf(rootFolderPath) }
 
-    BackHandler(enabled = sortExpanded || folderToBlock != null) {
+    BackHandler(enabled = sortExpanded || searchExpanded || folderToBlock != null) {
         when {
             folderToBlock != null -> folderToBlock = null
+            searchExpanded -> {
+                searchExpanded = false
+                searchQuery = ""
+            }
             sortExpanded -> sortExpanded = false
         }
     }
@@ -141,6 +147,16 @@ fun FolderScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Text(
+                            text = "⌕",
+                            fontSize = 28.sp,
+                            color = MiuixTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { sortExpanded = !sortExpanded }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Sort,
@@ -163,7 +179,28 @@ fun FolderScreen(
                 onDoubleTap = { scrollToTopRequest++ },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                endPadding = 160.dp
+            )
+        }
+
+        AnimatedVisibility(
+            visible = searchExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = "搜索文件夹",
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = MiuixTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -249,7 +286,7 @@ fun FolderScreen(
                 }
             }
         } else {
-            val folders = remember(rootChildFolders, rootDirectSongs, rootFolderPath, folderSortMode) {
+            val folders = remember(rootChildFolders, rootDirectSongs, rootFolderPath, folderSortMode, searchQuery) {
                 val entries = buildList {
                     if (rootDirectSongs.isNotEmpty()) {
                         add(
@@ -265,7 +302,15 @@ fun FolderScreen(
                     }
                     addAll(rootChildFolders)
                 }
-                entries.sortedForFolderList(folderSortMode)
+                val query = searchQuery.trim()
+                entries
+                    .sortedForFolderList(folderSortMode)
+                    .let { sorted ->
+                        if (query.isBlank()) sorted else sorted.filter { folder ->
+                            folder.name.contains(query, ignoreCase = true) ||
+                                folder.path.contains(query, ignoreCase = true)
+                        }
+                    }
             }
             val listState = rememberLazyListState()
             LaunchedEffect(scrollToTopRequest) {
@@ -541,12 +586,12 @@ private fun MediaSourceModeCard(
 }
 
 private enum class FolderListSortMode(val label: String) {
-    Name("文件夹名"),
+    Name("名称"),
     SongCount("歌曲数"),
+    AlbumCount("专辑数"),
     Duration("歌曲时长"),
     DateModified("修改时间"),
-    DateModifiedAsc("修改时间升序"),
-    AlbumCount("专辑数")
+    DateModifiedAsc("修改时间升序")
 }
 
 private fun List<FolderTreeEntry>.sortedForFolderList(

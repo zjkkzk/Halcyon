@@ -2,6 +2,7 @@ package com.ella.music.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,8 @@ import com.ella.music.data.tagIdentityKey
 import com.ella.music.data.model.Song
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.ellaPageBackground
+import com.ella.music.ui.components.requestPinnedEllaShortcut
+import com.ella.music.ui.navigation.Screen
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import top.yukonga.miuix.kmp.basic.Card
@@ -51,6 +54,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -76,6 +80,11 @@ fun HomeScreen(
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
     val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
+    val homeDailyMixVisible by settingsManager.homeDailyMixVisible.collectAsState(initial = true)
+    val homeSectionOrder by settingsManager.homeSectionOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_SECTION_ORDER)
+    val homeHiddenSections by settingsManager.homeHiddenSections.collectAsState(initial = "")
+    val homeLibraryTileOrder by settingsManager.homeLibraryTileOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
+    val homeHiddenLibraryTiles by settingsManager.homeHiddenLibraryTiles.collectAsState(initial = "")
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = ellaPageBackground()
     val cardText = if (isDark) Color.White else Color(0xFF15151A)
@@ -119,78 +128,132 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            DailyMixCard(
-                songs = songs,
-                featuredSongs = featuredSongs,
-                currentSongTitle = currentSong?.title,
-                mainViewModel = mainViewModel,
-                onPlay = {
-                    val randomSong = songs.randomOrNull()
-                    if (randomSong != null) {
-                        playerViewModel.setPlaylist(songs, songs.indexOf(randomSong))
-                        if (openPlayerOnPlay) onNavigateToPlayer()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            )
-
-            SectionTitle("音乐库")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("艺术家", "$artistCount 位", Color(0xFF118AB2), onNavigateToArtist, Modifier.weight(1f))
-                HomeTile("专辑", "${albums.size} 张", Color(0xFFFF9F1C), onNavigateToAlbum, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("文件夹", "按目录分类", Color(0xFF5E60CE), { onNavigateToMetadataCategory("folder") }, Modifier.weight(1f))
-                HomeTile("文件夹层次结构", "按嵌套目录浏览", Color(0xFF8338EC), onNavigateToFolder, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("歌单", "收藏与自建", Color(0xFFEF476F), onNavigateToPlaylists, Modifier.weight(1f))
-                HomeTile("听歌统计", "历史和热力图", Color(0xFFE71D36), onNavigateToAnalytics, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("流派", "按 Genre 浏览", Color(0xFF06D6A0), { onNavigateToMetadataCategory("genre") }, Modifier.weight(1f))
-                HomeTile("年份", "按年份归档", Color(0xFF4CC9F0), { onNavigateToMetadataCategory("year") }, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("作曲家", "Composer", Color(0xFFB5179E), { onNavigateToMetadataCategory("composer") }, Modifier.weight(1f))
-                HomeTile("作词家", "Lyricist", Color(0xFFFF6D00), { onNavigateToMetadataCategory("lyricist") }, Modifier.weight(1f))
-            }
-
-            SectionTitle("在线音乐")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                HomeTile("LX Music", "导入 API 源", Color(0xFF00A896), onNavigateToLxOnline, Modifier.weight(1f))
-                HomeTile("WebDAV", "连接云端音乐", Color(0xFF5E60CE), onNavigateToWebDav, Modifier.weight(1f))
-            }
-
-            SectionTitle("最近听过")
-            if (recentSongs.isEmpty()) {
-                Text(
-                    text = "还没有听歌历史",
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 12.dp)
-                )
-            } else {
-                recentSongs.forEach { song ->
-                    CompactRecentSongRow(
-                        song = song,
-                        mainViewModel = mainViewModel,
-                        cardText = cardText,
-                        onClick = {
-                            playerViewModel.playSong(song)
+            if (homeDailyMixVisible) {
+                DailyMixCard(
+                    songs = songs,
+                    featuredSongs = featuredSongs,
+                    currentSongTitle = currentSong?.title,
+                    mainViewModel = mainViewModel,
+                    onPlay = {
+                        val randomSong = songs.randomOrNull()
+                        if (randomSong != null) {
+                            playerViewModel.setPlaylist(songs, songs.indexOf(randomSong))
                             if (openPlayerOnPlay) onNavigateToPlayer()
                         }
-                    )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                )
+            }
+
+            val hiddenSections = remember(homeHiddenSections) { homeHiddenSections.csvIdSet() }
+            val sectionOrder = remember(homeSectionOrder) {
+                homeSectionOrder.csvIds(SettingsManager.DEFAULT_HOME_SECTION_ORDER)
+            }
+            val hiddenTiles = remember(homeHiddenLibraryTiles) { homeHiddenLibraryTiles.csvIdSet() }
+            val tileOrder = remember(homeLibraryTileOrder) {
+                homeLibraryTileOrder.csvIds(SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
+            }
+            val libraryTiles = remember(tileOrder, hiddenTiles, artistCount, albums.size) {
+                val all = mapOf(
+                    "artist" to HomeTileSpec("artist", "艺术家", "$artistCount 位", Color(0xFF118AB2), Screen.Artist.route, onNavigateToArtist),
+                    "album" to HomeTileSpec("album", "专辑", "${albums.size} 张", Color(0xFFFF9F1C), Screen.Album.route, onNavigateToAlbum),
+                    "folder" to HomeTileSpec("folder", "文件夹", "按目录分类", Color(0xFF5E60CE), Screen.MetadataCategory.createRoute("folder")) { onNavigateToMetadataCategory("folder") },
+                    "folder_tree" to HomeTileSpec("folder_tree", "文件夹层次结构", "按嵌套目录浏览", Color(0xFF8338EC), Screen.Folder.route, onNavigateToFolder),
+                    "playlist" to HomeTileSpec("playlist", "歌单", "收藏与自建", Color(0xFFEF476F), Screen.Playlists.route, onNavigateToPlaylists),
+                    "analytics" to HomeTileSpec("analytics", "听歌统计", "历史和热力图", Color(0xFFE71D36), Screen.Analytics.route, onNavigateToAnalytics),
+                    "genre" to HomeTileSpec("genre", "流派", "按 Genre 浏览", Color(0xFF06D6A0), Screen.MetadataCategory.createRoute("genre")) { onNavigateToMetadataCategory("genre") },
+                    "year" to HomeTileSpec("year", "年份", "按年份归档", Color(0xFF4CC9F0), Screen.MetadataCategory.createRoute("year")) { onNavigateToMetadataCategory("year") },
+                    "composer" to HomeTileSpec("composer", "作曲家", "Composer", Color(0xFFB5179E), Screen.MetadataCategory.createRoute("composer")) { onNavigateToMetadataCategory("composer") },
+                    "lyricist" to HomeTileSpec("lyricist", "作词家", "Lyricist", Color(0xFFFF6D00), Screen.MetadataCategory.createRoute("lyricist")) { onNavigateToMetadataCategory("lyricist") }
+                )
+                tileOrder.mapNotNull { all[it] }.filterNot { it.id in hiddenTiles }
+            }
+
+            sectionOrder.filterNot { it in hiddenSections }.forEach { section ->
+                when (section) {
+                    "library" -> HomeTileSection("音乐库", libraryTiles, context)
+                    "online" -> {
+                        SectionTitle("在线音乐")
+                        HomeTileGrid(
+                            tiles = listOf(
+                                HomeTileSpec("lx", "LX Music", "导入 API 源", Color(0xFF00A896), Screen.LxOnline.route, onNavigateToLxOnline),
+                                HomeTileSpec("webdav", "WebDAV", "连接云端音乐", Color(0xFF5E60CE), Screen.WebDav.route, onNavigateToWebDav)
+                            ),
+                            context = context
+                        )
+                    }
+                    "recent" -> {
+                        SectionTitle("最近听过")
+                        if (recentSongs.isEmpty()) {
+                            Text(
+                                text = "还没有听歌历史",
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            )
+                        } else {
+                            recentSongs.forEach { song ->
+                                CompactRecentSongRow(
+                                    song = song,
+                                    mainViewModel = mainViewModel,
+                                    cardText = cardText,
+                                    onClick = {
+                                        playerViewModel.playSong(song)
+                                        if (openPlayerOnPlay) onNavigateToPlayer()
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(160.dp))
+        }
+    }
+}
+
+private data class HomeTileSpec(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val color: Color,
+    val route: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun HomeTileSection(title: String, tiles: List<HomeTileSpec>, context: android.content.Context) {
+    if (tiles.isEmpty()) return
+    SectionTitle(title)
+    HomeTileGrid(tiles = tiles, context = context)
+}
+
+@Composable
+private fun HomeTileGrid(tiles: List<HomeTileSpec>, context: android.content.Context) {
+    tiles.chunked(2).forEachIndexed { index, rowTiles ->
+        if (index > 0) Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            rowTiles.forEach { tile ->
+                HomeTile(
+                    title = tile.title,
+                    subtitle = tile.subtitle,
+                    color = tile.color,
+                    onClick = tile.onClick,
+                    onPinClick = {
+                        val ok = requestPinnedEllaShortcut(context, "home_${tile.id}", tile.title, tile.route)
+                        android.widget.Toast.makeText(
+                            context,
+                            if (ok) "已请求添加桌面快捷方式" else "当前桌面不支持固定快捷方式",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (rowTiles.size == 1) Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -323,6 +386,7 @@ private fun HomeTile(
     subtitle: String,
     color: Color,
     onClick: () -> Unit,
+    onPinClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -330,17 +394,32 @@ private fun HomeTile(
             .height(96.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(color.copy(alpha = if (MiuixTheme.colorScheme.background.luminance() < 0.5f) 0.34f else 0.22f))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onPinClick)
             .padding(14.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MiuixTheme.colorScheme.onSurface,
-            maxLines = 1
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MiuixTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+            if (onPinClick != null) {
+                Text(
+                    text = "+",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onPinClick)
+                        .padding(horizontal = 6.dp)
+                )
+            }
+        }
         Text(
             text = subtitle,
             fontSize = 12.sp,
@@ -348,4 +427,16 @@ private fun HomeTile(
             maxLines = 1
         )
     }
+}
+
+private fun String.csvIdSet(): Set<String> =
+    split(',', '，', ';', '；')
+        .map { it.trim().lowercase(Locale.ROOT) }
+        .filter { it.isNotBlank() }
+        .toSet()
+
+private fun String.csvIds(defaultValue: String): List<String> {
+    val ids = csvIdSet().toList()
+    val defaults = defaultValue.csvIdSet().toList()
+    return (ids + defaults).distinct()
 }

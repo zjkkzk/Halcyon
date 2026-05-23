@@ -261,6 +261,7 @@ The script builds FFmpeg through WSL using the Linux Android NDK.
 | [Coil](https://github.com/coil-kt/coil) | Compose image loading |
 | [QuickJS wrapper Android](https://github.com/HarlonWang/quickjs-wrapper) | Runtime for LX Music API JavaScript sources |
 | [LX Music Mobile](https://github.com/lyswhut/lx-music-mobile) | LX Music API compatibility implementation and reference |
+| [accompanist-lyrics-core](https://github.com/6xingyv/accompanist-lyrics-core) | Lyric parsing and TTML / LRC structure reference (Apache-2.0) |
 
 ---
 
@@ -280,7 +281,7 @@ The Ella Music main project is open-sourced under **Apache-2.0**. Third-party co
 - **Retro Music Player** — Reference for jaudiotagger-based tag reading.
 - **LX Music Mobile** — Provides LX Music API compatibility implementation and testing reference.
 - **Light Cone Music** — Interface design and feature implementation reference.
-- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, Lyrico, 163KeyDecrypter, Jaudiotagger, Kyant TagLib, Backdrop, Coil, and other open source projects used by Ella Music.
+- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, Lyrico, 163KeyDecrypter, Jaudiotagger, Kyant TagLib, Backdrop, Coil, accompanist-lyrics-core, and other open source projects used by Ella Music.
 
 ---
 

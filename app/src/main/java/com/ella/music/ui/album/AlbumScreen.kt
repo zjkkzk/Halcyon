@@ -45,6 +45,7 @@ import com.ella.music.ui.components.AlbumCard
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.requestPinnedEllaShortcut
 import com.ella.music.ui.navigation.Screen
@@ -162,7 +163,8 @@ fun AlbumScreen(
                 onDoubleTap = { scrollToTopRequest++ },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(56.dp),
+                endPadding = 112.dp
             )
         }
 
@@ -225,6 +227,9 @@ fun AlbumScreen(
         } else {
             val gridState = rememberLazyGridState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
+            LaunchedEffect(sortMode, searchQuery, safeGridColumns) {
+                gridState.scrollToItem(0)
+            }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) gridState.animateScrollToItem(0)
             }
@@ -292,6 +297,13 @@ fun AlbumScreen(
                             }
                         }
                     )
+                } else if (sortedAlbums.size > 30) {
+                    LazyGridScrollIndicator(
+                        state = gridState,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                    )
                 }
             }
         }
@@ -299,9 +311,9 @@ fun AlbumScreen(
 }
 
 private enum class AlbumSortMode(val label: String) {
-    Name("专辑名称"),
-    Artist("艺术家"),
-    SongCount("歌曲数量"),
+    Name("专辑名"),
+    Artist("艺术家名"),
+    SongCount("歌曲数"),
     Duration("歌曲时长"),
     YearAsc("发行时间正序"),
     YearDesc("发行时间倒序")

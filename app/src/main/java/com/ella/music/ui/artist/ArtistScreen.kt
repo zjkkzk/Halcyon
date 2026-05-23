@@ -124,7 +124,7 @@ fun ArtistScreen(
     val sortMode = ArtistDetailSongSortMode.entries.getOrElse(sortIndex) { ArtistDetailSongSortMode.Title }
     var albumSortMode by remember { mutableStateOf(ArtistDetailAlbumSortMode.YearAsc) }
     val scope = rememberCoroutineScope()
-    var selectedTab by rememberSaveable(artistName) { mutableStateOf(0) }
+    var selectedTabTarget by rememberSaveable(artistName) { mutableStateOf(ArtistTab.Songs) }
     var scrollToTopRequest by remember { mutableStateOf(0) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
@@ -171,7 +171,7 @@ fun ArtistScreen(
             if (showReleaseAlbums) add(ArtistTab.ReleaseAlbums)
         }
     }
-    val selectedArtistTab = tabs.getOrElse(selectedTab) { ArtistTab.Songs }
+    val selectedArtistTab = selectedTabTarget.takeIf { it in tabs } ?: ArtistTab.Songs
     val listState = rememberLazyListState()
     val currentSongItemIndex = remember(sortedArtistSongs, currentSong?.id, selectedArtistTab) {
         if (selectedArtistTab != ArtistTab.Songs) {
@@ -191,10 +191,6 @@ fun ArtistScreen(
 
     BackHandler(enabled = sortExpanded) {
         sortExpanded = false
-    }
-
-    LaunchedEffect(tabs.size) {
-        if (selectedTab !in tabs.indices) selectedTab = 0
     }
 
     LaunchedEffect(scrollToTopRequest) {
@@ -243,7 +239,7 @@ fun ArtistScreen(
                 ArtistTabRow(
                     tabs = tabs,
                     selectedTab = selectedArtistTab,
-                    onTabSelected = { tab -> selectedTab = tabs.indexOf(tab).coerceAtLeast(0) }
+                    onTabSelected = { tab -> selectedTabTarget = tab }
                 )
             }
 
@@ -543,13 +539,13 @@ private fun ArtistJumpActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (hasComposerCategory) {
-            ArtistJumpChip("作为作曲家", onComposerClick)
+            ArtistJumpChip("作曲家页", onComposerClick)
         }
         if (hasLyricistCategory) {
-            ArtistJumpChip("作为作词家", onLyricistClick)
+            ArtistJumpChip("作词家页", onLyricistClick)
         }
         if (hasNeteaseArtist) {
-            ArtistJumpChip("网易云歌手", onNeteaseClick)
+            ArtistJumpChip("网易云歌手页", onNeteaseClick)
         }
     }
 }

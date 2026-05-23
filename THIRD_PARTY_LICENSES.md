@@ -13,6 +13,7 @@ Ella Music main project is licensed under Apache-2.0. Third-party components kee
 | Kyant TagLib | Android / Kotlin TagLib binding | Apache-2.0 | https://github.com/Kyant0/TagLib | Gradle artifact: `io.github.kyant0:taglib` |
 | Coil | Compose image loading | Apache-2.0 | https://github.com/coil-kt/coil | Gradle artifacts: `io.coil-kt.coil3:*` |
 | quickjs-wrapper Android | JavaScript runtime wrapper used for LX Music API sources | Apache-2.0 | https://github.com/HarlonWang/quickjs-wrapper | Gradle artifact: `wang.harlon.quickjs:wrapper-android`; this is the traceable upstream repository for the Android wrapper artifact |
+| accompanist-lyrics-core | Lyric parsing and TTML / LRC structure reference | Apache-2.0 | https://github.com/6xingyv/accompanist-lyrics-core | Referenced lyric parsing and model behavior |
 | 163KeyDecrypter | NetEase Music 163 key decoding reference | MIT | https://github.com/lycode404/163KeyDecrypter | Used as decoding reference |
 | FFmpeg | Software decoding for ALAC and other audio formats | LGPL-2.1 | https://ffmpeg.org | Local FFmpeg build uses an LGPL-2.1 configuration; nonfree and version3 options are disabled |
 | LyricGetter-API | API for passing raw lyric text to the Lyric Getter ecosystem | LGPL-2.1 | https://github.com/xiaowine/Lyric-Getter-Api | Gradle artifact: `com.github.HChenX:Lyric-Getter-Api` |

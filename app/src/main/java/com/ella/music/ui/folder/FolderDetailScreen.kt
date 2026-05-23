@@ -55,10 +55,12 @@ import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.ui.LibrarySortUiState
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FolderOutlineIcon
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
@@ -111,6 +113,7 @@ fun FolderDetailScreen(
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     val sortIndex by mainViewModel.settingsManager.folderDetailSongSortIndex.collectAsState(initial = LibrarySortUiState.folderDetailSongSortIndex)
     val sortMode = FolderSongSortMode.entries.getOrElse(sortIndex) { FolderSongSortMode.Title }
     val normalizedFolderPath = remember(folderPath) { folderPath.normalizeFolderPath() }
@@ -244,10 +247,10 @@ fun FolderDetailScreen(
                         onClick = {
                                 val selectedSongs = sortedSongs.filter { it.id in selectedIds }
                                 if (selectedSongs.isNotEmpty()) {
-                                    mainViewModel.deleteSongs(selectedSongs)
+                                    pendingDeleteSongs = selectedSongs
+                                } else {
+                                    Toast.makeText(context, "请先选择歌曲", Toast.LENGTH_SHORT).show()
                                 }
-                                selectedIds = emptySet()
-                                selectionMode = false
                         }
                     ) {
                         Icon(
@@ -444,6 +447,13 @@ fun FolderDetailScreen(
                             }
                         }
                     )
+                } else if (sortedSongs.size > 30) {
+                    LazyListScrollIndicator(
+                        state = listState,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                    )
                 }
                 LocateCurrentSongFloatingButton(
                     listState = listState,
@@ -508,6 +518,20 @@ fun FolderDetailScreen(
                 }
             )
         }
+
+        ConfirmDangerDialog(
+            show = pendingDeleteSongs.isNotEmpty(),
+            title = "永久删除歌曲",
+            message = "确定要永久删除选中的 ${pendingDeleteSongs.size} 首歌曲吗？此操作可能会删除本地音频文件。",
+            confirmText = "永久删除",
+            onDismiss = { pendingDeleteSongs = emptyList() },
+            onConfirm = {
+                mainViewModel.deleteSongs(pendingDeleteSongs)
+                pendingDeleteSongs = emptyList()
+                selectedIds = emptySet()
+                selectionMode = false
+            }
+        )
     }
 }
 

@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.data.model.Album
@@ -92,6 +93,7 @@ fun AlbumDetailScreen(
     val album = albums.find { it.id == albumId }
     val albumSongs = mainViewModel.getSongsForAlbum(albumId)
     val sortedAlbumSongs = remember(albumSongs, sortMode) { albumSongs.sortedForAlbumDetail(sortMode) }
+    val albumDuration = remember(albumSongs) { albumSongs.sumOf { it.duration } }
     val useDiscSections = sortMode == AlbumDetailSongSortMode.Track && sortedAlbumSongs.any { it.discNumber > 0 }
     val discGroups = remember(sortedAlbumSongs, sortMode) {
         if (sortMode == AlbumDetailSongSortMode.Track) {
@@ -158,8 +160,14 @@ fun AlbumDetailScreen(
                     album = album,
                     albumArtUri = albumArtUri,
                     songCount = sortedAlbumSongs.size,
+                    duration = albumDuration,
                     hasNeteaseAlbum = !neteaseAlbumUrl.isNullOrBlank(),
                     onNeteaseAlbumClick = { openUrl(context, neteaseAlbumUrl.orEmpty()) },
+                    onAlbumArtistClick = {
+                        (album?.albumArtist?.takeIf { it.isNotBlank() } ?: album?.artist)
+                            ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
+                            ?.let(onNavigateToArtist)
+                    },
                     onPlayAll = {
                         if (sortedAlbumSongs.isNotEmpty()) {
                             playerViewModel.setPlaylist(sortedAlbumSongs, 0)
@@ -396,8 +404,10 @@ private fun AlbumHeader(
     album: Album?,
     albumArtUri: Uri?,
     songCount: Int,
+    duration: Long,
     hasNeteaseAlbum: Boolean,
     onNeteaseAlbumClick: () -> Unit,
+    onAlbumArtistClick: () -> Unit,
     onPlayAll: () -> Unit
 ) {
     val pageBackground = ellaPageBackground()
@@ -445,23 +455,32 @@ private fun AlbumHeader(
                 text = album?.name ?: "未知专辑",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
+            val albumArtist = (album?.albumArtist?.takeIf { it.isNotBlank() } ?: album?.artist)
+                ?.takeIf { it.isNotBlank() && !it.equals("Unknown", ignoreCase = true) }
             Text(
                 text = listOfNotNull(
-                    album?.artist?.takeIf { it.isNotBlank() },
-                    "$songCount 首歌曲"
+                    albumArtist,
+                    "$songCount 首歌曲",
+                    album?.year?.takeIf { it > 0 }?.toString(),
+                    duration.formatAlbumDetailDuration()
                 ).joinToString(" · "),
                 fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.78f)
+                color = Color.White.copy(alpha = 0.78f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable(enabled = albumArtist != null, onClick = onAlbumArtistClick)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             if (hasNeteaseAlbum) {
                 Text(
-                    text = "网易云专辑",
+                    text = "网易云专辑页",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -485,6 +504,14 @@ private fun AlbumHeader(
 private fun openUrl(context: Context, url: String) {
     if (url.isBlank()) return
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+}
+
+private fun Long.formatAlbumDetailDuration(): String {
+    if (this <= 0L) return "00:00"
+    val totalMinutes = this / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return if (hours > 0) "${hours}小时${minutes}分" else "${minutes}分钟"
 }
 
 private enum class AlbumDetailSongSortMode(val label: String) {

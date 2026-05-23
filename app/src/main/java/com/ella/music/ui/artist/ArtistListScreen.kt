@@ -51,6 +51,7 @@ import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.requestPinnedEllaShortcut
@@ -308,6 +309,13 @@ fun ArtistListScreen(
                                 fastScrollJob = scope.launch { listState.scrollToItem(index) }
                             }
                         }
+                    )
+                } else if (filteredArtists.size > 30) {
+                    LazyListScrollIndicator(
+                        state = listState,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
                     )
                 }
             }
