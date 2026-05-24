@@ -465,7 +465,9 @@ class MusicScanner(private val context: Context) {
             neteaseKey = jaudioValues["neteaseKey"].orEmpty()
                 .takeIf { it.looksLikeNeteaseKeyValue() }
                 .orEmpty()
+                .ifBlank { jaudioValues["comment"].orEmpty().extractPrefixedNeteaseCommentKey() }
                 .ifBlank { tagLibValues.findNeteaseKey() }
+                .ifBlank { tagLibValues.findPrefixedNeteaseCommentKey() }
                 .cleanTagText(),
             rating = ratingStarsFromTagValues(
                 jaudioValues["rating"],
@@ -817,6 +819,25 @@ class MusicScanner(private val context: Context) {
         return ""
     }
 
+    private fun Map<String, List<String>>.findPrefixedNeteaseCommentKey(): String {
+        for ((key, values) in this) {
+            if (key.normalizedPropertyKey() != "comment") continue
+            values.asSequence()
+                .map { it.extractPrefixedNeteaseCommentKey() }
+                .firstOrNull { it.isNotBlank() }
+                ?.let { return it }
+        }
+        return ""
+    }
+
+    private fun String.extractPrefixedNeteaseCommentKey(): String {
+        val text = cleanTagText()
+        return text.takeIf {
+            neteaseCommentPrefixRegex.containsMatchIn(it) &&
+                it.looksLikeNeteaseKeyValue()
+        }.orEmpty()
+    }
+
     private fun String.isNeteaseKeyPropertyName(): Boolean {
         val normalized = normalizedPropertyKey()
         return normalized in explicitNeteaseKeyProperties ||
@@ -831,6 +852,11 @@ class MusicScanner(private val context: Context) {
         "NETEASECLOUDMUSICKEY",
         "CLOUDMUSICKEY",
         "MUSIC163KEY"
+    )
+
+    private val neteaseCommentPrefixRegex = Regex(
+        """^\s*163\s+key\s*\(\s*don't\s+modify\s*\)\s*:""",
+        RegexOption.IGNORE_CASE
     )
 
     private fun List<String>.firstNotBlank(): String? =
