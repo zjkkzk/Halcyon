@@ -820,7 +820,7 @@ private fun MetadataCategoryCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (isGenreCard) 132.dp else 116.dp)
+            .height(if (isGenreCard) 112.dp else 116.dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -846,11 +846,11 @@ private fun MetadataCategoryCard(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 2.dp)
-                    .size(if (isGenreCard) 64.dp else 78.dp)
+                    .size(if (isGenreCard) 54.dp else 78.dp)
                     .graphicsLayer {
                         rotationZ = 13f
-                        translationX = if (isGenreCard) 12.dp.toPx() else 16.dp.toPx()
-                        translationY = if (isGenreCard) 4.dp.toPx() else 6.dp.toPx()
+                        translationX = if (isGenreCard) 9.dp.toPx() else 16.dp.toPx()
+                        translationY = if (isGenreCard) 3.dp.toPx() else 6.dp.toPx()
                     }
                     .clip(RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
@@ -877,31 +877,30 @@ private fun MetadataCategoryCard(
                 .fillMaxSize()
                 .padding(
                     start = 14.dp,
-                    top = if (isGenreCard) 16.dp else 13.dp,
+                    top = if (isGenreCard) 12.dp else 13.dp,
                     end = if (hasCover) {
-                        if (isGenreCard) 60.dp else 72.dp
+                        if (isGenreCard) 54.dp else 72.dp
                     } else {
                         14.dp
                     },
-                    bottom = if (isGenreCard) 16.dp else 12.dp
+                    bottom = 12.dp
                 ),
             verticalArrangement = if (isGenreCard) Arrangement.Center else Arrangement.SpaceBetween
         ) {
             Text(
                 text = item.name,
-                fontSize = if (isGenreCard) 14.sp else 16.sp,
-                lineHeight = if (isGenreCard) 18.sp else 20.sp,
+                fontSize = if (isGenreCard) 13.sp else 16.sp,
+                lineHeight = if (isGenreCard) 17.sp else 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (isGenreCard) Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${item.songCount} 首歌曲",
-                fontSize = if (isGenreCard) 11.sp else 12.sp,
-                lineHeight = if (isGenreCard) 14.sp else 15.sp,
+                fontSize = if (isGenreCard) 10.sp else 12.sp,
+                lineHeight = if (isGenreCard) 13.sp else 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White.copy(alpha = 0.78f),
                 maxLines = 1,
