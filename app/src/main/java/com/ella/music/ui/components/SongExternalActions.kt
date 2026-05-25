@@ -55,7 +55,7 @@ fun shareLocalSong(context: Context, song: Song) {
 
     val uri = song.localShareUri(context)
     val intent = Intent(Intent.ACTION_SEND).apply {
-        type = song.aspectMimeType()
+        type = song.shareMimeType()
         putExtra(Intent.EXTRA_TITLE, "${song.title} - ${song.artist}")
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -110,6 +110,25 @@ private fun Song.mediaStoreUriByPath(context: Context): Uri? {
             }
         }
     }.getOrNull()
+}
+
+private fun Song.shareMimeType(): String {
+    val declaredMime = mimeType.trim().lowercase()
+    if (declaredMime.startsWith("audio/")) return declaredMime
+
+    val lowerName = fileName
+        .ifBlank { path.substringAfterLast('/') }
+        .substringBefore('?')
+        .lowercase()
+    return when {
+        lowerName.endsWith(".mp3") -> "audio/mpeg"
+        lowerName.endsWith(".flac") -> "audio/flac"
+        lowerName.endsWith(".m4a") || lowerName.endsWith(".alac") -> "audio/mp4"
+        lowerName.endsWith(".ogg") || lowerName.endsWith(".oga") -> "audio/ogg"
+        lowerName.endsWith(".opus") -> "audio/opus"
+        lowerName.endsWith(".wav") || lowerName.endsWith(".wave") -> "audio/wav"
+        else -> "audio/*"
+    }
 }
 
 private fun Song.aspectMimeType(): String {

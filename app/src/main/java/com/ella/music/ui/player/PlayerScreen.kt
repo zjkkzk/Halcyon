@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -184,6 +185,7 @@ import com.ella.music.ui.components.shareLocalSong
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -198,12 +200,39 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
-import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Music
-import top.yukonga.miuix.kmp.icon.extended.Pause
-import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+@Composable
+private fun rememberThrottledPlayerPosition(
+    positionFlow: StateFlow<Long>,
+    isPlaying: Boolean,
+    anchorKey: Any?,
+    intervalMs: Long = 250L
+): Long {
+    val latestPlaying by rememberUpdatedState(isPlaying)
+    return produceState(initialValue = positionFlow.value, positionFlow, anchorKey) {
+        var lastUiTickMs = 0L
+        var lastLoggedTickMs = 0L
+        positionFlow.collect { positionMs ->
+            val now = SystemClock.elapsedRealtime()
+            val reset = positionMs < value || kotlin.math.abs(positionMs - value) > 1_500L
+            val shouldUpdate = reset || !latestPlaying || now - lastUiTickMs >= intervalMs
+            if (!shouldUpdate) return@collect
+
+            val previousTickMs = lastUiTickMs
+            value = positionMs
+            lastUiTickMs = now
+            if (latestPlaying && now - lastLoggedTickMs >= 5_000L) {
+                val interval = if (previousTickMs > 0L) now - previousTickMs else 0L
+                Log.d("PlayerScreenPerf", "PlayerScreen position ui tick interval=${interval}ms")
+                lastLoggedTickMs = now
+            }
+        }
+    }.value
+}
+
 @Composable
 fun PlayerScreen(
     playerViewModel: PlayerViewModel,
@@ -231,7 +260,11 @@ fun PlayerScreen(
     val lyricFontScale = remember(lyricFontScaleValue) { lyricFontScaleValue.coerceIn(75, 130) / 100f }
     val currentSong by playerViewModel.currentSong.collectAsState()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
-    val currentPosition by playerViewModel.currentPosition.collectAsState()
+    val currentPosition = rememberThrottledPlayerPosition(
+        positionFlow = playerViewModel.currentPosition,
+        isPlaying = isPlaying,
+        anchorKey = currentSong?.id
+    )
     val duration by playerViewModel.duration.collectAsState()
     val shuffleEnabled by playerViewModel.shuffleEnabled.collectAsState()
     val repeatMode by playerViewModel.repeatMode.collectAsState()
@@ -272,7 +305,12 @@ fun PlayerScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         )
     }
-    val effectiveAudioVisualizerEnabled = immersiveAlbumCover && audioVisualizerEnabled && hasVisualizerPermission
+    val effectiveAudioVisualizerEnabled = immersiveAlbumCover &&
+        audioVisualizerEnabled &&
+        hasVisualizerPermission &&
+        isPlaying &&
+        !showLyrics &&
+        !landscapeExpanded
     val visualizerPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -771,7 +809,7 @@ fun PlayerScreen(
                 PlayerFlowBackground(
                     palette = palette,
                     flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                    animate = playerDynamicFlowEnabled && !dismissInProgress,
+                    animate = playerDynamicFlowEnabled && !dismissInProgress && !isPlaying,
                     modifier = Modifier.fillMaxSize()
                 )
                 Box(
@@ -1389,7 +1427,7 @@ private fun LandscapeCoverPlayerPage(
         PlayerFlowBackground(
             palette = palette,
             flowEffectMode = flowEffectMode,
-            animate = dynamicFlowEnabled,
+            animate = dynamicFlowEnabled && !isPlaying && !visualizerEnabled,
             modifier = Modifier.fillMaxSize()
         )
         if (dynamicFlowEnabled) {
@@ -1398,6 +1436,7 @@ private fun LandscapeCoverPlayerPage(
                 positionMs = currentPosition,
                 isPlaying = isPlaying,
                 flowEffectMode = flowEffectMode,
+                animate = dynamicFlowEnabled && !isPlaying && !visualizerEnabled,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1563,13 +1602,7 @@ private fun LyricsPlayerPage(
     var lyricMenuExpanded by remember { mutableStateOf(false) }
     var dismissDragX by remember { mutableFloatStateOf(0f) }
 
-    val lyricBackgroundMotion = remember(currentPositionMs, isPlaying) {
-        if (isPlaying) {
-            0.5f + 0.5f * kotlin.math.sin(currentPositionMs / 2_400.0).toFloat()
-        } else {
-            0.42f
-        }
-    }
+    val lyricBackgroundMotion = 0.42f
 
     val swipeDismissModifier = if (enableSwipeDismiss) {
         Modifier.pointerInput(onDismissLyrics) {
@@ -2994,31 +3027,12 @@ private fun CenteredPlayPauseGlyph(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    if (isPlaying) {
-        Icon(
-            imageVector = MiuixIcons.Regular.Pause,
-            contentDescription = "暂停",
-            tint = tint,
-            modifier = modifier
-        )
-    } else {
-        Canvas(modifier = modifier) {
-            val side = size.minDimension
-            val triangleWidth = side * 0.46f
-            val triangleHeight = side * 0.58f
-            val left = size.width / 2f - triangleWidth / 3f
-            val right = left + triangleWidth
-            val top = size.height / 2f - triangleHeight / 2f
-            val bottom = size.height / 2f + triangleHeight / 2f
-            val path = Path().apply {
-                moveTo(left, top)
-                lineTo(right, size.height / 2f)
-                lineTo(left, bottom)
-                close()
-            }
-            drawPath(path = path, color = tint)
-        }
-    }
+    Icon(
+        painter = painterResource(id = if (isPlaying) R.drawable.ic_player_pause else R.drawable.ic_player_play),
+        contentDescription = if (isPlaying) "暂停" else "播放",
+        tint = tint,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -3255,12 +3269,15 @@ private fun PlayerFlowBackground(
     animate: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val transition = rememberInfiniteTransition(label = "player_flow_background")
+    LaunchedEffect(animate) {
+        Log.d("PlayerScreenPerf", "flow background ${if (animate) "animated" else "static"}")
+    }
     val sweepDrift = if (animate) {
+        val transition = rememberInfiniteTransition(label = "player_flow_background")
         val value by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
                 animation = tween(durationMillis = 46_000, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
@@ -3389,19 +3406,28 @@ private fun FluidLyricBackground(
     positionMs: Long,
     isPlaying: Boolean,
     flowEffectMode: Int = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+    animate: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val transition = rememberInfiniteTransition(label = "fluid_lyric_background")
-    val drift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 18_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "fluid_lyric_background_drift"
-    )
-    val pulse = if (isPlaying) {
+    LaunchedEffect(animate) {
+        Log.d("PlayerScreenPerf", "flow background ${if (animate) "animated" else "static"}")
+    }
+    val drift = if (animate) {
+        val transition = rememberInfiniteTransition(label = "fluid_lyric_background")
+        val value by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 18_000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "fluid_lyric_background_drift"
+        )
+        value
+    } else {
+        0.36f
+    }
+    val pulse = if (animate && isPlaying) {
         0.5f + 0.5f * kotlin.math.sin(positionMs / 900.0).toFloat()
     } else {
         0.28f
@@ -3469,18 +3495,11 @@ private fun PlayerBlurBackground(
         Uri.parse("content://media/external/audio/albumart/${song?.albumId}")
     } else null
     val coverModel = embeddedCover ?: song?.coverUrl?.takeIf { it.isNotBlank() } ?: uri
-    val rotationTransition = rememberInfiniteTransition(label = "cover_background_rotation")
-    val rotation by rotationTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 120_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "cover_background_rotation"
-    )
-    val movingScale = if (isPlaying) 2.96f + motion * 0.08f else 2.90f
-    val movingOffset = if (isPlaying) (motion - 0.5f) * 10f else 0f
+    val movingScale = 2.90f
+    val movingOffset = 0f
+    LaunchedEffect(coverModel, isPlaying) {
+        Log.d("PlayerScreenPerf", "blur background static")
+    }
 
     Box(modifier = modifier.background(palette.middle)) {
         if (coverModel != null) {
@@ -3492,12 +3511,11 @@ private fun PlayerBlurBackground(
                     .graphicsLayer {
                         scaleX = movingScale
                         scaleY = movingScale
-                        rotationZ = rotation
                         translationX = movingOffset
                         translationY = -movingOffset * 0.65f
                         alpha = 0.78f
                     }
-                    .blur(72.dp),
+                    .blur(48.dp),
                 contentScale = ContentScale.Crop,
                 sizePx = 1200
             )
@@ -4922,12 +4940,13 @@ private fun AudioVisualizer(
         if (!enabled || audioSessionId <= 0) return@LaunchedEffect
         val visualizer = runCatching {
             Visualizer(audioSessionId).apply {
-                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
+                captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(512)
                 scalingMode = Visualizer.SCALING_MODE_NORMALIZED
                 this.enabled = true
             }
         }.onFailure { visualizerFailed = true }.getOrNull() ?: return@LaunchedEffect
 
+        Log.d("PlayerScreenPerf", "visualizer start")
         val buffer = ByteArray(visualizer.captureSize)
         try {
             while (isActive) {
@@ -4940,9 +4959,10 @@ private fun AudioVisualizer(
                     delay(120L)
                     continue
                 }
-                delay(33L)
+                delay(66L)
             }
         } finally {
+            Log.d("PlayerScreenPerf", "visualizer stop")
             runCatching { visualizer.enabled = false }
             visualizer.release()
         }

@@ -65,9 +65,6 @@ import kotlin.math.abs
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Pause
-import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clipToBounds
@@ -313,7 +310,7 @@ fun MiniPlayer(
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
-                imageVector = if (isPlaying) MiuixIcons.Regular.Pause else MiuixIcons.Regular.Play,
+                painter = painterResource(id = if (isPlaying) R.drawable.ic_player_pause else R.drawable.ic_player_play),
                 contentDescription = if (isPlaying) "暂停" else "播放",
                 tint = MiuixTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp)

@@ -65,6 +65,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private var mediaSession: MediaLibrarySession? = null
+    private lateinit var notificationProvider: NoArtworkMediaNotificationProvider
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     @Volatile
     private var previousButtonAction = SettingsManager.PREVIOUS_BUTTON_PREVIOUS
@@ -72,7 +73,8 @@ class PlaybackService : MediaLibraryService() {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        setMediaNotificationProvider(NoArtworkMediaNotificationProvider(this))
+        notificationProvider = NoArtworkMediaNotificationProvider(this)
+        setMediaNotificationProvider(notificationProvider)
         val settingsManager = SettingsManager(this)
         var webDavConfig = currentWebDavConfig(settingsManager)
         previousButtonAction = runBlocking(Dispatchers.IO) {
@@ -188,10 +190,11 @@ class PlaybackService : MediaLibraryService() {
     fun handleNotificationCustomAction(action: String): Boolean {
         return when (action) {
             ACTION_TOGGLE_SHUFFLE -> {
-                AppLogStore.info(this, TAG, "NotificationAction shuffle clicked")
+                AppLogStore.info(this, TAG, "NotificationAction playback mode clicked")
                 mediaSession?.player?.let { player ->
-                    player.shuffleModeEnabled = !player.shuffleModeEnabled
+                    player.cycleNotificationPlaybackMode()
                 }
+                notificationProvider.refresh()
                 true
             }
 
@@ -203,12 +206,42 @@ class PlaybackService : MediaLibraryService() {
                     return true
                 }
                 serviceScope.launch {
-                    PlaylistStore.getInstance(this@PlaybackService).toggleFavorite(song)
+                    val added = PlaylistStore.getInstance(this@PlaybackService).toggleFavorite(song)
+                    AppLogStore.info(
+                        this@PlaybackService,
+                        TAG,
+                        "NotificationAction favorite toggled added=$added"
+                    )
+                    notificationProvider.refresh()
                 }
                 true
             }
 
             else -> false
+        }
+    }
+
+    private fun Player.cycleNotificationPlaybackMode() {
+        when {
+            shuffleModeEnabled -> {
+                shuffleModeEnabled = false
+                if (repeatMode != Player.REPEAT_MODE_OFF) {
+                    repeatMode = Player.REPEAT_MODE_OFF
+                }
+            }
+
+            repeatMode == Player.REPEAT_MODE_OFF -> {
+                repeatMode = Player.REPEAT_MODE_ALL
+            }
+
+            repeatMode == Player.REPEAT_MODE_ALL -> {
+                repeatMode = Player.REPEAT_MODE_ONE
+            }
+
+            else -> {
+                repeatMode = Player.REPEAT_MODE_OFF
+                shuffleModeEnabled = true
+            }
         }
     }
 
@@ -447,9 +480,18 @@ class PlaybackService : MediaLibraryService() {
             const val FLAG_ONLY_UPDATE_TICKER_FALLBACK = 0x2000000
             const val LARGE_ICON_MAX_SIZE = 512
         }
+        private data class PlaybackModeAction(
+            val icon: Int,
+            val title: String
+        )
+
         private val largeIconCache = object : LruCache<String, Bitmap>(6 * 1024) {
             override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
         }
+        private var lastMediaSession: MediaSession? = null
+        private var lastMediaButtonPreferences: ImmutableList<CommandButton>? = null
+        private var lastActionFactory: MediaNotification.ActionFactory? = null
+        private var lastCallback: MediaNotification.Provider.Callback? = null
 
         override fun createNotification(
             mediaSession: MediaSession,
@@ -457,6 +499,10 @@ class PlaybackService : MediaLibraryService() {
             actionFactory: MediaNotification.ActionFactory,
             onNotificationChangedCallback: MediaNotification.Provider.Callback
         ): MediaNotification {
+            lastMediaSession = mediaSession
+            lastMediaButtonPreferences = mediaButtonPreferences
+            lastActionFactory = actionFactory
+            lastCallback = onNotificationChangedCallback
             PlaybackTickerState.setRefreshCallback {
                 onNotificationChangedCallback.onNotificationChanged(
                     createNotification(
@@ -514,39 +560,45 @@ class PlaybackService : MediaLibraryService() {
                 if (compact) compactIndices += index
             }
 
+            val currentSong = player.currentMediaItem?.toSongFromMediaItemExtras()
+            val isFavorite = currentSong?.let {
+                PlaylistStore.getInstance(service).isFavorite(it)
+            } == true
+            val playbackModeAction = player.playbackModeAction()
+
             addCustomAction(
                 ACTION_TOGGLE_FAVORITE,
-                R.drawable.ic_notification_favorite,
-                "收藏",
+                if (isFavorite) R.drawable.ic_notification_favorite_filled else R.drawable.ic_notification_favorite,
+                if (isFavorite) "取消收藏" else "收藏",
                 compact = false
             )
 
             addAction(
                 Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-                androidx.media3.session.R.drawable.media3_icon_previous,
+                R.drawable.ic_skip_previous,
                 "上一首"
             )
 
             addAction(
                 Player.COMMAND_PLAY_PAUSE,
                 if (player.isPlaying) {
-                    androidx.media3.session.R.drawable.media3_icon_pause
+                    R.drawable.ic_player_pause
                 } else {
-                    androidx.media3.session.R.drawable.media3_icon_play
+                    R.drawable.ic_player_play
                 },
                 if (player.isPlaying) "暂停" else "播放"
             )
 
             addAction(
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-                androidx.media3.session.R.drawable.media3_icon_next,
+                R.drawable.ic_skip_next,
                 "下一首"
             )
 
             addCustomAction(
                 ACTION_TOGGLE_SHUFFLE,
-                R.drawable.ic_notification_shuffle,
-                if (player.shuffleModeEnabled) "关闭随机播放" else "随机播放",
+                playbackModeAction.icon,
+                playbackModeAction.title,
                 compact = false
             )
 
@@ -569,6 +621,45 @@ class PlaybackService : MediaLibraryService() {
                 notification.flags = notification.flags or FLAG_ONLY_UPDATE_TICKER_FALLBACK
             }
             return MediaNotification(NOTIFICATION_ID, notification)
+        }
+
+        fun refresh() {
+            val mediaSession = lastMediaSession ?: return
+            val mediaButtonPreferences = lastMediaButtonPreferences ?: return
+            val actionFactory = lastActionFactory ?: return
+            val callback = lastCallback ?: return
+            callback.onNotificationChanged(
+                createNotification(
+                    mediaSession,
+                    mediaButtonPreferences,
+                    actionFactory,
+                    callback
+                )
+            )
+        }
+
+        private fun Player.playbackModeAction(): PlaybackModeAction {
+            return when {
+                shuffleModeEnabled -> PlaybackModeAction(
+                    icon = R.drawable.ic_notification_shuffle,
+                    title = "随机播放"
+                )
+
+                repeatMode == Player.REPEAT_MODE_ONE -> PlaybackModeAction(
+                    icon = R.drawable.ic_repeat_one,
+                    title = "单曲循环"
+                )
+
+                repeatMode == Player.REPEAT_MODE_ALL -> PlaybackModeAction(
+                    icon = R.drawable.ic_repeat,
+                    title = "列表循环"
+                )
+
+                else -> PlaybackModeAction(
+                    icon = R.drawable.ic_repeat,
+                    title = "顺序播放"
+                )
+            }
         }
 
         private fun resolveLargeIcon(metadata: MediaMetadata): Bitmap? {
