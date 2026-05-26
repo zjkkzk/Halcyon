@@ -61,20 +61,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -91,11 +86,11 @@ import com.ella.music.data.SettingsManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.ella.music.data.model.Song
-import com.ella.music.ui.components.DefaultAlbumCover
+import com.ella.music.ui.components.CompactMiniPlayer
+import com.ella.music.ui.components.GlassPill
 import com.ella.music.ui.components.LiquidGlassBottomBar
 import com.ella.music.ui.components.LiquidGlassBottomBarItem
 import com.ella.music.ui.components.MiniPlayer
-import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.TagEditorEditTracker
 import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
@@ -110,7 +105,6 @@ import com.ella.music.viewmodel.PlayerViewModel
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -350,13 +344,14 @@ fun EllaApp(
         Screen.Settings.route
     )
     val showBottomBar = currentRoute in bottomBarScreens
+    val canCompactBottomDock = showBottomBar
     var bottomDockMode by rememberSaveable { mutableStateOf(BottomDockMode.Expanded) }
 
     val currentSong by playerViewModel.currentSong.collectAsState()
     val isPlaying by playerViewModel.isPlaying.collectAsState()
     val librarySongs by mainViewModel.songs.collectAsState()
 
-    LaunchedEffect(currentRoute) {
+    LaunchedEffect(currentRoute, canCompactBottomDock) {
         bottomDockMode = BottomDockMode.Expanded
     }
 
@@ -422,14 +417,14 @@ fun EllaApp(
     val showMiniPlayer = currentSong != null &&
         currentRoute != Screen.Player.route &&
         !showPlayerOverlay
-    LaunchedEffect(showMiniPlayer) {
-        if (!showMiniPlayer) bottomDockMode = BottomDockMode.Expanded
+    LaunchedEffect(showMiniPlayer, canCompactBottomDock) {
+        if (!showMiniPlayer || !canCompactBottomDock) bottomDockMode = BottomDockMode.Expanded
     }
 
-    val dockScrollConnection = remember(showMiniPlayer) {
+    val dockScrollConnection = remember(showMiniPlayer, canCompactBottomDock) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (!showMiniPlayer || source != NestedScrollSource.UserInput) return Offset.Zero
+                if (!showMiniPlayer || !canCompactBottomDock || source != NestedScrollSource.UserInput) return Offset.Zero
                 when {
                     available.y < -12f -> bottomDockMode = BottomDockMode.Compact
                     available.y > 16f -> bottomDockMode = BottomDockMode.Expanded
@@ -503,6 +498,7 @@ fun EllaApp(
                 currentTab = currentTab,
                 currentRoute = currentRoute,
                 bottomDockMode = bottomDockMode,
+                canCompact = canCompactBottomDock,
                 backdrop = backdrop,
                 lyricProgress = miniPlayerLyricProgress,
                 mainViewModel = mainViewModel,
@@ -673,6 +669,7 @@ private fun FloatingBottomControls(
     currentTab: Triple<String, String, ImageVector>,
     currentRoute: String?,
     bottomDockMode: BottomDockMode,
+    canCompact: Boolean,
     backdrop: com.kyant.backdrop.Backdrop?,
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
@@ -682,7 +679,7 @@ private fun FloatingBottomControls(
     modifier: Modifier = Modifier,
     useGlass: Boolean = true
 ) {
-    val effectiveMode = if (showMiniPlayer) bottomDockMode else BottomDockMode.Expanded
+    val effectiveMode = if (showMiniPlayer && canCompact) bottomDockMode else BottomDockMode.Expanded
     AnimatedContent(
         targetState = effectiveMode,
         transitionSpec = {
@@ -698,10 +695,15 @@ private fun FloatingBottomControls(
             CompactBottomDock(
                 song = currentSong,
                 isPlaying = isPlaying,
+                progress = if (duration > 0L) currentPosition.toFloat() / duration.toFloat() else 0f,
                 lyricText = lyricText,
                 lyricTranslation = lyricTranslation,
+                lyricProgress = lyricProgress,
+                coverRotationEnabled = coverRotationEnabled,
                 albumArtUri = mainViewModel.getAlbumArtUri(currentSong.albumId),
+                loadCoverArt = mainViewModel::getCoverArtBitmap,
                 currentTab = currentTab,
+                backdrop = if (useGlass) backdrop else null,
                 onOpenPlayer = onNavigatePlayer,
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onSkipNext = { playerViewModel.skipToNext() },
@@ -778,10 +780,15 @@ private fun FloatingBottomControls(
 private fun CompactBottomDock(
     song: Song,
     isPlaying: Boolean,
+    progress: Float,
     lyricText: String?,
     lyricTranslation: String?,
+    lyricProgress: Float,
+    coverRotationEnabled: Boolean,
     albumArtUri: Uri?,
+    loadCoverArt: ((Song) -> android.graphics.Bitmap?)?,
     currentTab: Triple<String, String, ImageVector>,
+    backdrop: com.kyant.backdrop.Backdrop?,
     onOpenPlayer: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -804,10 +811,15 @@ private fun CompactBottomDock(
         CompactMiniPlayer(
             song = song,
             isPlaying = isPlaying,
+            progress = progress,
             lyricText = lyricText,
             lyricTranslation = lyricTranslation,
+            lyricProgress = lyricProgress,
+            coverRotationEnabled = coverRotationEnabled,
             albumArtUri = albumArtUri,
-            onOpenPlayer = onOpenPlayer,
+            loadCoverArt = loadCoverArt,
+            backdrop = backdrop,
+            onClick = onOpenPlayer,
             onPlayPause = onPlayPause,
             onSkipNext = onSkipNext,
             modifier = Modifier.weight(1f)
@@ -816,108 +828,9 @@ private fun CompactBottomDock(
             icon = currentTab.third,
             label = currentTab.second,
             onClick = onExpand,
+            backdrop = backdrop,
             modifier = Modifier.width(68.dp)
         )
-    }
-}
-
-@Composable
-private fun CompactMiniPlayer(
-    song: Song,
-    isPlaying: Boolean,
-    lyricText: String?,
-    lyricTranslation: String?,
-    albumArtUri: Uri?,
-    onOpenPlayer: () -> Unit,
-    onPlayPause: () -> Unit,
-    onSkipNext: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(32.dp)
-    val coverShape = RoundedCornerShape(12.dp)
-    val title = lyricText?.takeIf { it.isNotBlank() } ?: song.title
-    val subtitle = lyricTranslation?.takeIf { it.isNotBlank() }
-        ?: if (lyricText != null) "${song.title} - ${song.artist}" else song.artist
-    val coverModel = song.coverUrl.takeIf { it.isNotBlank() } ?: albumArtUri
-
-    Row(
-        modifier = modifier
-            .height(64.dp)
-            .clip(shape)
-            .background(MiuixTheme.colorScheme.surfaceContainer)
-            .padding(start = 12.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .height(64.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onOpenPlayer
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(coverShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (coverModel != null) {
-                    SafeCoverImage(
-                        model = coverModel,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        sizePx = 128
-                    )
-                } else {
-                    DefaultAlbumCover(modifier = Modifier.fillMaxSize())
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = if (lyricText != null) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subtitle,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        IconButton(
-            onClick = onPlayPause,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                painter = painterResource(id = if (isPlaying) R.drawable.ic_player_pause else R.drawable.ic_player_play),
-                contentDescription = if (isPlaying) stringResource(R.string.common_pause) else stringResource(R.string.common_play),
-                tint = MiuixTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        IconButton(
-            onClick = onSkipNext,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_skip_next),
-                contentDescription = stringResource(R.string.common_next),
-                tint = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp)
-            )
-        }
     }
 }
 
@@ -926,26 +839,31 @@ private fun CurrentTabPill(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
+    backdrop: com.kyant.backdrop.Backdrop?,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .height(64.dp)
-            .clip(RoundedCornerShape(32.dp))
-            .background(MiuixTheme.colorScheme.surfaceContainer)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.Center
+    GlassPill(
+        backdrop = backdrop,
+        modifier = modifier.height(64.dp),
+        shape = RoundedCornerShape(32.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.size(26.dp)
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = MiuixTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp)
+            )
+        }
     }
 }
 

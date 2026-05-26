@@ -50,6 +50,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
@@ -90,65 +91,16 @@ fun MiniPlayer(
     onSkipNext: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val preferEmbeddedCover = song.fileName.substringAfterLast('.', song.path.substringAfterLast('.'))
-        .lowercase() in setOf("m4a", "mp4", "alac", "flac", "wav", "aiff", "aif")
-    val shouldLoadEmbeddedCover = song.coverUrl.isBlank() &&
-        loadCoverArt != null &&
-        (albumArtUri == null || preferEmbeddedCover)
-    val embeddedCover by produceState<Bitmap?>(initialValue = null, song.id, song.dateModified, song.fileSize, shouldLoadEmbeddedCover) {
-        value = if (!shouldLoadEmbeddedCover) {
-            null
-        } else {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    CoverLoadLimiter.run { loadCoverArt.invoke(song) }
-                }.getOrNull()
-            }
-        }
-    }
-    val coverModel = song.coverUrl.takeIf { it.isNotBlank() }
-        ?: if (preferEmbeddedCover) embeddedCover ?: albumArtUri else albumArtUri ?: embeddedCover
+    val coverModel = rememberMiniPlayerCoverModel(song, albumArtUri, loadCoverArt)
     val shape = RoundedCornerShape(if (liquidGlass) 24.dp else 0.dp)
     val glassBackdrop = if (liquidGlass) backdrop else null
     val useGlassLayout = liquidGlass
     val isLight = MiuixTheme.colorScheme.background.luminance() > 0.5f
     val surfaceContainer = MiuixTheme.colorScheme.surfaceContainer
     val glassSurface = if (isLight) Color(0xFFF8F8FA).copy(alpha = 0.44f) else Color(0xFF111114).copy(alpha = 0.50f)
-    val hasTranslation = !lyricTranslation.isNullOrBlank()
-    val primaryText = lyricText ?: song.title
-    val secondaryText = when {
-        lyricText != null && hasTranslation -> lyricTranslation.orEmpty()
-        lyricText != null -> "${song.title} - ${song.artist}"
-        else -> song.artist
-    }
-    val textState = MiniPlayerTextState(
-        songId = song.id,
-        primary = primaryText,
-        secondary = secondaryText,
-        showingLyric = lyricText != null,
-        scrollSecondary = lyricText != null && hasTranslation
-    )
+    val textState = rememberMiniPlayerTextState(song, lyricText, lyricTranslation)
     var transitionDirection by remember { mutableIntStateOf(1) }
-    var coverRotation by remember(song.id) { mutableFloatStateOf(0f) }
     val interactionSource = remember { MutableInteractionSource() }
-
-    LaunchedEffect(song.id, isPlaying, coverRotationEnabled) {
-        if (!coverRotationEnabled) {
-            coverRotation = 0f
-            return@LaunchedEffect
-        }
-        if (!isPlaying) return@LaunchedEffect
-        var lastFrameNanos = 0L
-        while (isActive) {
-            withFrameNanos { frameNanos ->
-                if (lastFrameNanos != 0L) {
-                    val elapsedMs = (frameNanos - lastFrameNanos) / 1_000_000f
-                    coverRotation = (coverRotation + elapsedMs * 360f / 20_000f) % 360f
-                }
-                lastFrameNanos = frameNanos
-            }
-        }
-    }
 
     Row(
         modifier = modifier
@@ -209,92 +161,23 @@ fun MiniPlayer(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(50.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .graphicsLayer { rotationZ = coverRotation }
-                    .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
-                if (coverModel != null) {
-                    SafeCoverImage(
-                        model = coverModel,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                        sizePx = 128
-                    )
-                } else {
-                    DefaultAlbumCover(modifier = Modifier.size(44.dp))
-                }
-            }
-            CircularProgressRing(
-                progress = progress,
-                color = MiuixTheme.colorScheme.primary,
-                trackColor = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                modifier = Modifier.size(50.dp)
-            )
-        }
+        MiniPlayerCoverProgress(
+            coverModel = coverModel,
+            isPlaying = isPlaying,
+            progress = progress,
+            coverRotationEnabled = coverRotationEnabled,
+            coverSize = 44.dp,
+            ringSize = 50.dp
+        )
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        AnimatedContent(
-            targetState = textState,
-            transitionSpec = {
-                val direction = transitionDirection
-                val outOffset = { width: Int -> -direction * width / 3 }
-                val inOffset = { width: Int -> direction * width / 3 }
-                val enter = slideInHorizontally(
-                    animationSpec = tween(450, easing = FastOutSlowInEasing),
-                    initialOffsetX = inOffset
-                ) + fadeIn(
-                    animationSpec = tween(450, easing = FastOutSlowInEasing),
-                    initialAlpha = 0.15f
-                )
-                val exit = slideOutHorizontally(
-                    animationSpec = tween(300, easing = FastOutLinearInEasing),
-                    targetOffsetX = outOffset
-                ) + fadeOut(
-                    animationSpec = tween(300, easing = FastOutLinearInEasing),
-                    targetAlpha = 0f
-                )
-                enter togetherWith exit using SizeTransform(clip = false)
-            },
-            label = "MiniPlayerSongText",
+        MiniPlayerAnimatedText(
+            textState = textState,
+            transitionDirection = transitionDirection,
+            lyricProgress = lyricProgress,
             modifier = Modifier.weight(1f)
-        ) { state ->
-            Column(modifier = Modifier.fillMaxWidth()) {
-                AutoScrollingMiniText(
-                    text = state.primary,
-                    fontSize = 14,
-                    fontWeight = FontWeight.Medium,
-                    color = if (state.showingLyric) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurface
-                    },
-                    enabled = state.showingLyric,
-                    progress = lyricProgress
-                )
-
-                AutoScrollingMiniText(
-                    text = state.secondary,
-                    fontSize = 12,
-                    fontWeight = FontWeight.Normal,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    enabled = state.scrollSecondary,
-                    progress = lyricProgress
-                )
-            }
-        }
+        )
 
         IconButton(
             onClick = {
@@ -341,6 +224,223 @@ fun MiniPlayer(
 }
 
 @Composable
+fun CompactMiniPlayer(
+    song: Song,
+    isPlaying: Boolean,
+    progress: Float = 0f,
+    lyricText: String? = null,
+    lyricTranslation: String? = null,
+    lyricProgress: Float = 0f,
+    coverRotationEnabled: Boolean = true,
+    albumArtUri: Uri? = null,
+    loadCoverArt: ((Song) -> Bitmap?)? = null,
+    backdrop: Backdrop? = null,
+    onClick: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSkipNext: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val coverModel = rememberMiniPlayerCoverModel(song, albumArtUri, loadCoverArt)
+    val textState = rememberMiniPlayerTextState(song, lyricText, lyricTranslation)
+    var transitionDirection by remember { mutableIntStateOf(1) }
+
+    GlassPill(
+        backdrop = backdrop,
+        modifier = modifier.height(64.dp),
+        shape = RoundedCornerShape(32.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .height(64.dp)
+                .padding(start = 12.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(64.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MiniPlayerCoverProgress(
+                    coverModel = coverModel,
+                    isPlaying = isPlaying,
+                    progress = progress,
+                    coverRotationEnabled = coverRotationEnabled,
+                    coverSize = 38.dp,
+                    ringSize = 44.dp
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                MiniPlayerAnimatedText(
+                    textState = textState,
+                    transitionDirection = transitionDirection,
+                    lyricProgress = lyricProgress,
+                    modifier = Modifier.weight(1f),
+                    primaryFontSize = 14,
+                    primaryFontWeight = FontWeight.SemiBold,
+                    secondaryFontSize = 12
+                )
+            }
+            IconButton(
+                onClick = onPlayPause,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = if (isPlaying) R.drawable.ic_player_pause else R.drawable.ic_player_play),
+                    contentDescription = if (isPlaying) stringResource(R.string.common_pause) else stringResource(R.string.common_play),
+                    tint = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            IconButton(
+                onClick = {
+                    transitionDirection = 1
+                    onSkipNext()
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_skip_next),
+                    contentDescription = stringResource(R.string.common_next),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerAnimatedText(
+    textState: MiniPlayerTextState,
+    transitionDirection: Int,
+    lyricProgress: Float,
+    modifier: Modifier = Modifier,
+    primaryFontSize: Int = 14,
+    primaryFontWeight: FontWeight = FontWeight.Medium,
+    secondaryFontSize: Int = 12
+) {
+    AnimatedContent(
+            targetState = textState,
+            transitionSpec = {
+                val direction = transitionDirection
+                val outOffset = { width: Int -> -direction * width / 3 }
+                val inOffset = { width: Int -> direction * width / 3 }
+                val enter = slideInHorizontally(
+                    animationSpec = tween(450, easing = FastOutSlowInEasing),
+                    initialOffsetX = inOffset
+                ) + fadeIn(
+                    animationSpec = tween(450, easing = FastOutSlowInEasing),
+                    initialAlpha = 0.15f
+                )
+                val exit = slideOutHorizontally(
+                    animationSpec = tween(300, easing = FastOutLinearInEasing),
+                    targetOffsetX = outOffset
+                ) + fadeOut(
+                    animationSpec = tween(300, easing = FastOutLinearInEasing),
+                    targetAlpha = 0f
+                )
+                enter togetherWith exit using SizeTransform(clip = false)
+            },
+            label = "MiniPlayerSongText",
+            modifier = modifier
+        ) { state ->
+            Column(modifier = Modifier.fillMaxWidth()) {
+                AutoScrollingMiniText(
+                    text = state.primary,
+                    fontSize = primaryFontSize,
+                    fontWeight = primaryFontWeight,
+                    color = if (state.showingLyric) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurface
+                    },
+                    enabled = state.showingLyric,
+                    progress = lyricProgress
+                )
+
+                AutoScrollingMiniText(
+                    text = state.secondary,
+                    fontSize = secondaryFontSize,
+                    fontWeight = FontWeight.Normal,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    enabled = state.scrollSecondary,
+                    progress = lyricProgress
+                )
+            }
+        }
+}
+
+@Composable
+private fun MiniPlayerCoverProgress(
+    coverModel: Any?,
+    isPlaying: Boolean,
+    progress: Float,
+    coverRotationEnabled: Boolean,
+    coverSize: Dp,
+    ringSize: Dp,
+    modifier: Modifier = Modifier
+) {
+    var coverRotation by remember(coverModel) { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(coverModel, isPlaying, coverRotationEnabled) {
+        if (!coverRotationEnabled) {
+            coverRotation = 0f
+            return@LaunchedEffect
+        }
+        if (!isPlaying) return@LaunchedEffect
+        var lastFrameNanos = 0L
+        while (isActive) {
+            withFrameNanos { frameNanos ->
+                if (lastFrameNanos != 0L) {
+                    val elapsedMs = (frameNanos - lastFrameNanos) / 1_000_000f
+                    coverRotation = (coverRotation + elapsedMs * 360f / 20_000f) % 360f
+                }
+                lastFrameNanos = frameNanos
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier.size(ringSize),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(coverSize)
+                .graphicsLayer { rotationZ = coverRotation }
+                .clip(CircleShape)
+                .background(MiuixTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center
+        ) {
+            if (coverModel != null) {
+                SafeCoverImage(
+                    model = coverModel,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(coverSize)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                    sizePx = 128
+                )
+            } else {
+                DefaultAlbumCover(modifier = Modifier.size(coverSize))
+            }
+        }
+        CircularProgressRing(
+            progress = progress,
+            color = MiuixTheme.colorScheme.primary,
+            trackColor = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            modifier = Modifier.size(ringSize)
+        )
+    }
+}
+
+@Composable
 private fun CircularProgressRing(
     progress: Float,
     color: Color,
@@ -370,6 +470,57 @@ private fun CircularProgressRing(
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
     }
+}
+
+@Composable
+private fun rememberMiniPlayerCoverModel(
+    song: Song,
+    albumArtUri: Uri?,
+    loadCoverArt: ((Song) -> Bitmap?)?
+): Any? {
+    val preferEmbeddedCover = song.fileName.substringAfterLast('.', song.path.substringAfterLast('.'))
+        .lowercase() in setOf("m4a", "mp4", "alac", "flac", "wav", "aiff", "aif")
+    val shouldLoadEmbeddedCover = song.coverUrl.isBlank() &&
+        loadCoverArt != null &&
+        (albumArtUri == null || preferEmbeddedCover)
+    val embeddedCover by produceState<Bitmap?>(
+        initialValue = null,
+        song.id,
+        song.dateModified,
+        song.fileSize,
+        shouldLoadEmbeddedCover
+    ) {
+        value = if (!shouldLoadEmbeddedCover) {
+            null
+        } else {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    CoverLoadLimiter.run { loadCoverArt.invoke(song) }
+                }.getOrNull()
+            }
+        }
+    }
+    return song.coverUrl.takeIf { it.isNotBlank() }
+        ?: if (preferEmbeddedCover) embeddedCover ?: albumArtUri else albumArtUri ?: embeddedCover
+}
+
+private fun rememberMiniPlayerTextState(
+    song: Song,
+    lyricText: String?,
+    lyricTranslation: String?
+): MiniPlayerTextState {
+    val hasTranslation = !lyricTranslation.isNullOrBlank()
+    return MiniPlayerTextState(
+        songId = song.id,
+        primary = lyricText ?: song.title,
+        secondary = when {
+            lyricText != null && hasTranslation -> lyricTranslation.orEmpty()
+            lyricText != null -> "${song.title} - ${song.artist}"
+            else -> song.artist
+        },
+        showingLyric = lyricText != null,
+        scrollSecondary = lyricText != null && hasTranslation
+    )
 }
 
 @Composable
