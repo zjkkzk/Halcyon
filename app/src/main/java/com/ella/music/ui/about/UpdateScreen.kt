@@ -147,12 +147,14 @@ fun UpdateScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
+                val updateButtonTarget = state.updateButtonTargetUrl()
                 UpdatePressureHero(
                     state = state,
                     isDark = isDark,
-                    onClick = {
-                        val release = (state as? UpdateUiState.Ready)?.release ?: return@UpdatePressureHero
-                        context.openUrl(release.downloadUrl ?: release.htmlUrl)
+                    buttonText = state.updateButtonText(),
+                    buttonEnabled = updateButtonTarget != null,
+                    onButtonClick = {
+                        updateButtonTarget?.let(context::openUrl)
                     }
                 )
             }
@@ -221,7 +223,9 @@ fun UpdateScreen(
 private fun UpdatePressureHero(
     state: UpdateUiState,
     isDark: Boolean,
-    onClick: () -> Unit
+    buttonText: String,
+    buttonEnabled: Boolean,
+    onButtonClick: () -> Unit
 ) {
     val foldProgress = remember { Animatable(0f) }
 
@@ -299,15 +303,11 @@ private fun UpdatePressureHero(
                     modifier = Modifier.padding(top = 8.dp)
                 )
                 Button(
-                    onClick = onClick,
+                    onClick = onButtonClick,
+                    enabled = buttonEnabled,
                     modifier = Modifier.padding(top = 20.dp)
                 ) {
-                    Text(
-                        text = (state as? UpdateUiState.Ready)
-                            ?.takeIf { it.hasUpdate }
-                            ?.let { "查看更新" }
-                            ?: "查看 GitHub"
-                    )
+                    Text(text = buttonText)
                 }
             }
         }
@@ -581,6 +581,24 @@ private fun UpdateUiState.heroSummary(): String = when (this) {
         "当前版本 v${BuildConfig.VERSION_NAME}，暂时没有比它更新的发布版本。"
     }
 }
+
+private fun UpdateUiState.updateButtonText(): String = when (this) {
+    UpdateUiState.Loading -> "检查中"
+    is UpdateUiState.Error -> "查看 GitHub"
+    is UpdateUiState.Ready -> if (hasUpdate) "下载更新" else "查看 GitHub"
+}
+
+private fun UpdateUiState.updateButtonTargetUrl(): String? = when (this) {
+    UpdateUiState.Loading -> null
+    is UpdateUiState.Error -> GITHUB_RELEASES_URL
+    is UpdateUiState.Ready -> if (hasUpdate) {
+        release.downloadUrl ?: release.htmlUrl
+    } else {
+        release.htmlUrl.ifBlank { GITHUB_RELEASES_URL }
+    }
+}
+
+private const val GITHUB_RELEASES_URL = "https://github.com/Kifranei/Ella/releases"
 
 private fun fetchLatestRelease(): GithubRelease {
     val client = OkHttpClient.Builder()
