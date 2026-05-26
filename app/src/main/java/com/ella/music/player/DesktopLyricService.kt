@@ -1066,17 +1066,15 @@ class DesktopLyricService : Service() {
             )
 
         private fun ttmlAlignForPrimary(): AnchorAlign {
-            if (!isTtml) return AnchorAlign.Center
             if (agent.isBlank()) {
-                return if (backgroundText.isNotBlank() || backgroundWords.isNotEmpty()) AnchorAlign.Left else AnchorAlign.Center
+                return if (isTtml && backgroundText.isBlank() && backgroundWords.isEmpty()) AnchorAlign.Center else AnchorAlign.Left
             }
             return if (agent.equals("v2", ignoreCase = true)) AnchorAlign.Right else AnchorAlign.Left
         }
 
         private fun ttmlAlignForBackground(): AnchorAlign {
-            if (!isTtml) return AnchorAlign.Center
             if (agent.isBlank()) {
-                return if (backgroundText.isNotBlank() || backgroundWords.isNotEmpty()) AnchorAlign.Left else AnchorAlign.Center
+                return if (isTtml && backgroundText.isBlank() && backgroundWords.isEmpty()) AnchorAlign.Center else AnchorAlign.Left
             }
             return if (agent.equals("v2", ignoreCase = true)) AnchorAlign.Right else AnchorAlign.Left
         }

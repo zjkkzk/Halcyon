@@ -937,7 +937,6 @@ private fun InterludeDots(
 }
 
 private fun LyricLine.ttmlTextAlign(): TextAlign {
-    if (!isTtml) return TextAlign.Start
     if (agent.isNullOrBlank()) {
         return TextAlign.Start
     }
@@ -949,13 +948,13 @@ private fun LyricLine.ttmlBackgroundTextAlign(): TextAlign {
 }
 
 private fun LyricLine.ttmlAlignment(): Alignment.Horizontal {
-    if (!isTtml || agent.isNullOrBlank()) return Alignment.Start
+    if (agent.isNullOrBlank()) return Alignment.Start
     return if (agent.equals("v2", ignoreCase = true)) Alignment.End else Alignment.Start
 }
 
 private fun LyricLine.isActiveAt(positionMs: Long): Boolean {
     val end = endMs ?: return false
-    return isTtml && positionMs in timeMs until end
+    return positionMs in timeMs until end
 }
 
 private fun LyricLine.shouldShowInterlude(nextLine: LyricLine?, positionMs: Long): Boolean {

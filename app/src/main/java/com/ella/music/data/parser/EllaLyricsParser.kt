@@ -86,9 +86,7 @@ internal object EllaLyricsParser {
         val rawContent = embeddedBackground?.groupValues?.get(1)?.trim() ?: taggedContent
         if (rawContent.isBlank()) return emptyList()
 
-        val voice = Regex("""^(v\d+)\s*:\s*(.*)$""").find(rawContent)
-        val agent = voice?.groupValues?.get(1)
-        val content = voice?.groupValues?.get(2)?.trim() ?: rawContent
+        val (agent, content) = rawContent.extractLrcAgent()
 
         return leadingTimes.mapNotNull { timeMatch ->
             val start = parseLrcTime(timeMatch.groupValues)
@@ -113,6 +111,20 @@ internal object EllaLyricsParser {
                 endMs = words.lastOrNull()?.endMs
             )
         }
+    }
+
+    private fun String.extractLrcAgent(): Pair<String?, String> {
+        Regex("""^(v[12])\s*:\s*(.*)$""", RegexOption.IGNORE_CASE)
+            .matchEntire(this)
+            ?.let { match ->
+                return match.groupValues[1].lowercase() to match.groupValues[2].trim()
+            }
+        Regex("""^\[(v[12])]\s*(.*)$""", RegexOption.IGNORE_CASE)
+            .matchEntire(this)
+            ?.let { match ->
+                return match.groupValues[1].lowercase() to match.groupValues[2].trim()
+            }
+        return null to this
     }
 
     private fun parseEnhancedWords(content: String, lineStartMs: Long): List<LyricWord> {

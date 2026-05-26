@@ -5304,15 +5304,13 @@ private fun com.ella.music.data.model.LyricLine.isMiniBackgroundVisibleAt(positi
 }
 
 private fun com.ella.music.data.model.LyricLine.previewTextAlign(): TextAlign {
-    if (!isTtml) return TextAlign.Start
     if (agent.isNullOrBlank()) {
-        return if (!backgroundText.isNullOrBlank() || backgroundWords.isNotEmpty()) TextAlign.Start else TextAlign.Center
+        return if (isTtml && backgroundText.isNullOrBlank() && backgroundWords.isEmpty()) TextAlign.Center else TextAlign.Start
     }
     return if (agent.equals("v2", ignoreCase = true)) TextAlign.End else TextAlign.Start
 }
 
 private fun com.ella.music.data.model.LyricLine.previewBackgroundTextAlign(): TextAlign {
-    if (!isTtml) return TextAlign.Start
     return when {
         agent.equals("v2", ignoreCase = true) -> TextAlign.End
         else -> TextAlign.Start
