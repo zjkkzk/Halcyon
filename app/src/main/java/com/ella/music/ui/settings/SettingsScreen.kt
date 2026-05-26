@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,10 @@ import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import android.widget.Toast
 import org.json.JSONObject
@@ -495,16 +499,16 @@ fun SettingsDetailScreen(
     val tickerHideNotification by settingsManager.tickerHideNotification.collectAsState(initial = false)
     val tickerHideWhenPaused by settingsManager.tickerHideWhenPaused.collectAsState(initial = false)
     val samsungFloatingLyricTranslation by settingsManager.samsungFloatingLyricTranslation.collectAsState(initial = false)
-    val desktopLyricEnabled by settingsManager.desktopLyricEnabled.collectAsState(initial = false)
-    val desktopLyricHideWhenPaused by settingsManager.desktopLyricHideWhenPaused.collectAsState(initial = false)
-    val desktopLyricStatusBarMode by settingsManager.desktopLyricStatusBarMode.collectAsState(initial = false)
-    val desktopLyricStatusBarTopOffset by settingsManager.desktopLyricStatusBarTopOffset.collectAsState(initial = 16)
-    val desktopLyricLocked by settingsManager.desktopLyricLocked.collectAsState(initial = false)
-    val desktopLyricFontScale by settingsManager.desktopLyricFontScale.collectAsState(initial = 100)
-    val desktopLyricTranslationScale by settingsManager.desktopLyricTranslationScale.collectAsState(initial = 110)
-    val desktopLyricOpacity by settingsManager.desktopLyricOpacity.collectAsState(initial = 100)
-    val desktopLyricTextColor by settingsManager.desktopLyricTextColor.collectAsState(initial = -1)
-    val desktopLyricShadowStrength by settingsManager.desktopLyricShadowStrength.collectAsState(initial = 100)
+    val desktopLyricEnabled by settingsManager.desktopLyricEnabled.collectSettingsState(initialValue = false)
+    val desktopLyricHideWhenPaused by settingsManager.desktopLyricHideWhenPaused.collectSettingsState(initialValue = false)
+    val desktopLyricStatusBarMode by settingsManager.desktopLyricStatusBarMode.collectSettingsState(initialValue = false)
+    val desktopLyricStatusBarTopOffset by settingsManager.desktopLyricStatusBarTopOffset.collectSettingsState(initialValue = 16)
+    val desktopLyricLocked by settingsManager.desktopLyricLocked.collectSettingsState(initialValue = false)
+    val desktopLyricFontScale by settingsManager.desktopLyricFontScale.collectSettingsState(initialValue = 100)
+    val desktopLyricTranslationScale by settingsManager.desktopLyricTranslationScale.collectSettingsState(initialValue = 110)
+    val desktopLyricOpacity by settingsManager.desktopLyricOpacity.collectSettingsState(initialValue = 100)
+    val desktopLyricTextColor by settingsManager.desktopLyricTextColor.collectSettingsState(initialValue = -1)
+    val desktopLyricShadowStrength by settingsManager.desktopLyricShadowStrength.collectSettingsState(initialValue = 100)
     val superLyricEnabled by settingsManager.superLyricEnabled.collectAsState(initial = false)
     val superLyricTranslation by settingsManager.superLyricTranslation.collectAsState(initial = true)
     val lyricGetterEnabled by settingsManager.lyricGetterEnabled.collectAsState(initial = false)
@@ -1521,6 +1525,16 @@ private data class HomePreferenceItem(
     val title: String,
     val summary: String
 )
+
+@Composable
+private fun <T> Flow<T>.collectSettingsState(initialValue: T): State<T> {
+    val initial = remember(this) {
+        runCatching {
+            runBlocking(Dispatchers.IO) { first() }
+        }.getOrDefault(initialValue)
+    }
+    return collectAsState(initial = initial)
+}
 
 @Composable
 private fun HomeDisplaySettingsPage(
