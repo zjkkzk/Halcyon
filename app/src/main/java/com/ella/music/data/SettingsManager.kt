@@ -28,11 +28,6 @@ enum class BottomBarGlassEffect {
     LiquidGlass
 }
 
-enum class ProgressBarStyle {
-    Default,
-    Comet
-}
-
 class SettingsManager(private val context: Context) {
 
     companion object {
@@ -136,8 +131,6 @@ class SettingsManager(private val context: Context) {
         val KEY_HOME_LIBRARY_TILE_ORDER = stringPreferencesKey("home_library_tile_order")
         val KEY_HOME_HIDDEN_LIBRARY_TILES = stringPreferencesKey("home_hidden_library_tiles")
 
-        val KEY_PROGRESS_BAR_STYLE = stringPreferencesKey("progress_bar_style")
-
         val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
         val KEY_BLUETOOTH_LYRIC_TRANSLATION = booleanPreferencesKey("bluetooth_lyric_translation")
 
@@ -196,13 +189,6 @@ class SettingsManager(private val context: Context) {
                 preferences[KEY_BOTTOM_BAR_GLASS_EFFECT] ?: BottomBarGlassEffect.Blur.name
             )
         }.getOrDefault(BottomBarGlassEffect.Blur)
-    }
-    val progressBarStyle: Flow<ProgressBarStyle> = context.dataStore.data.map { preferences ->
-        runCatching {
-            ProgressBarStyle.valueOf(
-                preferences[KEY_PROGRESS_BAR_STYLE] ?: ProgressBarStyle.Default.name
-            )
-        }.getOrDefault(ProgressBarStyle.Default)
     }
     val tickerEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_TICKER_ENABLED] ?: false }
     val tickerHideNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_TICKER_HIDE_NOTIFICATION] ?: true }
@@ -381,10 +367,6 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setBottomBarGlassEffect(effect: BottomBarGlassEffect) {
         context.dataStore.edit { it[KEY_BOTTOM_BAR_GLASS_EFFECT] = effect.name }
-    }
-
-    suspend fun setProgressBarStyle(style: ProgressBarStyle) {
-        context.dataStore.edit { it[KEY_PROGRESS_BAR_STYLE] = style.name }
     }
 
     suspend fun setTickerEnabled(enabled: Boolean) {
@@ -995,7 +977,6 @@ class SettingsManager(private val context: Context) {
             setString(KEY_HOME_HIDDEN_SECTIONS)
             setString(KEY_HOME_LIBRARY_TILE_ORDER)
             setString(KEY_HOME_HIDDEN_LIBRARY_TILES)
-            setString(KEY_PROGRESS_BAR_STYLE)
         }
     }
 

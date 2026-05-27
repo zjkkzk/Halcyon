@@ -136,9 +136,6 @@
     <string name="bottom_bar_glass_effect_liquid">Liquid Glass</string>
     <string name="settings_lyric_perspective">Lyric depth effect</string>
     <string name="settings_lyric_perspective_summary">Keep the current line clear while distant lines shrink, fade, and blur slightly</string>
-    <string name="settings_progress_bar_style">Progress bar style</string>
-    <string name="progress_bar_style_default">Default</string>
-    <string name="progress_bar_style_comet">Comet</string>
 
     <string name="share_song">Share song</string>
     <string name="share_no_available_app">No sharing apps available</string>

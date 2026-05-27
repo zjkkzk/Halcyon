@@ -53,7 +53,6 @@ import androidx.core.content.ContextCompat
 import com.ella.music.BuildConfig
 import com.ella.music.R
 import com.ella.music.data.BottomBarGlassEffect
-import com.ella.music.data.ProgressBarStyle
 import com.ella.music.data.PlaybackStatsStore
 import com.ella.music.data.SettingsManager
 import com.ella.music.player.DesktopLyricService
@@ -528,7 +527,6 @@ fun SettingsDetailScreen(
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val playerImmersiveCover by settingsManager.playerImmersiveCover.collectAsState(initial = true)
     val playerDynamicFlowEnabled by settingsManager.playerDynamicFlowEnabled.collectAsState(initial = false)
-    val progressBarStyle by settingsManager.progressBarStyle.collectAsState(initial = ProgressBarStyle.Default)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = true)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
@@ -571,19 +569,6 @@ fun SettingsDetailScreen(
         BottomBarGlassEffect.Blur -> stringResource(R.string.settings_bottom_bar_glass_effect_summary_blur)
         BottomBarGlassEffect.LiquidGlass -> stringResource(R.string.settings_bottom_bar_glass_effect_summary_liquid)
     }
-    val progressBarStyles = remember {
-        listOf(ProgressBarStyle.Default, ProgressBarStyle.Comet)
-    }
-    val progressBarDefaultLabel = stringResource(R.string.progress_bar_style_default)
-    val progressBarCometLabel = stringResource(R.string.progress_bar_style_comet)
-    val progressBarEntries = remember(progressBarDefaultLabel, progressBarCometLabel) {
-        listOf(
-            DropdownItem(title = progressBarDefaultLabel),
-            DropdownItem(title = progressBarCometLabel)
-        )
-    }
-    val selectedProgressBarStyleIndex =
-        progressBarStyles.indexOf(progressBarStyle).takeIf { it >= 0 } ?: 0
     val categoryGridEntries = remember {
         (1..4).map { columns ->
             DropdownItem(
@@ -864,20 +849,6 @@ fun SettingsDetailScreen(
                             checked = playerDynamicFlowEnabled,
                             onCheckedChange = {
                                 scope.launch { settingsManager.setPlayerDynamicFlowEnabled(it) }
-                            }
-                        )
-                        WindowSpinnerPreference(
-                            title = stringResource(R.string.settings_progress_bar_style),
-                            summary = when (progressBarStyle) {
-                                ProgressBarStyle.Comet -> progressBarCometLabel
-                                else -> progressBarDefaultLabel
-                            },
-                            items = progressBarEntries,
-                            selectedIndex = selectedProgressBarStyleIndex,
-                            onSelectedIndexChange = { index ->
-                                progressBarStyles.getOrNull(index)?.let { style ->
-                                    scope.launch { settingsManager.setProgressBarStyle(style) }
-                                }
                             }
                         )
                         SwitchPreference(

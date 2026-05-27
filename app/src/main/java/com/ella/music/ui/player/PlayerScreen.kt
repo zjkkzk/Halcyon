@@ -154,7 +154,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
-import com.ella.music.data.ProgressBarStyle
 import com.ella.music.data.NeteaseKeyInfo
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.decodeNeteaseKey
@@ -2518,9 +2517,6 @@ private fun LandscapeProgressRow(
     palette: PlayerPalette,
     onSeek: (Float) -> Unit
 ) {
-    val context = LocalContext.current
-    val settingsManager = remember { SettingsManager(context) }
-    val progressBarStyle by settingsManager.progressBarStyle.collectAsState(initial = ProgressBarStyle.Default)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2533,25 +2529,14 @@ private fun LandscapeProgressRow(
             fontWeight = FontWeight.Bold,
             color = Color.White.copy(alpha = 0.72f)
         )
-        val seekBarValue = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
-        when (progressBarStyle) {
-            ProgressBarStyle.Comet -> CometSeekBar(
-                value = seekBarValue,
-                onSeek = onSeek,
-                accent = palette.accent,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            )
-            else -> GlowSeekBar(
-                value = seekBarValue,
-                onSeek = onSeek,
-                accent = palette.accent,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            )
-        }
+        GlowSeekBar(
+            value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
+            onSeek = onSeek,
+            accent = palette.accent,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+        )
         Text(
             text = "-${formatTime((duration - currentPosition).coerceAtLeast(0L))}",
             fontSize = 14.sp,
@@ -2866,8 +2851,6 @@ private fun PlayerProgressBlock(
     onSeek: (Float) -> Unit
 ) {
     val context = LocalContext.current
-    val settingsManager = remember { SettingsManager(context) }
-    val progressBarStyle by settingsManager.progressBarStyle.collectAsState(initial = ProgressBarStyle.Default)
     var infoMode by remember(audioInfo, bluetoothDeviceName) { mutableStateOf(0) }
     val infoLabels = remember(audioInfo, bluetoothDeviceName) {
         buildList {
@@ -2880,21 +2863,12 @@ private fun PlayerProgressBlock(
         }.distinct()
     }
     Column(modifier = Modifier.fillMaxWidth()) {
-        val seekBarValue = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
-        when (progressBarStyle) {
-            ProgressBarStyle.Comet -> CometSeekBar(
-                value = seekBarValue,
-                onSeek = onSeek,
-                accent = palette.accent,
-                modifier = Modifier.fillMaxWidth()
-            )
-            else -> GlowSeekBar(
-                value = seekBarValue,
-                onSeek = onSeek,
-                accent = palette.accent,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        GlowSeekBar(
+            value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
+            onSeek = onSeek,
+            accent = palette.accent,
+            modifier = Modifier.fillMaxWidth()
+        )
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = formatTime(currentPosition),
@@ -5233,115 +5207,6 @@ private fun GlowSeekBar(
                         onDragCancel = {
                             draggingProgress = null
                         },
-                        onDrag = { change, _ ->
-                            draggingProgress = progressAt(size.width.toFloat(), change.position.x)
-                        }
-                    )
-                }
-        )
-    }
-}
-
-@Composable
-private fun CometSeekBar(
-    value: Float,
-    onSeek: (Float) -> Unit,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    val safeProgress = value.coerceIn(0f, 1f)
-    var draggingProgress by remember { mutableStateOf<Float?>(null) }
-    val displayProgress = draggingProgress ?: safeProgress
-    val cometColor = accent
-
-    fun progressAt(width: Float, x: Float): Float {
-        return (x / width.coerceAtLeast(1f)).coerceIn(0f, 1f)
-    }
-
-    Box(modifier = modifier.height(24.dp)) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val centerY = size.height / 2f
-            val trackHeight = 3.dp.toPx()
-            val radius = trackHeight / 2f
-            val x = (size.width * displayProgress.coerceIn(0f, 1f)).coerceIn(0f, size.width)
-
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.18f),
-                topLeft = Offset(0f, centerY - trackHeight / 2),
-                size = Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(radius, radius)
-            )
-
-            if (x > 0f) {
-                drawRoundRect(
-                    color = cometColor.copy(alpha = 0.22f),
-                    topLeft = Offset(0f, centerY - trackHeight / 2),
-                    size = Size(x, trackHeight),
-                    cornerRadius = CornerRadius(radius, radius)
-                )
-            }
-
-            val tailLength = (size.width * 0.32f).coerceAtMost(160.dp.toPx())
-            val tailStart = (x - tailLength).coerceAtLeast(0f)
-            if (x > tailStart && tailLength > 0f) {
-                val tailBrush = Brush.horizontalGradient(
-                    colorStops = arrayOf(
-                        0.0f to cometColor.copy(alpha = 0.00f),
-                        0.55f to cometColor.copy(alpha = 0.16f),
-                        0.82f to cometColor.copy(alpha = 0.48f),
-                        1.0f to cometColor.copy(alpha = 0.95f)
-                    ),
-                    startX = tailStart,
-                    endX = x
-                )
-                val tailHeight = trackHeight * 2.8f
-                drawRoundRect(
-                    brush = tailBrush,
-                    topLeft = Offset(tailStart, centerY - tailHeight / 2),
-                    size = Size(x - tailStart, tailHeight),
-                    cornerRadius = CornerRadius(tailHeight / 2, tailHeight / 2)
-                )
-            }
-
-            val glowRadius = 10.dp.toPx()
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        cometColor.copy(alpha = 0.90f),
-                        cometColor.copy(alpha = 0.30f),
-                        cometColor.copy(alpha = 0.00f)
-                    ),
-                    center = Offset(x, centerY),
-                    radius = glowRadius
-                ),
-                radius = glowRadius,
-                center = Offset(x, centerY)
-            )
-
-            drawCircle(
-                color = cometColor,
-                radius = 2.2.dp.toPx(),
-                center = Offset(x, centerY)
-            )
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        onSeek(progressAt(size.width.toFloat(), offset.x))
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            draggingProgress = progressAt(size.width.toFloat(), offset.x)
-                        },
-                        onDragEnd = {
-                            draggingProgress?.let(onSeek)
-                            draggingProgress = null
-                        },
-                        onDragCancel = { draggingProgress = null },
                         onDrag = { change, _ ->
                             draggingProgress = progressAt(size.width.toFloat(), change.position.x)
                         }
