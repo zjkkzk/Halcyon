@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
+import androidx.documentfile.provider.DocumentFile
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
@@ -51,68 +52,75 @@ class MusicScanner(private val context: Context) {
         excludeFolders: List<String> = emptyList()
     ): List<MediaStoreAudioItem> = withContext(Dispatchers.IO) {
         val items = mutableListOf<MediaStoreAudioItem>()
-        val normalizedIncludeFolders = includeFolders.mapNotNull { it.normalizedFolderPath() }
+        val safIncludeFolders = includeFolders.filter { it.isSafTreeUri() }
+        val localIncludeFolders = includeFolders.filterNot { it.isSafTreeUri() }
+        val normalizedIncludeFolders = localIncludeFolders.mapNotNull { it.normalizedFolderPath() }
         val normalizedExcludeFolders = excludeFolders.mapNotNull { it.normalizedFolderPath() }
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.TRACK
-        )
-        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+        if (includeFolders.isEmpty() || localIncludeFolders.isNotEmpty()) {
+            val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            val projection = arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.MIME_TYPE,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.DATE_MODIFIED,
+                MediaStore.Audio.Media.TRACK
+            )
+            val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
-        context.contentResolver.query(
-            collection, projection, null, null, sortOrder
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-            val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+            context.contentResolver.query(
+                collection, projection, null, null, sortOrder
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
 
-            while (cursor.moveToNext()) {
-                val path = cursor.getString(dataCol).orEmpty()
-                if (path.isEmpty()) continue
-                if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
-                val file = File(path)
-                if (!file.exists()) continue
+                while (cursor.moveToNext()) {
+                    val path = cursor.getString(dataCol).orEmpty()
+                    if (path.isEmpty()) continue
+                    if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
+                    val file = File(path)
+                    if (!file.exists()) continue
 
-                val rawTrackNumber = cursor.getInt(trackCol)
-                items += MediaStoreAudioItem(
-                    id = cursor.getLong(idCol),
-                    title = cursor.getString(titleCol).orEmpty(),
-                    artist = cursor.getString(artistCol).orEmpty(),
-                    album = cursor.getString(albumCol).orEmpty(),
-                    albumId = cursor.getLong(albumIdCol),
-                    duration = cursor.getLong(durationCol),
-                    path = path,
-                    fileName = cursor.getString(nameCol).orEmpty(),
-                    fileSize = cursor.getLong(sizeCol),
-                    mimeType = cursor.getString(mimeCol).orEmpty(),
-                    dateAdded = cursor.getLong(dateAddedCol) * 1000L,
-                    dateModified = cursor.getLong(dateModifiedCol) * 1000L,
-                    trackNumber = rawTrackNumber.normalizedTrackNumber(),
-                    discNumber = rawTrackNumber.normalizedDiscNumber()
-                )
+                    val rawTrackNumber = cursor.getInt(trackCol)
+                    items += MediaStoreAudioItem(
+                        id = cursor.getLong(idCol),
+                        title = cursor.getString(titleCol).orEmpty(),
+                        artist = cursor.getString(artistCol).orEmpty(),
+                        album = cursor.getString(albumCol).orEmpty(),
+                        albumId = cursor.getLong(albumIdCol),
+                        duration = cursor.getLong(durationCol),
+                        path = path,
+                        fileName = cursor.getString(nameCol).orEmpty(),
+                        fileSize = cursor.getLong(sizeCol),
+                        mimeType = cursor.getString(mimeCol).orEmpty(),
+                        dateAdded = cursor.getLong(dateAddedCol) * 1000L,
+                        dateModified = cursor.getLong(dateModifiedCol) * 1000L,
+                        trackNumber = rawTrackNumber.normalizedTrackNumber(),
+                        discNumber = rawTrackNumber.normalizedDiscNumber()
+                    )
+                }
             }
+        }
+        safIncludeFolders.forEach { folderUri ->
+            items += enumerateSafAudioFiles(Uri.parse(folderUri))
         }
         items
     }
@@ -132,6 +140,13 @@ class MusicScanner(private val context: Context) {
         var lyricist = ""
         var duration = item.duration
         var discNumber = item.discNumber
+        if (item.path.isContentUri()) {
+            return@withContext scanContentAudioItem(
+                item = item,
+                minDurationMs = minDurationMs,
+                deepMetadata = deepMetadata
+            )
+        }
         val file = File(item.path)
         if (!file.exists()) return@withContext null
 
@@ -260,6 +275,161 @@ class MusicScanner(private val context: Context) {
             composer = composer,
             lyricist = lyricist
         )
+    }
+
+    private fun scanContentAudioItem(
+        item: MediaStoreAudioItem,
+        minDurationMs: Long,
+        deepMetadata: Boolean
+    ): Song? {
+        var title = item.title
+        var artist = item.artist
+        var album = item.album
+        var albumArtist = ""
+        var genre = ""
+        var year = ""
+        var composer = ""
+        var lyricist = ""
+        var duration = item.duration
+        var discNumber = item.discNumber
+        val fallbackName = item.fileName.ifBlank { item.path.substringAfterLast('/') }
+        val uri = Uri.parse(item.path)
+        val shouldDeepRead = deepMetadata ||
+            isMissingTag(title, fallbackName) ||
+            isMissingTag(artist) ||
+            isMissingTag(album) ||
+            duration <= 0
+
+        if (shouldDeepRead) {
+            runCatching {
+                context.contentResolver.openFileDescriptor(uri, "r")?.use { fd ->
+                    val audioProps = TagLib.getAudioProperties(fd.dup().detachFd())
+                    val metadata = TagLib.getMetadata(fd.dup().detachFd(), false)
+                    val props = metadata?.propertyMap
+
+                    if (isMissingTag(title, fallbackName)) {
+                        title = props.firstValue("TITLE", "INAM", "NAME", "TIT2")
+                    }
+                    if (isMissingTag(artist)) {
+                        artist = props.firstValue("ARTIST", "ALBUMARTIST", "ALBUM ARTIST", "IART", "PERFORMER", "TPE1")
+                    }
+                    if (isMissingTag(album)) {
+                        album = props.firstValue("ALBUM", "IPRD", "PRODUCT", "WM/ALBUMTITLE", "TALB")
+                    }
+                    if (albumArtist.isBlank()) {
+                        albumArtist = props.firstValue("ALBUMARTIST", "ALBUM ARTIST", "ALBUM_ARTIST", "WM/ALBUMARTIST", "TPE2")
+                    }
+                    if (genre.isBlank()) {
+                        genre = props.firstValue("GENRE", "TCON")
+                    }
+                    if (year.isBlank()) {
+                        year = props.firstValue("DATE", "YEAR", "TYER", "TDRC").normalizeYear()
+                    }
+                    if (composer.isBlank()) {
+                        composer = props.firstValue("COMPOSER", "TCOM", "WM/COMPOSER")
+                    }
+                    if (lyricist.isBlank()) {
+                        lyricist = props.firstValue("LYRICIST", "TEXT", "WRITER", "AUTHOR", "WM/WRITER")
+                    }
+                    if (discNumber <= 0) {
+                        discNumber = props.firstValue("DISCNUMBER", "DISC", "TPOS").normalizedDiscNumberFromTag()
+                    }
+                    if (duration <= 0) {
+                        duration = ((audioProps?.length ?: 0) * 1000L)
+                    }
+                }
+            }.onFailure { error ->
+                Log.w(TAG, "TagLib metadata extraction failed for ${item.path}", error)
+            }
+        }
+
+        if (shouldDeepRead && (isMissingTag(title, fallbackName) || isMissingTag(artist) || isMissingTag(album) || duration <= 0)) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, uri)
+                if (isMissingTag(title, fallbackName)) title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
+                if (isMissingTag(artist)) artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: ""
+                if (isMissingTag(album)) album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: ""
+                if (duration <= 0) duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            } catch (e: Exception) {
+                Log.w(TAG, "Metadata extraction failed for ${item.path}", e)
+            } finally {
+                retriever.release()
+            }
+        }
+
+        if (isMissingTag(title, fallbackName)) title = fallbackName.substringBeforeLast('.')
+        if (isMissingTag(artist)) artist = "Unknown"
+        if (isMissingTag(album)) album = item.album.ifBlank { "Unknown" }
+
+        if (duration > 0L && duration < minDurationMs) return null
+
+        return Song(
+            id = item.id,
+            title = title,
+            artist = artist,
+            album = album,
+            albumId = item.albumId,
+            duration = duration,
+            path = item.path,
+            fileName = fallbackName,
+            fileSize = item.fileSize,
+            mimeType = item.mimeType,
+            dateAdded = item.dateAdded,
+            dateModified = item.dateModified,
+            trackNumber = item.trackNumber,
+            discNumber = discNumber,
+            albumArtist = albumArtist,
+            genre = genre,
+            year = year,
+            composer = composer,
+            lyricist = lyricist
+        )
+    }
+
+    private fun enumerateSafAudioFiles(treeUri: Uri): List<MediaStoreAudioItem> {
+        val root = DocumentFile.fromTreeUri(context, treeUri) ?: return emptyList()
+        val rootName = root.name.orEmpty()
+        val discovered = mutableListOf<MediaStoreAudioItem>()
+        val now = System.currentTimeMillis()
+
+        fun walk(directory: DocumentFile, albumName: String) {
+            val children = runCatching { directory.listFiles() }
+                .onFailure { error -> Log.w(TAG, "Failed to list SAF folder ${directory.uri}", error) }
+                .getOrDefault(emptyArray())
+
+            children.forEach { child ->
+                when {
+                    child.isDirectory -> walk(
+                        child,
+                        child.name?.takeIf { it.isNotBlank() } ?: albumName
+                    )
+                    child.isAudioDocument() -> {
+                        val uriString = child.uri.toString()
+                        val fileName = child.name.orEmpty().ifBlank { uriString.substringAfterLast('/') }
+                        discovered += MediaStoreAudioItem(
+                            id = stableContentId(uriString),
+                            title = fileName.substringBeforeLast('.').ifBlank { fileName },
+                            artist = "",
+                            album = albumName.ifBlank { rootName.ifBlank { "Unknown Album" } },
+                            albumId = 0L,
+                            duration = 0L,
+                            path = uriString,
+                            fileName = fileName,
+                            fileSize = child.length().takeIf { it >= 0L } ?: 0L,
+                            mimeType = child.type.orEmpty(),
+                            dateAdded = now,
+                            dateModified = child.lastModified().takeIf { it > 0L } ?: now,
+                            trackNumber = 0,
+                            discNumber = 0
+                        )
+                    }
+                }
+            }
+        }
+
+        walk(root, rootName)
+        return discovered
     }
 
     suspend fun scanAllSongs(
@@ -1176,6 +1346,23 @@ class MusicScanner(private val context: Context) {
         val normalized = trim().replace('\\', '/').trimEnd('/')
         return normalized.takeIf { it.isNotBlank() }?.lowercase()
     }
+
+    private fun String.isContentUri(): Boolean =
+        startsWith("content://", ignoreCase = true)
+
+    private fun String.isSafTreeUri(): Boolean =
+        isContentUri() && contains("/tree/", ignoreCase = true)
+
+    private fun DocumentFile.isAudioDocument(): Boolean {
+        if (!isFile) return false
+        val mime = type.orEmpty().lowercase()
+        if (mime.startsWith("audio/")) return true
+        val extension = name.orEmpty().substringAfterLast('.', "").lowercase()
+        return extension in setOf("mp3", "flac", "m4a", "aac", "ogg", "opus", "wav", "ape", "wv", "mp4", "3gp", "amr")
+    }
+
+    private fun stableContentId(value: String): Long =
+        -(kotlin.math.abs(value.hashCode().toLong()).coerceAtLeast(1L))
 
     private fun String.isAllowedByFolderFilters(
         includeFolders: List<String>,

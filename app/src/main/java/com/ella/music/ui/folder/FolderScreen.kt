@@ -418,19 +418,15 @@ fun ScanSettingsScreen(
             }.recoverCatching {
                 context.contentResolver.takePersistableUriPermission(uri, readOnly)
             }
-            val folderPath = uri.toPrimaryStoragePath()
-            if (folderPath == null) {
-                Toast.makeText(context, "暂不支持该系统目录路径", Toast.LENGTH_SHORT).show()
-            } else {
-                scope.launch {
-                    mainViewModel.settingsManager.setUseAndroidMediaLibrary(false)
-                    mainViewModel.settingsManager.setScanIncludeFolders(
-                        (savedFolders + folderPath).distinct().joinToString("；")
-                    )
-                    mainViewModel.scanMusic()
-                }
-                Toast.makeText(context, "已添加扫描文件夹", Toast.LENGTH_SHORT).show()
+            val folderPath = uri.toScanFolderSetting()
+            scope.launch {
+                mainViewModel.settingsManager.setUseAndroidMediaLibrary(false)
+                mainViewModel.settingsManager.setScanIncludeFolders(
+                    (savedFolders + folderPath).distinct().joinToString("；")
+                )
+                mainViewModel.scanMusic()
             }
+            Toast.makeText(context, "已添加扫描文件夹", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1087,3 +1083,6 @@ private fun Uri.toPrimaryStoragePath(): String? {
         else -> null
     }
 }
+
+private fun Uri.toScanFolderSetting(): String =
+    toPrimaryStoragePath() ?: toString()

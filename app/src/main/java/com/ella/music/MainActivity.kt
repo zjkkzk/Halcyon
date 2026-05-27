@@ -312,18 +312,14 @@ fun EllaApp(
         }.recoverCatching {
             context.contentResolver.takePersistableUriPermission(uri, readOnly)
         }
-        val folderPath = uri.toPrimaryStoragePath()
-        if (folderPath == null) {
-            Toast.makeText(context, context.getString(R.string.unsupported_system_folder_path), Toast.LENGTH_SHORT).show()
-        } else {
-            scope.launch {
-                settingsManager.setUseAndroidMediaLibrary(false)
-                settingsManager.setScanIncludeFolders(folderPath)
-                settingsManager.setAutoScan(true)
-                mainViewModel.scanMusic()
-            }
-            Toast.makeText(context, context.getString(R.string.scan_folder_added), Toast.LENGTH_SHORT).show()
+        val folderPath = uri.toScanFolderSetting()
+        scope.launch {
+            settingsManager.setUseAndroidMediaLibrary(false)
+            settingsManager.setScanIncludeFolders(folderPath)
+            settingsManager.setAutoScan(true)
+            mainViewModel.scanMusic()
         }
+        Toast.makeText(context, context.getString(R.string.scan_folder_added), Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(isPlayerVisible, isDarkTheme) {
@@ -904,3 +900,6 @@ private fun Uri.toPrimaryStoragePath(): String? {
         else -> null
     }
 }
+
+private fun Uri.toScanFolderSetting(): String =
+    toPrimaryStoragePath() ?: toString()
