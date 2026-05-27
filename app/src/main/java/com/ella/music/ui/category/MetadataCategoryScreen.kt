@@ -71,6 +71,7 @@ import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.MetadataCategoryItem
 import com.ella.music.viewmodel.PlayerViewModel
 import com.ella.music.ui.components.ConfirmDangerDialog
+import com.ella.music.ui.components.AlbumCard
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FolderOutlineIcon
@@ -81,6 +82,7 @@ import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.requestPinnedEllaShortcut
+import com.ella.music.ui.components.rememberAlbumGridColumns
 import com.ella.music.ui.navigation.Screen
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Icon
@@ -341,6 +343,7 @@ fun MetadataCategoryDetailScreen(
     val sortedAlbums = remember(detailAlbums, albumSortMode, albumDurations) {
         detailAlbums.sortedForMetadataAlbumDetail(albumSortMode, albumDurations)
     }
+    val albumGridColumns = rememberAlbumGridColumns(phoneColumns = 2)
     val hasSameNameArtist = remember(type, name, librarySongs) {
         (type == "composer" || type == "lyricist") && mainViewModel.getSongsForArtist(name).isNotEmpty()
     }
@@ -562,13 +565,40 @@ fun MetadataCategoryDetailScreen(
                     }
                 }
                 if (selectedTab == MetadataDetailTab.Albums) {
-                    items(sortedAlbums, key = { it.id }) { album ->
-                        MetadataAlbumRow(
-                            album = album,
-                            duration = albumDurations[album.id] ?: 0L,
-                            albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
-                            onClick = { onAlbumClick(album.id) }
-                        )
+                    if (albumGridColumns > 4) {
+                        items(
+                            items = sortedAlbums.chunked(albumGridColumns),
+                            key = { row -> row.joinToString("_") { it.id.toString() } }
+                        ) { rowAlbums ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(0.dp)
+                            ) {
+                                rowAlbums.forEach { album ->
+                                    AlbumCard(
+                                        album = album,
+                                        albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
+                                        summary = "${album.songCount} 首歌曲 · ${(albumDurations[album.id] ?: 0L).formatDuration()}",
+                                        onClick = { onAlbumClick(album.id) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                repeat(albumGridColumns - rowAlbums.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    } else {
+                        items(sortedAlbums, key = { it.id }) { album ->
+                            MetadataAlbumRow(
+                                album = album,
+                                duration = albumDurations[album.id] ?: 0L,
+                                albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
+                                onClick = { onAlbumClick(album.id) }
+                            )
+                        }
                     }
                 } else {
                     itemsIndexed(sortedSongs, key = { _, song -> song.id }) { index, song ->

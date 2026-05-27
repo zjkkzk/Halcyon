@@ -922,7 +922,7 @@ fun SettingsDetailScreen(
                         SplitSettingTextField(
                             label = "自定义信息",
                             value = lyricShareCustomInfo,
-                            summary = "留空显示 Via Ella；填写名称后显示为 Via @名称",
+                            summary = "留空显示 via Ella Music；填写名称后显示为 via @名称",
                             onValueChange = { value -> scope.launch { settingsManager.setLyricShareCustomInfo(value) } }
                         )
                     }

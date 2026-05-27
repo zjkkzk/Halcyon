@@ -48,6 +48,7 @@ import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.requestPinnedEllaShortcut
+import com.ella.music.ui.components.rememberAlbumGridColumns
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -83,6 +84,7 @@ fun AlbumScreen(
     val sortMode = AlbumSortMode.entries.getOrElse(sortIndex) { AlbumSortMode.Name }
     val gridColumns by mainViewModel.settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val safeGridColumns = gridColumns.coerceIn(1, 4)
+    val albumGridColumns = rememberAlbumGridColumns(safeGridColumns)
     val scope = rememberCoroutineScope()
     var scrollToTopRequest by remember { mutableStateOf(0) }
     val albumDurations = remember(songs) {
@@ -227,7 +229,7 @@ fun AlbumScreen(
         } else {
             val gridState = rememberLazyGridState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
-            LaunchedEffect(sortMode, searchQuery, safeGridColumns) {
+            LaunchedEffect(sortMode, searchQuery, albumGridColumns) {
                 gridState.scrollToItem(0)
             }
             LaunchedEffect(scrollToTopRequest) {
@@ -250,7 +252,7 @@ fun AlbumScreen(
                     )
 
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(safeGridColumns),
+                        columns = GridCells.Fixed(albumGridColumns),
                         state = gridState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 160.dp)
