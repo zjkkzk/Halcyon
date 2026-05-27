@@ -704,7 +704,6 @@ fun PlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(palette.middle)
             .pointerInput(showLyrics, dismissingPlayer, dismissTargetPx, dismissThresholdPx) {
                 var closeGesture = false
                 var gestureOffset = 0f
@@ -774,6 +773,7 @@ fun PlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(palette.middle)
                 .graphicsLayer {
                     val progress = (dragDismissOffset.value / dismissThresholdPx).coerceIn(0f, 1f)
                     translationY = dragDismissOffset.value
@@ -5252,7 +5252,6 @@ private fun CometSeekBar(
     val safeProgress = value.coerceIn(0f, 1f)
     var draggingProgress by remember { mutableStateOf<Float?>(null) }
     val displayProgress = draggingProgress ?: safeProgress
-    val cometColor = accent
 
     fun progressAt(width: Float, x: Float): Float {
         return (x / width.coerceAtLeast(1f)).coerceIn(0f, 1f)
@@ -5261,35 +5260,36 @@ private fun CometSeekBar(
     Box(modifier = modifier.height(24.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centerY = size.height / 2f
-            val trackHeight = 3.dp.toPx()
-            val radius = trackHeight / 2f
+            val trackHeight = 2.5.dp.toPx()
+            val trackRadius = trackHeight / 2f
             val x = (size.width * displayProgress.coerceIn(0f, 1f)).coerceIn(0f, size.width)
 
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.18f),
+                color = Color.White.copy(alpha = 0.12f),
                 topLeft = Offset(0f, centerY - trackHeight / 2),
                 size = Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(radius, radius)
+                cornerRadius = CornerRadius(trackRadius, trackRadius)
             )
 
-            if (x > 0f) {
+            if (x > 1f) {
                 drawRoundRect(
-                    color = cometColor.copy(alpha = 0.22f),
+                    color = Color.White.copy(alpha = 0.28f),
                     topLeft = Offset(0f, centerY - trackHeight / 2),
                     size = Size(x, trackHeight),
-                    cornerRadius = CornerRadius(radius, radius)
+                    cornerRadius = CornerRadius(trackRadius, trackRadius)
                 )
             }
 
-            val tailLength = (size.width * 0.32f).coerceAtMost(160.dp.toPx())
+            val tailLength = (size.width * 0.35f).coerceAtMost(200.dp.toPx())
             val tailStart = (x - tailLength).coerceAtLeast(0f)
             if (x > tailStart && tailLength > 0f) {
                 val tailBrush = Brush.horizontalGradient(
                     colorStops = arrayOf(
-                        0.0f to cometColor.copy(alpha = 0.00f),
-                        0.55f to cometColor.copy(alpha = 0.16f),
-                        0.82f to cometColor.copy(alpha = 0.48f),
-                        1.0f to cometColor.copy(alpha = 0.95f)
+                        0.0f to Color.White.copy(alpha = 0.00f),
+                        0.40f to Color.White.copy(alpha = 0.08f),
+                        0.70f to Color.White.copy(alpha = 0.30f),
+                        0.88f to Color.White.copy(alpha = 0.65f),
+                        1.0f to Color.White.copy(alpha = 0.95f)
                     ),
                     startX = tailStart,
                     endX = x
@@ -5303,26 +5303,63 @@ private fun CometSeekBar(
                 )
             }
 
-            val glowRadius = 10.dp.toPx()
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        cometColor.copy(alpha = 0.90f),
-                        cometColor.copy(alpha = 0.30f),
-                        cometColor.copy(alpha = 0.00f)
+            val headLength = 34.dp.toPx()
+            val headHalfHeight = 8.dp.toPx()
+            val headStart = (x - headLength).coerceAtLeast(0f)
+            if (x > 1f && headLength > 0f) {
+                val headPath = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(headStart, centerY - headHalfHeight)
+                    quadraticBezierTo(
+                        x - headLength * 0.35f, centerY - headHalfHeight * 0.85f,
+                        x, centerY
+                    )
+                    quadraticBezierTo(
+                        x - headLength * 0.35f, centerY + headHalfHeight * 0.85f,
+                        headStart, centerY + headHalfHeight
+                    )
+                    close()
+                }
+                val headBrush = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = 0.00f),
+                        0.55f to Color.White.copy(alpha = 0.45f),
+                        0.85f to Color.White.copy(alpha = 0.95f),
+                        1.0f to Color.White
                     ),
-                    center = Offset(x, centerY),
-                    radius = glowRadius
-                ),
-                radius = glowRadius,
-                center = Offset(x, centerY)
-            )
+                    startX = headStart,
+                    endX = x
+                )
+                drawPath(path = headPath, brush = headBrush)
+            }
 
-            drawCircle(
-                color = cometColor,
-                radius = 2.2.dp.toPx(),
-                center = Offset(x, centerY)
-            )
+            if (x > 1f) {
+                val coreLength = 6.dp.toPx()
+                val coreHeight = 2.2.dp.toPx()
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset((x - coreLength).coerceAtLeast(0f), centerY - coreHeight / 2),
+                    size = Size(coreLength, coreHeight),
+                    cornerRadius = CornerRadius(coreHeight / 2, coreHeight / 2)
+                )
+            }
+
+            val glowLength = 12.dp.toPx()
+            if (x < size.width - 0.5f) {
+                val aheadBrush = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0.0f to Color.White.copy(alpha = 0.30f),
+                        1.0f to Color.White.copy(alpha = 0.00f)
+                    ),
+                    startX = x,
+                    endX = (x + glowLength).coerceAtMost(size.width)
+                )
+                drawRoundRect(
+                    brush = aheadBrush,
+                    topLeft = Offset(x, centerY - trackHeight),
+                    size = Size(glowLength, trackHeight * 2),
+                    cornerRadius = CornerRadius(trackHeight, trackHeight)
+                )
+            }
         }
         Box(
             modifier = Modifier
