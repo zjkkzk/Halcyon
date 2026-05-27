@@ -18,7 +18,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -271,9 +270,6 @@ fun EllaApp(
     var showPlayerOverlay by remember { mutableStateOf(false) }
     var playerDismissProgress by remember { mutableFloatStateOf(0f) }
     var playerOverlayOpenToken by remember { mutableIntStateOf(0) }
-    val playerVisibleState = remember { MutableTransitionState(false) }
-    playerVisibleState.targetState = showPlayerOverlay
-    val isPlayerExitAnimating = !playerVisibleState.targetState && playerVisibleState.currentState
     val isPlayerVisible = showPlayerOverlay || currentRoute == Screen.Player.route
     val libraryCacheLoaded by mainViewModel.libraryCacheLoaded.collectAsState()
     val initialScanPromptHandled by settingsManager.initialScanPromptHandled.collectAsState(initial = true)
@@ -422,8 +418,7 @@ fun EllaApp(
 
     val showMiniPlayer = currentSong != null &&
         currentRoute != Screen.Player.route &&
-        !showPlayerOverlay &&
-        !isPlayerExitAnimating
+        !showPlayerOverlay
     LaunchedEffect(showMiniPlayer, canCompactBottomDock) {
         if (!showMiniPlayer || !canCompactBottomDock) bottomDockMode = BottomDockMode.Expanded
     }
@@ -457,7 +452,7 @@ fun EllaApp(
         .layerBackdrop(backdrop)
     val previousContentBlur = if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-        (showPlayerOverlay || isPlayerExitAnimating)
+        showPlayerOverlay
     ) {
         7.dp * playerDismissProgress.coerceIn(0f, 1f)
     } else {
@@ -535,9 +530,9 @@ fun EllaApp(
             )
         }
         AnimatedVisibility(
-            visibleState = playerVisibleState,
+            visible = showPlayerOverlay,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
             PlayerScreen(
@@ -545,20 +540,24 @@ fun EllaApp(
                 onBack = {
                     playerViewModel.setShowLyrics(false)
                     showPlayerOverlay = false
+                    playerDismissProgress = 0f
                 },
                 onNavigateToAlbum = { albumId ->
                     playerViewModel.setShowLyrics(false)
                     showPlayerOverlay = false
+                    playerDismissProgress = 0f
                     navController.navigate(Screen.AlbumDetail.createRoute(albumId))
                 },
                 onNavigateToArtist = { artistName ->
                     playerViewModel.setShowLyrics(false)
                     showPlayerOverlay = false
+                    playerDismissProgress = 0f
                     navController.navigate(Screen.ArtistDetail.createRoute(artistName))
                 },
                 onNavigateToMetadataCategory = { type, name ->
                     playerViewModel.setShowLyrics(false)
                     showPlayerOverlay = false
+                    playerDismissProgress = 0f
                     navController.navigate(Screen.MetadataCategoryDetail.createRoute(type, name))
                 },
                 onDismissProgressChange = { progress ->
