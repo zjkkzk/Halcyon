@@ -317,7 +317,12 @@ private fun DailyMixCard(
                 )
             }
 
-            Column(modifier = Modifier.align(Alignment.CenterStart)) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxWidth()
+                    .padding(end = 140.dp)
+            ) {
                 Text(
                     text = stringResource(R.string.home_daily_mix),
                     fontSize = 30.sp,
@@ -332,8 +337,9 @@ private fun DailyMixCard(
                     lineHeight = 19.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    softWrap = true,
                     modifier = Modifier
-                        .fillMaxWidth(0.72f)
+                        .fillMaxWidth()
                         .padding(top = 6.dp)
                 )
                 Spacer(modifier = Modifier.height(18.dp))
