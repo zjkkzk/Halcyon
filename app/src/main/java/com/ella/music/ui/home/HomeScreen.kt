@@ -428,7 +428,7 @@ fun LibraryScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "未找到歌曲，点击左上角刷新扫描",
+                    text = "未找到歌曲，点击右上角刷新扫描",
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }

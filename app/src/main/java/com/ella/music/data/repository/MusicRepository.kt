@@ -8,7 +8,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaScannerConnection
 import android.net.Uri
-import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.util.LruCache
@@ -33,17 +32,13 @@ import com.ella.music.data.webdav.WebDavClient
 import com.ella.music.data.webdav.WebDavConfig
 import java.io.File
 import java.security.MessageDigest
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -67,9 +62,6 @@ private sealed class CoverDataState {
     data object Missing : CoverDataState()
     data class Error(val message: String?) : CoverDataState()
 }
-
-private const val SCAN_PROGRESS_BATCH = 100
-private const val TAG_ENRICHMENT_BATCH = 200
 
 class MusicRepository(private val context: Context) {
 
@@ -111,9 +103,6 @@ class MusicRepository(private val context: Context) {
     private val coverDataStates = ConcurrentHashMap<String, CoverDataState>()
     private val libraryCacheFile = File(context.filesDir, "music_library_cache.json")
     private val remoteAudioCacheDir = File(context.cacheDir, "webdav_audio")
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var libraryEnrichmentJob: Job? = null
-    private var pendingLibraryEnrichmentItems: List<MediaStoreAudioItem> = emptyList()
 
     suspend fun scanMusic(
         minDurationMs: Long = 0,
@@ -132,19 +121,24 @@ class MusicRepository(private val context: Context) {
                 "Start scan mode=$mode minDuration=${minDurationMs}ms include=${includeFolders.size} exclude=${excludeFolders.size} fullRescan=$fullRescan deepRescan=$deepRescan",
                 AppLogType.LIBRARY
             )
-            libraryEnrichmentJob?.cancel()
-            val scannedSongs = synchronizeLibrary(
-                minDurationMs = minDurationMs,
-                includeFolders = includeFolders,
-                excludeFolders = excludeFolders,
-                forceRefreshAll = fullRescan || deepRescan
-            )
+            val scannedSongs = if (fullRescan || deepRescan) {
+                scanner.scanAllSongs(
+                    minDurationMs = minDurationMs,
+                    includeFolders = includeFolders,
+                    excludeFolders = excludeFolders,
+                    deepMetadata = true
+                ) { count -> _scanProgress.value = count }
+                    .map { song -> song.withRepositoryTags() }
+            } else {
+                synchronizeLibrary(
+                    minDurationMs = minDurationMs,
+                    includeFolders = includeFolders,
+                    excludeFolders = excludeFolders
+                )
+            }
             _songs.value = scannedSongs
             _albums.value = scannedSongs.toAlbums()
             saveLibraryCache(scannedSongs, _albums.value)
-            val enrichmentItems = pendingLibraryEnrichmentItems
-            pendingLibraryEnrichmentItems = emptyList()
-            scheduleLibraryTagEnrichment(enrichmentItems)
             AppLogStore.info(
                 context,
                 "MusicScanner",
@@ -169,41 +163,34 @@ class MusicRepository(private val context: Context) {
     private suspend fun synchronizeLibrary(
         minDurationMs: Long,
         includeFolders: List<String>,
-        excludeFolders: List<String>,
-        forceRefreshAll: Boolean
+        excludeFolders: List<String>
     ): List<Song> = withContext(Dispatchers.IO) {
-        val startedAt = SystemClock.elapsedRealtime()
         val cachedSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
         val cachedBySyncKey = cachedSongs.associateBy { it.librarySyncKey() }
         val cachedByPath = cachedSongs.associateBy { it.path }
-        val enumerateStartedAt = SystemClock.elapsedRealtime()
         val currentItems = scanner.enumerateAudioFiles(
             includeFolders = includeFolders,
             excludeFolders = excludeFolders
         )
-        val enumerateElapsed = SystemClock.elapsedRealtime() - enumerateStartedAt
         val currentKeys = currentItems.map { it.librarySyncKey() }.toSet()
         val currentPaths = currentItems.map { it.path }.toSet()
         val mergedSongs = ArrayList<Song>(currentItems.size)
-        val enrichmentItems = ArrayList<MediaStoreAudioItem>()
         var addedCount = 0
         var updatedCount = 0
         var reusedCount = 0
         var failedCount = 0
-        var lastProgress = 0
 
         currentItems.forEachIndexed { index, item ->
             val cached = cachedBySyncKey[item.librarySyncKey()] ?: cachedByPath[item.path]
             val mediaStoreSaysTooShort = item.duration > 0L && item.duration < minDurationMs
             if (mediaStoreSaysTooShort) {
-                lastProgress = publishScanProgress(index + 1, lastProgress)
+                _scanProgress.value = index + 1
                 return@forEachIndexed
             }
 
             val currentInfo = item.toLibrarySyncInfo()
             val cachedInfo = cached?.toLibrarySyncInfo()
-            val needsUpdate = forceRefreshAll ||
-                cachedInfo == null ||
+            val needsUpdate = cachedInfo == null ||
                 cachedInfo.key != currentInfo.key ||
                 cachedInfo.path != currentInfo.path ||
                 cachedInfo.fileSize != currentInfo.fileSize ||
@@ -211,13 +198,17 @@ class MusicRepository(private val context: Context) {
 
             if (needsUpdate) {
                 val scanned = runCatching {
-                    item.toFastLibrarySong(cached, minDurationMs)
+                    scanner.scanAudioItem(
+                        item = item,
+                        minDurationMs = minDurationMs,
+                        deepMetadata = true
+                    )?.withRepositoryTags()
                 }.onFailure { error ->
                     failedCount++
                     AppLogStore.warn(
                         context,
                         "MusicScanner",
-                        "Fast item scan failed path=${item.path}: ${error.message ?: error.javaClass.name}",
+                        "Incremental item failed path=${item.path}: ${error.message ?: error.javaClass.name}",
                         type = AppLogType.LIBRARY
                     )
                 }.getOrNull()
@@ -226,7 +217,6 @@ class MusicRepository(private val context: Context) {
                     cached?.let(::clearMetadataCache)
                     clearMetadataCache(scanned)
                     mergedSongs += scanned
-                    enrichmentItems += item
                     if (cached == null) addedCount++ else updatedCount++
                 } else if (cached != null) {
                     mergedSongs += cached
@@ -239,15 +229,14 @@ class MusicRepository(private val context: Context) {
                     dateAdded = item.dateAdded.takeIf { it > 0L } ?: cached.dateAdded,
                     trackNumber = item.trackNumber.takeIf { it > 0 } ?: cached.trackNumber,
                     discNumber = item.discNumber.takeIf { it > 0 } ?: cached.discNumber
-                )
+                ).withRepositoryTags()
                 if (reused.duration >= minDurationMs) {
                     mergedSongs += reused
                     if (cached.hasSameLibraryTags(reused)) reusedCount++ else updatedCount++
                 }
             }
-            lastProgress = publishScanProgress(index + 1, lastProgress)
+            _scanProgress.value = index + 1
         }
-        if (lastProgress != currentItems.size) _scanProgress.value = currentItems.size
 
         val deletedSongs = cachedSongs.filter { song ->
             song.librarySyncKey() !in currentKeys && song.path !in currentPaths
@@ -263,76 +252,9 @@ class MusicRepository(private val context: Context) {
         )
         Log.d(
             "MusicScanner",
-            "Incremental scan finished total=${currentItems.size} added=$addedCount updated=$updatedCount reused=$reusedCount deleted=$deletedCount failed=$failedCount enumerate=${enumerateElapsed}ms elapsed=${SystemClock.elapsedRealtime() - startedAt}ms"
+            "Incremental scan finished total=${currentItems.size} added=$addedCount updated=$updatedCount reused=$reusedCount deleted=$deletedCount failed=$failedCount"
         )
-        pendingLibraryEnrichmentItems = enrichmentItems
         mergedSongs
-    }
-
-    private fun publishScanProgress(value: Int, previous: Int): Int {
-        return if (value == previous || (value < previous + SCAN_PROGRESS_BATCH && value % SCAN_PROGRESS_BATCH != 0)) {
-            previous
-        } else {
-            _scanProgress.value = value
-            value
-        }
-    }
-
-    private fun scheduleLibraryTagEnrichment(items: List<MediaStoreAudioItem>) {
-        if (items.isEmpty()) return
-        libraryEnrichmentJob?.cancel()
-        libraryEnrichmentJob = repositoryScope.launch {
-            val startedAt = SystemClock.elapsedRealtime()
-            val updates = LinkedHashMap<String, Song>()
-            var successCount = 0
-            var failedCount = 0
-
-            items.forEachIndexed { index, item ->
-                val enriched = runCatching {
-                    scanner.scanAudioItem(
-                        item = item,
-                        minDurationMs = 0L,
-                        deepMetadata = true
-                    )?.withRepositoryTags()
-                }.onFailure { error ->
-                    failedCount++
-                    AppLogStore.warn(
-                        context,
-                        "MusicScanner",
-                        "Background tag enrichment failed path=${item.path}: ${error.message ?: error.javaClass.name}",
-                        type = AppLogType.LIBRARY
-                    )
-                }.getOrNull()
-
-                if (enriched != null) {
-                    successCount++
-                    updates[enriched.librarySyncKey()] = enriched
-                    updates[enriched.path] = enriched
-                }
-
-                if (updates.size >= TAG_ENRICHMENT_BATCH || index == items.lastIndex) {
-                    applyEnrichedSongs(updates)
-                    updates.clear()
-                }
-            }
-
-            AppLogStore.info(
-                context,
-                "MusicScanner",
-                "Background tag enrichment finished total=${items.size} updated=$successCount failed=$failedCount elapsed=${SystemClock.elapsedRealtime() - startedAt}ms",
-                AppLogType.LIBRARY
-            )
-        }
-    }
-
-    private suspend fun applyEnrichedSongs(updates: Map<String, Song>) {
-        if (updates.isEmpty()) return
-        val nextSongs = _songs.value.map { song ->
-            updates[song.librarySyncKey()] ?: updates[song.path] ?: song
-        }
-        _songs.value = nextSongs
-        _albums.value = nextSongs.toAlbums()
-        saveLibraryCache(nextSongs, _albums.value)
     }
 
     suspend fun refreshSongAfterExternalEdit(song: Song): Song? = withContext(Dispatchers.IO) {
@@ -397,8 +319,7 @@ class MusicRepository(private val context: Context) {
             }
         }
 
-        val effectivePath = song.effectiveLocalPathForMetadata(requireFullDownload = true)
-            ?: return@withContext emptyList()
+        val effectivePath = song.effectiveLocalPathForMetadata()
         if (safeMode != SettingsManager.LYRIC_SOURCE_EXTERNAL) {
             loadEmbeddedLyrics(song, effectivePath)?.let { embeddedLyrics ->
                 lyricsCache[cacheKey] = embeddedLyrics
@@ -487,18 +408,14 @@ class MusicRepository(private val context: Context) {
 
     fun getReplayGain(song: Song): Float? {
         replayGainCache[song.id]?.let { return it }
-        val metadataPath = song.effectiveLocalPathForMetadata(allowPartialCache = true)
-        val gain = metadataPath?.let(scanner::extractReplayGain)
+        val gain = scanner.extractReplayGain(song.effectiveLocalPathForMetadata())
         replayGainCache[song.id] = gain
         return gain
     }
 
     fun getAudioInfo(song: Song): AudioInfo {
         audioInfoCache[song.id]?.let { return it }
-        val metadataPath = song.effectiveLocalPathForMetadata(allowPartialCache = true)
-        runCatching {
-            metadataPath?.let(audioTagRepository::readQualityInfoBlocking)
-        }.getOrNull()?.let { quality ->
+        audioTagRepository.readQualityInfoBlocking(song.effectiveLocalPathForMetadata())?.let { quality ->
             val info = AudioInfo(
                 format = song.audioFormatLabel(quality.mimeType),
                 bitRate = quality.bitRate.takeIf { it > 0 } ?: song.estimatedBitRate(),
@@ -510,10 +427,9 @@ class MusicRepository(private val context: Context) {
             return info
         }
         val info = runCatching {
-            val extractorPath = metadataPath ?: return@runCatching AudioInfo(format = song.audioFormatLabel(null))
             val extractor = MediaExtractor()
             try {
-                extractor.setDataSource(extractorPath)
+                extractor.setDataSource(song.effectiveLocalPathForMetadata())
                 var audioFormat: MediaFormat? = null
                 for (index in 0 until extractor.trackCount) {
                     val format = extractor.getTrackFormat(index)
@@ -550,10 +466,7 @@ class MusicRepository(private val context: Context) {
         val cacheKey = "${song.id}:${song.dateModified}:${song.fileSize}"
         tagInfoCache[cacheKey]?.let { return it }
         val info = runCatching {
-            song.effectiveLocalPathForMetadata(allowPartialCache = true)
-                ?.let(audioTagRepository::readTagsBlocking)
-                ?.toSongTagInfo()
-                ?: SongTagInfo()
+            audioTagRepository.readTagsBlocking(song.effectiveLocalPathForMetadata())?.toSongTagInfo() ?: SongTagInfo()
         }.getOrElse {
             Log.w("MusicRepo", "Failed to read tag info for ${song.path}", it)
             SongTagInfo()
@@ -583,8 +496,7 @@ class MusicRepository(private val context: Context) {
         synchronized(coverArtLock) {
             coverArtCache.get(cacheKey)?.let { return it }
             val art = try {
-                song.effectiveLocalPathForMetadata(requireFullDownload = true)
-                    ?.let(audioTagRepository::readEmbeddedCoverDataBlocking)
+                audioTagRepository.readEmbeddedCoverDataBlocking(song.effectiveLocalPathForMetadata())
             } catch (error: Throwable) {
                 if (error is OutOfMemoryError) {
                     coverArtCache.evictAll()
@@ -717,7 +629,7 @@ class MusicRepository(private val context: Context) {
         audioInfoCache.remove(song.id)
         tagInfoCache.keys.removeAll { it.startsWith("${song.id}:") }
         replayGainCache.remove(song.id)
-        song.cachedMetadataPathCandidates().forEach(audioTagRepository::clear)
+        audioTagRepository.clear(song.effectiveLocalPathForMetadata())
         val keyPrefix = song.coverCacheKey()
         coverDataStates.keys.removeAll { it.startsWith(keyPrefix) }
         coverArtCache.remove(song.coverDataCacheKey())
@@ -742,52 +654,22 @@ class MusicRepository(private val context: Context) {
         }
     }
 
-    fun prefetchRemoteMetadata(song: Song) {
-        if (!song.shouldUseRemoteMetadataCache()) return
-        repositoryScope.launch {
-            val metadataPath = song.effectiveLocalPathForMetadata(allowPartialCache = true)
-                ?: return@launch
-            runCatching { audioTagRepository.readQualityInfoBlocking(metadataPath) }
-                .onFailure { Log.w("MusicRepo", "Failed to prefetch quality info for ${song.path}", it) }
-            runCatching { audioTagRepository.readTagsBlocking(metadataPath) }
-                .onFailure { Log.w("MusicRepo", "Failed to prefetch tag info for ${song.path}", it) }
-        }
-    }
-
-    private fun Song.effectiveLocalPathForMetadata(
-        allowPartialCache: Boolean = false,
-        requireFullDownload: Boolean = false
-    ): String? {
-        if (!shouldUseRemoteMetadataCache()) return path.takeIf { it.isNotBlank() }
-        val remoteTargets = remoteMetadataTargets()
-        remoteTargets.full.takeIf { it.exists() && it.length() > 0L }?.let { return it.absolutePath }
-        if (!requireFullDownload && allowPartialCache) {
-            remoteTargets.partial.takeIf { it.exists() && it.length() > 0L }?.let { return it.absolutePath }
-        }
-        val config = currentWebDavConfigFor(path) ?: return null
-        if (!requireFullDownload && allowPartialCache) {
-            val partialBytes = runCatching {
-                WebDavClient.downloadHeaderBytes(path, config)
-            }.getOrElse {
-                Log.w("MusicRepo", "Failed to prefetch remote metadata bytes for $path", it)
-                null
-            }
-            if (partialBytes != null && partialBytes.isNotEmpty()) {
-                runCatching {
-                    remoteTargets.partial.parentFile?.mkdirs()
-                    remoteTargets.partial.writeBytes(partialBytes)
-                    remoteTargets.partial.absolutePath
-                }.onFailure {
-                    Log.w("MusicRepo", "Failed to persist remote metadata header for $path", it)
-                }.getOrNull()?.let { return it }
-            }
-        }
+    private fun Song.effectiveLocalPathForMetadata(): String {
+        if (!path.startsWith("http://") && !path.startsWith("https://")) return path
+        val target = File(remoteAudioCacheDir, "${path.sha256()}.${fileName.substringAfterLast('.', "audio")}")
+        if (target.exists() && target.length() > 0L) return target.absolutePath
         return runCatching {
-            remoteTargets.full.parentFile?.mkdirs()
-            WebDavClient.downloadToFile(path, config, remoteTargets.full).absolutePath
+            val config = runBlocking(Dispatchers.IO) {
+                WebDavConfig(
+                    url = settingsManager.webDavUrl.first(),
+                    username = settingsManager.webDavUsername.first(),
+                    password = settingsManager.webDavPassword.first()
+                )
+            }
+            WebDavClient.downloadToFile(path, config, target).absolutePath
         }.getOrElse {
             Log.w("MusicRepo", "Failed to cache remote metadata file for $path", it)
-            null
+            path
         }
     }
 
@@ -855,9 +737,8 @@ class MusicRepository(private val context: Context) {
     }
 
     private fun Song.withRepositoryTags(): Song {
-        val metadataPath = effectiveLocalPathForMetadata(allowPartialCache = true)
         val tagInfo = runCatching {
-            metadataPath?.let(audioTagRepository::readTagsBlocking)
+            audioTagRepository.readTagsBlocking(effectiveLocalPathForMetadata())
         }.getOrElse { error ->
             Log.w("MusicRepo", "Failed to refresh library tags for $path", error)
             null
@@ -887,48 +768,6 @@ class MusicRepository(private val context: Context) {
             lyricist = tagInfo.lyricist.takeIf { it.isUsableTagText() } ?: lyricist,
             trackNumber = tagInfo.trackNumber ?: trackNumber,
             discNumber = tagInfo.discNumber ?: discNumber
-        ).withFinalLibraryFallbacks()
-    }
-
-    private fun MediaStoreAudioItem.toFastLibrarySong(cached: Song?, minDurationMs: Long): Song? {
-        if (duration > 0L && duration < minDurationMs) return null
-        val displayName = fileName.ifBlank { path.substringAfterLast('/') }
-        val fastArtist = artist.takeIf { it.isUsableTagText() }
-            ?: cached?.artist?.takeIf { it.isUsableTagText() }
-            ?: "Unknown Artist"
-        val fastAlbum = album.takeIf { it.isUsableAlbumText() }
-            ?: cached?.album?.takeIf { it.isUsableAlbumText() }
-            ?: path.parentFolderName().takeIf { it.isUsableAlbumText() }
-            ?: "Unknown Album"
-        val fastAlbumArtist = cached?.albumArtist?.takeIf { it.isUsableTagText() && !it.isUnknownArtistValue() }
-            ?: fastArtist
-        return Song(
-            id = id,
-            title = title.takeIf { it.isUsableTagText() }
-                ?: cached?.title?.takeIf { it.isUsableTagText() }
-                ?: displayName.substringBeforeLast('.').ifBlank { path.substringAfterLast('/') },
-            artist = fastArtist,
-            album = fastAlbum,
-            albumId = albumId,
-            duration = duration,
-            path = path,
-            fileName = displayName,
-            fileSize = fileSize,
-            mimeType = mimeType,
-            dateAdded = dateAdded,
-            dateModified = dateModified,
-            trackNumber = trackNumber.takeIf { it > 0 } ?: cached?.trackNumber ?: 0,
-            discNumber = discNumber.takeIf { it > 0 } ?: cached?.discNumber ?: 0,
-            albumArtist = fastAlbumArtist,
-            genre = cached?.genre.orEmpty(),
-            year = cached?.year.orEmpty(),
-            composer = cached?.composer.orEmpty(),
-            lyricist = cached?.lyricist.orEmpty(),
-            coverUrl = cached?.coverUrl.orEmpty(),
-            onlineSource = cached?.onlineSource.orEmpty(),
-            onlineId = cached?.onlineId.orEmpty(),
-            onlineLyrics = cached?.onlineLyrics.orEmpty(),
-            onlineLyricTranslation = cached?.onlineLyricTranslation.orEmpty()
         ).withFinalLibraryFallbacks()
     }
 
@@ -1097,9 +936,8 @@ class MusicRepository(private val context: Context) {
 
         return context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
-            val metadataPath = song.effectiveLocalPathForMetadata(allowPartialCache = true)
             val tagInfo = runCatching {
-                metadataPath?.let(audioTagRepository::readTagsBlocking)?.toSongTagInfo()
+                audioTagRepository.readTagsBlocking(song.effectiveLocalPathForMetadata())?.toSongTagInfo()
             }.getOrNull() ?: SongTagInfo()
             Song(
                 id = cursor.getLong(0),
@@ -1147,40 +985,6 @@ class MusicRepository(private val context: Context) {
 
     private fun Song.coverDataCacheKey(): String =
         "${coverCacheKey()}:$dateModified:$fileSize"
-
-    private fun Song.shouldUseRemoteMetadataCache(): Boolean =
-        onlineSource.isBlank() && (path.startsWith("http://") || path.startsWith("https://"))
-
-    private fun Song.cachedMetadataPathCandidates(): List<String> =
-        if (!shouldUseRemoteMetadataCache()) {
-            listOfNotNull(path.takeIf { it.isNotBlank() })
-        } else {
-            remoteMetadataTargets().let { targets ->
-                listOf(targets.full, targets.partial)
-                    .filter { it.exists() && it.length() > 0L }
-                    .map(File::getAbsolutePath)
-            }
-        }
-
-    private fun Song.remoteMetadataTargets(): RemoteMetadataTargets {
-        val extension = fileName.substringAfterLast('.', "audio").lowercase()
-        val hash = path.sha256()
-        return RemoteMetadataTargets(
-            full = File(remoteAudioCacheDir, "${hash}.${extension}"),
-            partial = File(remoteAudioCacheDir, "${hash}.header.${extension}")
-        )
-    }
-
-    private fun currentWebDavConfigFor(url: String): WebDavConfig? {
-        val config = runBlocking(Dispatchers.IO) {
-            WebDavConfig(
-                url = settingsManager.webDavUrl.first(),
-                username = settingsManager.webDavUsername.first(),
-                password = settingsManager.webDavPassword.first()
-            )
-        }
-        return config.takeIf { it.url.isNotBlank() && url.startsWith(it.url.trimEnd('/'), ignoreCase = true) }
-    }
 
     private fun Song.librarySyncKey(): String =
         if (id > 0L) {
@@ -1269,10 +1073,5 @@ class MusicRepository(private val context: Context) {
         val path: String,
         val fileSize: Long,
         val dateModified: Long
-    )
-
-    private data class RemoteMetadataTargets(
-        val full: File,
-        val partial: File
     )
 }

@@ -477,7 +477,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             playerManager.currentSong.collectLatest { song ->
                 if (song != null) {
-                    prefetchRemoteMetadataAround(song)
                     val songKey = song.lyricIdentityKey()
                     if (loadedLyricSongKey == songKey) {
                         updateCurrentLyricIndex()
@@ -509,15 +508,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
-    }
-
-    private fun prefetchRemoteMetadataAround(song: Song) {
-        repository.prefetchRemoteMetadata(song)
-        val queue = playlist.value
-        val currentIndex = queue.indexOfFirst { it.id == song.id && it.path == song.path }
-        if (currentIndex < 0) return
-        queue.getOrNull(currentIndex + 1)?.let(repository::prefetchRemoteMetadata)
-        queue.getOrNull(currentIndex + 2)?.let(repository::prefetchRemoteMetadata)
     }
 
     private fun observePlayState() {

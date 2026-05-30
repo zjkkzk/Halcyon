@@ -148,23 +148,6 @@ object WebDavClient {
         listCache.clear()
     }
 
-    fun downloadHeaderBytes(url: String, config: WebDavConfig, maxBytes: Long = 512 * 1024): ByteArray? {
-        val request = Request.Builder()
-            .url(normalizeRequestUrl(url))
-            .get()
-            .header("Range", "bytes=0-${maxBytes - 1}")
-            .tag(WebDavConfig::class.java, config)
-            .apply { applyPreemptiveBasicAuth(config) }
-            .build()
-
-        return runCatching {
-            httpClient.newCall(request).execute().use { response ->
-                if (response.code !in 200..299) return null
-                response.body?.bytes()
-            }
-        }.getOrNull()
-    }
-
     fun downloadToFile(url: String, config: WebDavConfig, target: File): File {
         val request = Request.Builder()
             .url(normalizeRequestUrl(url))
@@ -203,9 +186,6 @@ object WebDavClient {
                 val isDirectory = resourceType.length > 0 || itemUrl.endsWith("/")
                 val size = response.firstText("getcontentlength").toLongOrNull() ?: 0L
                 val mimeType = response.firstText("getcontenttype")
-                    .substringBefore(';')
-                    .trim()
-                    .lowercase()
                 WebDavItem(
                     name = Html.fromHtml(name, Html.FROM_HTML_MODE_LEGACY).toString(),
                     url = itemUrl,

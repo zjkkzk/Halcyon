@@ -69,7 +69,6 @@ import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.ui.LibrarySortUiState
-import com.ella.music.ui.components.AlbumCard
 import com.ella.music.ui.components.AppleStylePlayButton
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
@@ -85,7 +84,6 @@ import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
-import com.ella.music.ui.components.rememberAlbumGridColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Button
@@ -159,7 +157,6 @@ fun ArtistScreen(
     val sortedReleaseAlbums = remember(releaseAlbums, albumSortMode, albumDurations) {
         releaseAlbums.sortedForArtistAlbumDetail(albumSortMode, albumDurations)
     }
-    val albumGridColumns = rememberAlbumGridColumns(phoneColumns = 2)
     val hasComposerCategory = remember(songs, artistName) {
         mainViewModel.hasMetadataCategory("composer", artistName)
     }
@@ -285,42 +282,16 @@ fun ArtistScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
-                    if (albumGridColumns > 4) {
-                        items(
-                            items = sortedParticipatedAlbums.chunked(albumGridColumns),
-                            key = { row -> row.joinToString("_") { it.id.toString() } }
-                        ) { rowAlbums ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                rowAlbums.forEach { album ->
-                                    AlbumCard(
-                                        album = album,
-                                        albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
-                                        summary = "${album.songCount} 首歌曲 · ${(albumDurations[album.id] ?: 0L).formatArtistDetailDuration()}",
-                                        onClick = { onAlbumClick(album.id) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                repeat(albumGridColumns - rowAlbums.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    } else {
-                        items(
-                            items = sortedParticipatedAlbums,
-                            key = { it.id }
-                        ) { album ->
-                            ArtistAlbumRow(
-                                album = album,
-                                duration = albumDurations[album.id] ?: 0L,
-                                albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
-                                onClick = { onAlbumClick(album.id) }
-                            )
-                        }
+                    items(
+                        items = sortedParticipatedAlbums,
+                        key = { it.id }
+                    ) { album ->
+                        ArtistAlbumRow(
+                            album = album,
+                            duration = albumDurations[album.id] ?: 0L,
+                            albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
+                            onClick = { onAlbumClick(album.id) }
+                        )
                     }
                 }
 
@@ -333,42 +304,16 @@ fun ArtistScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
-                    if (albumGridColumns > 4) {
-                        items(
-                            items = sortedReleaseAlbums.chunked(albumGridColumns),
-                            key = { row -> row.joinToString("_") { it.id.toString() } }
-                        ) { rowAlbums ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                rowAlbums.forEach { album ->
-                                    AlbumCard(
-                                        album = album,
-                                        albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
-                                        summary = "${album.songCount} 首歌曲 · ${(albumDurations[album.id] ?: 0L).formatArtistDetailDuration()}",
-                                        onClick = { onAlbumClick(album.id) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                repeat(albumGridColumns - rowAlbums.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    } else {
-                        items(
-                            items = sortedReleaseAlbums,
-                            key = { it.id }
-                        ) { album ->
-                            ArtistAlbumRow(
-                                album = album,
-                                duration = albumDurations[album.id] ?: 0L,
-                                albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
-                                onClick = { onAlbumClick(album.id) }
-                            )
-                        }
+                    items(
+                        items = sortedReleaseAlbums,
+                        key = { it.id }
+                    ) { album ->
+                        ArtistAlbumRow(
+                            album = album,
+                            duration = albumDurations[album.id] ?: 0L,
+                            albumArtUri = mainViewModel.getAlbumArtUri(album.artAlbumId),
+                            onClick = { onAlbumClick(album.id) }
+                        )
                     }
                 }
             }

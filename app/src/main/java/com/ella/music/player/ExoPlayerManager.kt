@@ -81,7 +81,6 @@ class ExoPlayerManager(private val context: Context) {
     private var virtualPlaylistCurrentIndex: Int? = null
     private var playWhenConnected = false
     private var pendingPlaylist: PendingPlaylist? = null
-    private var restoringSavedQueue = false
 
     private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val artworkRepository = MusicRepository(context)
@@ -168,7 +167,6 @@ class ExoPlayerManager(private val context: Context) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 Log.d(TIMING_TAG, "controller media transition reason=$reason mediaId=${mediaItem?.mediaId}")
-                if (restoringSavedQueue) return
                 if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && shouldUseTrueRandomShuffle()) {
                     if (playTrueRandomItem()) return
                 }
@@ -176,17 +174,14 @@ class ExoPlayerManager(private val context: Context) {
             }
 
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
-                if (restoringSavedQueue) return
                 refreshStateFromController()
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                if (restoringSavedQueue) return
                 _shuffleEnabled.value = shuffleModeEnabled
             }
 
             override fun onRepeatModeChanged(repeatMode: Int) {
-                if (restoringSavedQueue) return
                 _repeatMode.value = repeatMode
             }
 
@@ -650,13 +645,7 @@ class ExoPlayerManager(private val context: Context) {
             )
 
         if (song.mimeType.isNotBlank()) {
-            val cleanMime = song.mimeType
-                .substringBefore(';')  // 去掉 "; charset=utf-8" 这类参数
-                .trim()
-                .lowercase()
-            if (cleanMime.isNotBlank()) {
-                builder.setMimeType(cleanMime)
-            }
+            builder.setMimeType(song.mimeType)
         }
 
         return builder.build()
@@ -917,36 +906,18 @@ class ExoPlayerManager(private val context: Context) {
         _playlist.value = playlist.toList()
 
         val index = saved.index.coerceIn(0, playlist.lastIndex)
-        val positionMs = saved.positionMs.coerceAtLeast(0L)
-        val repeatMode = normalizedSavedRepeatMode(saved.repeatMode, saved.shuffle)
-        restoringSavedQueue = true
-        try {
-            controller.playWhenReady = false
-            controller.pause()
-            controller.setMediaItems(playlist.map(::songToMediaItem), index, positionMs)
-            controller.shuffleModeEnabled = saved.shuffle
-            controller.repeatMode = repeatMode
-            controller.playbackParameters = PlaybackParameters(saved.speed.coerceIn(0.5f, 2f), saved.pitch.coerceIn(0.5f, 2f))
-            controller.prepare()
-            controller.seekTo(index, positionMs)
-            controller.playWhenReady = false
-            controller.pause()
-        } finally {
-            restoringSavedQueue = false
-        }
+        controller.setMediaItems(playlist.map(::songToMediaItem), index, saved.positionMs.coerceAtLeast(0L))
+        controller.repeatMode = saved.repeatMode
+        controller.shuffleModeEnabled = saved.shuffle
+        controller.playbackParameters = PlaybackParameters(saved.speed.coerceIn(0.5f, 2f), saved.pitch.coerceIn(0.5f, 2f))
+        controller.prepare()
 
         _currentSong.value = playlist.getOrNull(index)
-        _currentPosition.value = positionMs
-        _repeatMode.value = repeatMode
+        _currentPosition.value = saved.positionMs.coerceAtLeast(0L)
+        _repeatMode.value = saved.repeatMode
         _shuffleEnabled.value = saved.shuffle
         _playbackSpeed.value = saved.speed
         _playbackPitch.value = saved.pitch
-        _isPlaying.value = false
-        AppLogStore.debug(
-            context,
-            "PlayerRestore",
-            "restored queue size=${playlist.size} index=$index position=$positionMs repeat=$repeatMode shuffle=${saved.shuffle} playWhenReady=${controller.playWhenReady}"
-        )
     }
 
     private fun savePlaybackQueue(force: Boolean = false) {
@@ -979,7 +950,6 @@ class ExoPlayerManager(private val context: Context) {
     }
 
     private fun savePlaybackState(force: Boolean = false) {
-        if (restoringSavedQueue) return
         if (playlist.isEmpty()) return
         val now = System.currentTimeMillis()
         if (!force && now - lastStateSaveMs < 2_500L) return
@@ -1040,16 +1010,6 @@ class ExoPlayerManager(private val context: Context) {
                 pitch = (state?.optDouble("pitch", 1.0) ?: payload.optDouble("pitch", 1.0)).toFloat()
             )
         }.getOrNull()
-    }
-
-    private fun normalizedSavedRepeatMode(repeatMode: Int, shuffle: Boolean): Int {
-        val safeRepeat = when (repeatMode) {
-            Player.REPEAT_MODE_OFF,
-            Player.REPEAT_MODE_ALL,
-            Player.REPEAT_MODE_ONE -> repeatMode
-            else -> Player.REPEAT_MODE_OFF
-        }
-        return if (shuffle && safeRepeat != Player.REPEAT_MODE_ALL) Player.REPEAT_MODE_ALL else safeRepeat
     }
 
     private fun Song.toJson(): JSONObject = JSONObject()

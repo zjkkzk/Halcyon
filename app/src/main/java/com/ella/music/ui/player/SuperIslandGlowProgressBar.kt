@@ -39,46 +39,36 @@ class SuperIslandGlowProgressBar @JvmOverloads constructor(
 
     var progressFraction: Float = 0f
         set(value) {
-            val coerced = value.coerceIn(0f, 1f)
-            if (field == coerced) return
-            field = coerced
+            field = value.coerceIn(0f, 1f)
             invalidate()
         }
 
     var headGlowAlpha: Float = 1f
         set(value) {
-            val coerced = value.coerceIn(0f, 1f)
-            if (field == coerced) return
-            field = coerced
+            field = value.coerceIn(0f, 1f)
             invalidate()
         }
 
     var trackHeightPx: Float = dp(6f)
         set(value) {
-            val coerced = max(1f, value)
-            if (field == coerced) return
-            field = coerced
+            field = max(1f, value)
             invalidate()
         }
 
     var trackHorizontalPaddingPx: Float = dp(12f)
         set(value) {
-            val coerced = max(0f, value)
-            if (field == coerced) return
-            field = coerced
+            field = max(0f, value)
             invalidate()
         }
 
     var trackColor: Int = Color.argb(51, 255, 255, 255)
         set(value) {
-            if (field == value) return
             field = value
             invalidate()
         }
 
     var fallbackProgressColor: Int = Color.argb(153, 255, 255, 255)
         set(value) {
-            if (field == value) return
             field = value
             invalidate()
         }
