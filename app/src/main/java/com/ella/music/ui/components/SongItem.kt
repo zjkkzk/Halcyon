@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,7 @@ fun SongItem(
     leadingLabel: String? = null,
     leadingLabelBeforeCover: Boolean = false,
     showAlbumInSubtitle: Boolean = true,
+    trailingContent: (@Composable RowScope.() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -265,6 +267,10 @@ fun SongItem(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
+        }
+        if (!selectionMode && trailingContent != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            trailingContent()
         }
     }
 }

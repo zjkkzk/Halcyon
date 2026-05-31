@@ -6,16 +6,16 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import com.ella.music.data.metadata.AudioTagInfo
+import com.ella.music.data.metadata.LyricoAudioTagReaderWriter
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.looksLikeNeteaseKeyValue
 import com.ella.music.data.parser.LrcParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.jaudiotagger.audio.AudioFile
-import org.jaudiotagger.audio.AudioFileIO
-import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.charset.Charset
@@ -39,6 +39,7 @@ data class MediaStoreAudioItem(
 )
 
 class MusicScanner(private val context: Context) {
+    private val audioTagReader = LyricoAudioTagReaderWriter()
 
     companion object {
         private const val TAG = "MusicScanner"
@@ -139,28 +140,26 @@ class MusicScanner(private val context: Context) {
             isMissingTag(album) ||
             duration <= 0
 
-        val audioFile = if (shouldDeepRead) readAudioFile(file) else null
-        val tag = audioFile?.safeTag(file)
+        val tagInfo = if (shouldDeepRead) readTagsBlocking(item.path) else null
 
-        if (tag != null) {
-            if (isMissingTag(title, file.name)) title = tag.safeFirst(file, FieldKey.TITLE)
-            if (isMissingTag(artist)) artist = tag.safeFirst(file, FieldKey.ARTIST)
-            if (isMissingTag(album)) album = tag.safeFirst(file, FieldKey.ALBUM)
-            albumArtist = tag.safeFirst(file, FieldKey.ALBUM_ARTIST)
-            genre = tag.safeFirst(file, FieldKey.GENRE)
-            year = tag.safeFirst(file, FieldKey.YEAR).normalizeYear()
-            composer = tag.safeFirst(file, FieldKey.COMPOSER)
+        if (tagInfo != null) {
+            if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
+            if (isMissingTag(artist)) artist = tagInfo.artist.orEmpty()
+            if (isMissingTag(album)) album = tagInfo.album.orEmpty()
+            albumArtist = tagInfo.albumArtist.orEmpty()
+            genre = tagInfo.genre.orEmpty()
+            year = tagInfo.year.orEmpty().normalizeYear()
+            composer = tagInfo.composer.orEmpty()
             lyricist = firstNonBlank(
-                tag.safeFirst(file, "LYRICIST"),
-                tag.safeFirst(file, "TEXT"),
-                tag.safeFirst(file, "WRITER")
+                tagInfo.lyricist,
+                tagInfo.customTagValue("TEXT"),
+                tagInfo.customTagValue("WRITER")
             ).orEmpty()
             discNumber = discNumber.takeIf { it > 0 } ?: firstNonBlank(
-                tag.safeFirst(file, "DISCNUMBER"),
-                tag.safeFirst(file, "DISC"),
-                tag.safeFirst(file, "TPOS")
+                tagInfo.discNumber?.toString(),
+                tagInfo.customTagValue("DISC"),
+                tagInfo.customTagValue("TPOS")
             ).orEmpty().normalizedDiscNumberFromTag()
-            if (duration <= 0) duration = (audioFile.audioHeader?.trackLength ?: 0) * 1000L
         }
 
         if (shouldDeepRead || deepMetadata) file.readWavInfoTags()?.let { wavInfo ->
@@ -296,28 +295,26 @@ class MusicScanner(private val context: Context) {
                     isMissingTag(album) ||
                     duration <= 0
 
-                val audioFile = if (shouldDeepRead) readAudioFile(file) else null
-                val tag = audioFile?.safeTag(file)
+                val tagInfo = if (shouldDeepRead) readTagsBlocking(path) else null
 
-                if (tag != null) {
-                    if (isMissingTag(title, file.name)) title = tag.safeFirst(file, FieldKey.TITLE)
-                    if (isMissingTag(artist)) artist = tag.safeFirst(file, FieldKey.ARTIST)
-                    if (isMissingTag(album)) album = tag.safeFirst(file, FieldKey.ALBUM)
-                    albumArtist = tag.safeFirst(file, FieldKey.ALBUM_ARTIST)
-                    genre = tag.safeFirst(file, FieldKey.GENRE)
-                    year = tag.safeFirst(file, FieldKey.YEAR).normalizeYear()
-                    composer = tag.safeFirst(file, FieldKey.COMPOSER)
+                if (tagInfo != null) {
+                    if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
+                    if (isMissingTag(artist)) artist = tagInfo.artist.orEmpty()
+                    if (isMissingTag(album)) album = tagInfo.album.orEmpty()
+                    albumArtist = tagInfo.albumArtist.orEmpty()
+                    genre = tagInfo.genre.orEmpty()
+                    year = tagInfo.year.orEmpty().normalizeYear()
+                    composer = tagInfo.composer.orEmpty()
                     lyricist = firstNonBlank(
-                        tag.safeFirst(file, "LYRICIST"),
-                        tag.safeFirst(file, "TEXT"),
-                        tag.safeFirst(file, "WRITER")
+                        tagInfo.lyricist,
+                        tagInfo.customTagValue("TEXT"),
+                        tagInfo.customTagValue("WRITER")
                     ).orEmpty()
                     discNumber = discNumber.takeIf { it > 0 } ?: firstNonBlank(
-                        tag.safeFirst(file, "DISCNUMBER"),
-                        tag.safeFirst(file, "DISC"),
-                        tag.safeFirst(file, "TPOS")
+                        tagInfo.discNumber?.toString(),
+                        tagInfo.customTagValue("DISC"),
+                        tagInfo.customTagValue("TPOS")
                     ).orEmpty().normalizedDiscNumberFromTag()
-                    if (duration <= 0) duration = (audioFile.audioHeader?.trackLength ?: 0) * 1000L
                 }
 
                 if (shouldDeepRead || deepMetadata) file.readWavInfoTags()?.let { wavInfo ->
@@ -408,12 +405,11 @@ class MusicScanner(private val context: Context) {
         val file = File(path)
         if (!file.exists()) return null
 
-        val audioFileLyrics = readAudioFile(file)
-            ?.safeTag(file)
-            ?.safeFirst(file, FieldKey.LYRICS)
+        val audioFileLyrics = readTagsBlocking(path)
+            ?.lyrics
             ?.takeIf { it.isUsableSynchronizedLyrics() }
         if (!audioFileLyrics.isNullOrBlank()) {
-            Log.d(TAG, "Found jaudiotagger lyrics (${audioFileLyrics.length} chars) for ${file.name}")
+            Log.d(TAG, "Found embedded lyrics (${audioFileLyrics.length} chars) for ${file.name}")
             return audioFileLyrics
         }
 
@@ -435,9 +431,7 @@ class MusicScanner(private val context: Context) {
         val file = File(path)
         if (!file.exists()) return null
 
-        val audioFileArt = readAudioFile(file)
-            ?.safeTag(file)
-            ?.safeFirstArtworkData(file)
+        val audioFileArt = readEmbeddedCoverBlocking(path)
         if (audioFileArt != null) return audioFileArt
 
         return runCatching {
@@ -454,12 +448,11 @@ class MusicScanner(private val context: Context) {
         return try {
             val file = File(path)
             if (!file.exists()) return null
-            readAudioFile(file)
-                ?.safeTag(file)
-                ?.let { tag ->
+            readTagsBlocking(path)
+                ?.let { tagInfo ->
                     firstNonBlank(
-                        tag.safeFirst(file, "REPLAYGAIN_TRACK_GAIN"),
-                        tag.safeFirst(file, "R128_TRACK_GAIN")
+                        tagInfo.replayGainTrackGain,
+                        tagInfo.customTagValue("R128_TRACK_GAIN")
                     )
                 }
                 ?.parseReplayGain()
@@ -475,74 +468,30 @@ class MusicScanner(private val context: Context) {
         val file = File(path)
         if (!file.exists() || !file.isFile) return SongTagInfo()
 
-        val jaudioValues = runCatching {
-            readAudioFile(file)?.safeTag(file)?.let { tag ->
-                mapOf(
-                    "title" to tag.safeFirst(file, FieldKey.TITLE),
-                    "artist" to tag.safeFirst(file, FieldKey.ARTIST),
-                    "album" to tag.safeFirst(file, FieldKey.ALBUM),
-                    "albumArtist" to tag.safeFirst(file, FieldKey.ALBUM_ARTIST),
-                    "genre" to tag.safeFirst(file, FieldKey.GENRE),
-                    "year" to tag.safeFirst(file, FieldKey.YEAR),
-                    "composer" to tag.safeFirst(file, FieldKey.COMPOSER),
-                    "lyricist" to firstNonBlank(
-                        tag.safeFirst(file, "LYRICIST"),
-                        tag.safeFirst(file, "TEXT"),
-                        tag.safeFirst(file, "WRITER")
-                    ).orEmpty(),
-                    "track" to tag.safeFirst(file, FieldKey.TRACK),
-                    "comment" to tag.safeFirst(file, FieldKey.COMMENT),
-                    "neteaseKey" to firstNonBlank(
-                        tag.safeFirst(file, "163KEY"),
-                        tag.safeFirst(file, "163 KEY"),
-                        tag.safeFirst(file, "NETEASEKEY"),
-                        tag.safeFirst(file, "NETEASE_KEY"),
-                        tag.safeFirst(file, "NETEASE_CLOUD_MUSIC_KEY"),
-                        tag.safeFirst(file, "CLOUDMUSICKEY"),
-                        tag.safeFirst(file, "CLOUDMUSIC_KEY"),
-                        tag.safeFirst(file, "MUSIC163KEY")
-                    ).orEmpty(),
-                    "copyright" to firstNonBlank(
-                        tag.safeFirst(file, "COPYRIGHT"),
-                        tag.safeFirst(file, "COPYRIGHTMESSAGE"),
-                        tag.safeFirst(file, "TCOP"),
-                        tag.safeFirst(file, "\u00a9cpy")
-                    ).orEmpty(),
-                    "rating" to listOf(
-                        tag.safeFirst(file, "RATING"),
-                        tag.safeFirst(file, "RATE"),
-                        tag.safeFirst(file, "POPM"),
-                        tag.safeFirst(file, "POPULARIMETER"),
-                        tag.safeFirst(file, "WM/RATING"),
-                        tag.safeFirst(file, "WM/POPULARITY")
-                    )
-                        .filter { it.isNotBlank() }
-                        .joinToString(";")
-                )
-            }.orEmpty()
-        }.getOrElse {
-            Log.d(TAG, "jaudiotagger details unavailable for ${file.path}", it)
-            emptyMap()
-        }
+        val tagInfo = readTagsBlocking(path) ?: AudioTagInfo()
 
         return SongTagInfo(
-            title = jaudioValues["title"].orEmpty().cleanTagText(),
-            artist = jaudioValues["artist"].orEmpty().cleanTagText(),
-            album = jaudioValues["album"].orEmpty().cleanTagText(),
-            albumArtist = jaudioValues["albumArtist"].orEmpty().cleanTagText(),
-            genre = jaudioValues["genre"].orEmpty().cleanTagText(),
-            year = jaudioValues["year"].orEmpty().cleanTagText(),
-            composer = jaudioValues["composer"].orEmpty().cleanTagText(),
-            lyricist = jaudioValues["lyricist"].orEmpty().cleanTagText(),
-            track = jaudioValues["track"].orEmpty().cleanTagText(),
-            comment = jaudioValues["comment"].orEmpty().cleanTagText(),
-            copyright = jaudioValues["copyright"].orEmpty().cleanTagText(),
-            neteaseKey = jaudioValues["neteaseKey"].orEmpty()
+            title = tagInfo.title.orEmpty().cleanTagText(),
+            artist = tagInfo.artist.orEmpty().cleanTagText(),
+            album = tagInfo.album.orEmpty().cleanTagText(),
+            albumArtist = tagInfo.albumArtist.orEmpty().cleanTagText(),
+            genre = tagInfo.genre.orEmpty().cleanTagText(),
+            year = tagInfo.year.orEmpty().cleanTagText(),
+            composer = tagInfo.composer.orEmpty().cleanTagText(),
+            lyricist = firstNonBlank(
+                tagInfo.lyricist,
+                tagInfo.customTagValue("TEXT"),
+                tagInfo.customTagValue("WRITER")
+            ).orEmpty().cleanTagText(),
+            track = tagInfo.trackNumber?.toString().orEmpty().cleanTagText(),
+            comment = tagInfo.comment.orEmpty().cleanTagText(),
+            copyright = tagInfo.copyright.orEmpty().cleanTagText(),
+            neteaseKey = tagInfo.neteaseKey.orEmpty()
                 .takeIf { it.looksLikeNeteaseKeyValue() }
                 .orEmpty()
-                .ifBlank { jaudioValues["comment"].orEmpty().extractPrefixedNeteaseCommentKey() }
+                .ifBlank { tagInfo.comment.orEmpty().extractPrefixedNeteaseCommentKey() }
                 .cleanTagText(),
-            rating = ratingStarsFromTagValues(jaudioValues["rating"])
+            rating = ratingStarsFromTagValues(tagInfo.rating?.toString())
         )
     }
 
@@ -560,47 +509,32 @@ class MusicScanner(private val context: Context) {
         return fileName != null && normalized == fileName.substringBeforeLast('.')
     }
 
-    private fun readAudioFile(file: File): AudioFile? {
-        return try {
-            AudioFileIO.read(file)
-        } catch (e: Exception) {
-            Log.d(TAG, "jaudiotagger read failed for ${file.path}", e)
-            null
+    private fun readTagsBlocking(path: String): AudioTagInfo? =
+        runBlocking(Dispatchers.IO) {
+            runCatching { audioTagReader.readTags(path) }
+                .onFailure { Log.d(TAG, "lyrico-audiotag tag read failed for $path", it) }
+                .getOrNull()
         }
-    }
 
-    private fun AudioFile.safeTag(file: File) = runCatching {
-        tagOrCreateDefault
-    }.onFailure {
-        Log.d(TAG, "jaudiotagger tag read failed for ${file.path}", it)
-    }.getOrNull()
-
-    private fun org.jaudiotagger.tag.Tag.safeFirst(file: File, key: FieldKey): String {
-        return runCatching {
-            getFirst(key).orEmpty()
-        }.onFailure {
-            Log.d(TAG, "jaudiotagger field $key unavailable for ${file.path}", it)
-        }.getOrDefault("")
-    }
-
-    private fun org.jaudiotagger.tag.Tag.safeFirst(file: File, key: String): String {
-        return runCatching {
-            getFirst(key).orEmpty()
-        }.onFailure {
-            Log.d(TAG, "jaudiotagger field $key unavailable for ${file.path}", it)
-        }.getOrDefault("")
-    }
-
-    private fun org.jaudiotagger.tag.Tag.safeFirstArtworkData(file: File): ByteArray? {
-        return runCatching {
-            firstArtwork?.binaryData
-        }.onFailure {
-            Log.d(TAG, "jaudiotagger artwork unavailable for ${file.path}", it)
-        }.getOrNull()
-    }
+    private fun readEmbeddedCoverBlocking(path: String): ByteArray? =
+        runBlocking(Dispatchers.IO) {
+            runCatching { audioTagReader.readEmbeddedCover(path)?.bytes }
+                .onFailure { Log.d(TAG, "lyrico-audiotag artwork unavailable for $path", it) }
+                .getOrNull()
+        }
 
     private fun firstNonBlank(vararg values: String?): String? =
         values.firstOrNull { !it.isNullOrBlank() }
+
+    private fun AudioTagInfo.customTagValue(vararg keys: String): String? {
+        keys.forEach { key ->
+            customTags.entries.firstOrNull { it.key.equals(key, ignoreCase = true) }
+                ?.value
+                ?.firstOrNull { it.isNotBlank() }
+                ?.let { return it }
+        }
+        return null
+    }
 
     private fun String.parseReplayGain(): Float? {
         return Regex("([+-]?[0-9]+(?:\\.[0-9]+)?)")

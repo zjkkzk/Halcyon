@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $FFMPEG_MODULE_PATH = "D:\Repos\Ella\ffmpeg-decoder\src\main"
 $SDK_PATH = $env:ANDROID_HOME
 $REPO_ROOT = "D:\Repos\Ella"
+$FFMPEG_PREBUILT_DIR = Join-Path $FFMPEG_MODULE_PATH "jni\ffmpeg"
 $LINUX_NDK_VERSION = "r29"
 $LINUX_NDK_URL = "https://dl.google.com/android/repository/android-ndk-$LINUX_NDK_VERSION-linux.zip"
 $LINUX_NDK_PARENT = Join-Path $REPO_ROOT "build\android-ndk-linux"
@@ -46,6 +47,25 @@ function Repair-LinuxNdkSymlinks([string]$NdkPath) {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: Failed to repair Linux NDK symlink $link -> $target."
             exit 1
+        }
+    }
+}
+
+function Reset-FfmpegPrebuiltDirectory {
+    if (Test-Path $FFMPEG_PREBUILT_DIR) {
+        Remove-Item -LiteralPath $FFMPEG_PREBUILT_DIR -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $FFMPEG_PREBUILT_DIR | Out-Null
+}
+
+function Cleanup-FfmpegSourceTree {
+    if (-not (Test-Path $FFMPEG_PREBUILT_DIR)) {
+        return
+    }
+
+    Get-ChildItem -LiteralPath $FFMPEG_PREBUILT_DIR -Force | ForEach-Object {
+        if ($_.Name -notin @("android-libs", "include")) {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force
         }
     }
 }
@@ -109,8 +129,9 @@ Write-Host "NDK path: $NDK_PATH"
 Write-Host "Decoders: $($ENABLED_DECODERS -join ', ')"
 
 # Check if FFmpeg source exists
-$ffmpegDir = "$FFMPEG_MODULE_PATH\jni\ffmpeg"
-if (-not (Test-Path $ffmpegDir)) {
+$ffmpegDir = $FFMPEG_PREBUILT_DIR
+if (-not (Test-Path (Join-Path $ffmpegDir "configure"))) {
+    Reset-FfmpegPrebuiltDirectory
     Write-Host ""
     Write-Host "FFmpeg source not found. Cloning..."
     git -c core.autocrlf=false clone https://git.ffmpeg.org/ffmpeg.git --branch=release/6.0 --depth=1 $ffmpegDir
@@ -157,6 +178,8 @@ if ($LASTEXITCODE -eq 0) {
         New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
         Copy-Item -LiteralPath $builtSo -Destination (Join-Path $outputDir "libffmpegJNI.so") -Force
         Write-Host "Copied prebuilt library to $outputDir"
+        Cleanup-FfmpegSourceTree
+        Write-Host "Removed full FFmpeg source tree and kept only include/android-libs prebuilt inputs."
     } finally {
         Pop-Location
     }

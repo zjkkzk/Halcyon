@@ -15,9 +15,6 @@
 # Lyric Getter's Xposed module finds and hooks the public API by class and member names.
 -keep class cn.lyric.getter.api.** { *; }
 
-# jaudiotagger uses Class.getPackage().getName() while initializing readers.
--keeppackagenames org.jaudiotagger.**
--keepnames class org.jaudiotagger.**
 
 # FFmpeg native symbols use Java_androidx_media3_decoder_ffmpeg_* names.
 -keep class androidx.media3.decoder.ffmpeg.FfmpegAudioDecoder { *; }

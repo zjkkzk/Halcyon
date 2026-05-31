@@ -123,7 +123,6 @@ dependencies {
     implementation(libs.lyric.getter.api)
     implementation("com.github.HChenX:SuperLyricApi:3.4")
     implementation(libs.backdrop)
-    implementation(libs.jaudiotagger)
     implementation(project(":lyrico-audiotag"))
     implementation("wang.harlon.quickjs:wrapper-android:2.4.0")
     implementation(project(":ffmpeg-decoder"))

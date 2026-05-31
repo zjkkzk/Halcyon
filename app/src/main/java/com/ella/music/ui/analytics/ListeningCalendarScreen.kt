@@ -73,7 +73,9 @@ import kotlin.math.roundToInt
 fun ListeningCalendarHistoryScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToAlbum: (Long) -> Unit = {},
+    onNavigateToArtist: (String) -> Unit = {}
 ) {
     val songs by mainViewModel.songs.collectAsState()
     val playbackHistory by mainViewModel.playbackHistory.collectAsState()
@@ -174,7 +176,9 @@ fun ListeningCalendarHistoryScreen(
         actionSong = actionSong,
         mainViewModel = mainViewModel,
         playerViewModel = playerViewModel,
-        onDismissAction = { actionSong = null }
+        onDismissAction = { actionSong = null },
+        onNavigateToAlbum = onNavigateToAlbum,
+        onNavigateToArtist = onNavigateToArtist
     )
 }
 
@@ -290,37 +294,39 @@ private fun ListeningDayDetailSection(
             ) {
                 DayRepresentativeCover(
                     bitmap = coverBitmap,
-                    modifier = Modifier.size(104.dp)
+                    modifier = Modifier.size(84.dp)
                 )
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
                         text = formatCalendarDetailDate(day.dateKey),
-                        fontSize = 30.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = MiuixTheme.colorScheme.onSurface,
-                        lineHeight = 34.sp
+                        lineHeight = 30.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ListeningActionButton(
-                            text = stringResource(R.string.listening_calendar_shuffle),
+                        ListeningActionIconButton(
+                            iconRes = R.drawable.ic_shuffle,
+                            contentDescription = stringResource(R.string.listening_calendar_shuffle),
                             active = false,
-                            modifier = Modifier.weight(1f),
                             onClick = {
                                 if (playableSongs.isNotEmpty()) {
                                     playerViewModel.setPlaylist(playableSongs.shuffled(), 0)
                                 }
                             }
                         )
-                        ListeningActionButton(
-                            text = stringResource(R.string.listening_calendar_play_all),
+                        ListeningActionIconButton(
+                            iconRes = R.drawable.ic_player_play,
+                            contentDescription = stringResource(R.string.listening_calendar_play_all),
                             active = true,
-                            modifier = Modifier.weight(1.6f),
                             onClick = {
                                 if (playableSongs.isNotEmpty()) {
                                     playerViewModel.setPlaylist(playableSongs, 0)
@@ -389,25 +395,27 @@ private fun DayRepresentativeCover(
 }
 
 @Composable
-private fun ListeningActionButton(
-    text: String,
+private fun ListeningActionIconButton(
+    iconRes: Int,
+    contentDescription: String,
     active: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
+            .size(52.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(if (active) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.10f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (active) Color(0xFF111111) else Color.White
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = iconRes),
+            contentDescription = contentDescription,
+            tint = if (active) Color(0xFF111111) else Color.White,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }

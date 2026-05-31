@@ -271,7 +271,7 @@ private fun AboutContent(
                 SmallTitle(text = stringResource(R.string.about_acknowledgements))
                 FrostedCard(backdrop = backdrop, blurEnable = blurEnable, cardBlendColors = cardBlendColors) {
                     BasicComponent(
-                        title = "Codex (GPT-5.5)",
+                        title = "Codex",
                         summary = "1.0.2 至今主要开发与代码协作",
                     )
                     BasicComponent(
@@ -288,11 +288,6 @@ private fun AboutContent(
                         title = "光锥音乐",
                         summary = "部分界面视觉与 UI 效果参考",
                         onClick = { uriHandler.openUri("https://coneplayer.trantor.ink/") },
-                    )
-                    BasicComponent(
-                        title = "Lyrico",
-                        summary = "外部标签编辑器适配与日志页面交互参考",
-                        onClick = { uriHandler.openUri("https://github.com/Replica0110/Lyrico") },
                     )
                     BasicComponent(
                         title = "Mimo-V2.5-Pro",

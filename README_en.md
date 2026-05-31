@@ -22,14 +22,15 @@
 
 ## Native Build Notes
 
-Ella packages prebuilt arm64-v8a native libraries by default. Normal `assembleDebug` / `assembleFastRelease` builds do not rebuild FFmpeg or lyrico-audiotag native code.
+Ella packages prebuilt arm64-v8a native libraries by default. Normal `assembleDebug` / `assembleFastRelease` builds do not rebuild FFmpeg or lyrico-audiotag native code. The repository no longer keeps the full FFmpeg C source tree by default.
 
-To refresh native outputs, run these scripts manually:
+To restore or refresh native outputs, run these scripts manually:
 
+- `.\scripts\download_ffmpeg_prebuilt.ps1`
 - `.\build_ffmpeg.ps1`
 - `.\build_lyrico_taglib.ps1`
 
-The scripts enable `-PellaBuildNative=true`, rebuild the `.so` files, and copy them into each module's `src/main/jniLibs/arm64-v8a/` directory. The bundled native target is currently focused on `arm64-v8a`.
+`.\scripts\download_ffmpeg_prebuilt.ps1` restores the FFmpeg prebuilt inputs. `.\build_ffmpeg.ps1` pulls temporary source code on demand, rebuilds the static libraries and `libffmpegJNI.so`, then cleans the full source tree back down to the `include/android-libs` prebuilt inputs. The bundled native target is currently focused on `arm64-v8a`.
 
 ---
 
@@ -110,7 +111,7 @@ The overall UI and interaction design are inspired by **MIUI / HyperOS**, aiming
 
 ### 🎚 Playback, Decoding & Audio Quality
 
-- Local audio tags now use lyrico-audiotag as the primary path. If Jaudiotagger is still present, it remains legacy fallback only and is no longer the primary path.
+- Local audio tag reading now uses lyrico-audiotag as the primary path.
 - Supports reading covers, basic tags, and embedded lyrics from WAV, FLAC, M4A, ALAC, MP3, OGG, OPUS, and related formats, with fallback fixes for garbled tags.
 - Provides system decoding, FFmpeg decoding, and automatic decoding modes. Automatic decoding is used by default; switch to the FFmpeg decoder if a file cannot be decoded.
 - The FFmpeg extended decoder improves compatibility with ALAC / AAC and other M4A formats.
@@ -170,17 +171,26 @@ Recommended first-time setup:
 
 ## 🖼 Dynamic Video Covers
 
-Dynamic video covers are used in the top area of the immersive playback page. Album-level configuration is recommended:
+Dynamic video covers are used in the playback page cover area. Album-level configuration is recommended:
 
 ```text
-Music/Album Name/
+Music/
+├── Album Name.mp4
+├── Song A.flac
+├── Song B.flac
+└── Song C.flac
+```
+
+or
+```text
+Music/Album Name Folder/
 ├── cover.mp4
 ├── Song A.flac
 ├── Song B.flac
 └── Song C.flac
 ```
 
-All songs in the same album can share one video, avoiding duplicate video files for each song.
+All songs in the same album can share the same video, avoiding duplicate video files for each song.
 
 Centralized management is supported:
 
@@ -194,13 +204,12 @@ Movies/Ella/DynamicCovers/
 ```
 
 Single-file configuration is also supported:
-
 ```text
 Music/Song File Name.m4a
 Music/Song File Name.mp4
 ```
 
-The actual matching order depends on the implementation. It typically checks the song's local folder first, then song / album videos under DynamicCovers, and finally uses the global fallback video.
+Actual matching order depends on the implementation: it usually checks the song's local folder first, then checks DynamicCovers for song/album videos, and finally uses the global fallback video.
 
 ---
 
@@ -235,7 +244,7 @@ For daily development, use `assembleDebug` for validation. `fastRelease` / relea
 
 ---
 
-## 🎧 FFmpeg & Native Libraries
+## 🎧 Native Libraries
 
 Prebuilt FFmpeg and lyrico-audiotag native libraries are located at:
 
@@ -244,7 +253,13 @@ ffmpeg-decoder/src/main/jniLibs/arm64-v8a/libffmpegJNI.so
 lyrico-audiotag/src/main/jniLibs/arm64-v8a/liblyrico_taglib.so
 ```
 
-To rebuild on Windows, run:
+To restore FFmpeg prebuilt inputs after a fresh clone, run:
+
+```powershell
+.\scripts\download_ffmpeg_prebuilt.ps1
+```
+
+To update FFmpeg native outputs manually on Windows, run:
 
 ```powershell
 .\build_ffmpeg.ps1
@@ -256,7 +271,9 @@ To update the lyrico-audiotag / TagLib native output, run:
 .\build_lyrico_taglib.ps1
 ```
 
-Normal `assembleDebug` builds do not rebuild native code by default. Before release, verify the APK contains the required arm64-v8a `.so` files.
+Normal `assembleDebug` builds do not rebuild native code by default. Before release, verify the APK contains the required arm64-v8a `.so` files. For routine builds, the full FFmpeg source tree is unnecessary.
+
+`liblyrico_taglib.so` is the native tag read/write output from lyrico-audiotag.
 
 ---
 
@@ -271,7 +288,7 @@ Normal `assembleDebug` builds do not rebuild native code by default. Before rele
 | Lyrics | LRC, Enhanced LRC, ELRC, TTML, Lyricify, word-by-word lyrics, translation, romanization, background vocals, duet tags                         |
 | System Lyrics | Floating lyrics, lyric barrage, SuperLyricApi, Lyric Getter API, Flyme status bar lyrics (Ticker notification), Bluetooth lyrics               |
 | Decoding | Media3, system decoder, FFmpeg extended decoder                                                                                                |
-| Audio Metadata | lyrico-audiotag primary path, Jaudiotagger legacy fallback, embedded and external lyrics, 163 key decryption, alias / comment, quality label display |
+| Audio Metadata | lyrico-audiotag primary path, embedded and external lyrics, 163 key decryption, alias / comment, quality label display |
 | Analytics | Format distribution, quality distribution, play count ranking, listening duration ranking, listening history                                   |
 | UI | Jetpack Compose, Miuix, floating bottom navigation, home dashboard, update page, immersive playback page, landscape lyrics, lyric card sharing |
 
@@ -296,7 +313,6 @@ Normal `assembleDebug` builds do not rebuild native code by default. Before rele
 | [LX Music Mobile](https://github.com/lyswhut/lx-music-mobile) | LX Music API compatibility implementation and reference                         |
 | [accompanist-lyrics-core](https://github.com/6xingyv/accompanist-lyrics-core) | Lyric parsing and TTML / LRC structure reference (Apache-2.0)                   |
 
-MusicFree-related code has been removed from the current project. If Jaudiotagger remains in build dependencies, it is legacy fallback only, not the primary local tag-reading path.
 
 ---
 
@@ -308,14 +324,14 @@ The Ella Music main project is open-sourced under **Apache-2.0**. Third-party co
 
 ## 👥 Credits
 
-- **Codex (GPT-5.5)** — Primary development and code collaboration since version 1.0.2.
+- **Codex** — Primary development and code collaboration since version 1.0.2.
 - **Mimo-V2.5-Pro** — Main development contributor for early versions 1.0.0 to 1.0.1.
 - **BetterLyrics** — Visual reference for blurred cover backgrounds and lyric display.
 - **SPlayer** — Visual reference for playback page animations and lyric experience.
 - **Lyrico** — Reference for external tag editor adaptation and log page interaction.
 - **LX Music Mobile** — Provides LX Music API compatibility implementation and testing reference.
 - **Light Cone Music** — Interface design and feature implementation reference.
-- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, lyrico-audiotag / Lyrico, TagLib, 163KeyDecrypter, Jaudiotagger legacy fallback, Backdrop, Coil, accompanist-lyrics-core, and other open source projects used by Ella Music.
+- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, lyrico-audiotag / Lyrico, TagLib, 163KeyDecrypter, Kyant Backdrop, Coil, OkHttp, accompanist-lyrics-core, and other open source projects used by Ella Music.
 
 ---
 
@@ -336,11 +352,5 @@ The Ella Music main project is open-sourced under **Apache-2.0**. Third-party co
 ## 👀 Visitor Count
 
 <p align="center">
-  <img src="https://count.getloli.com/get/@kifranei_ella?theme=gelbooru-h" alt="Visitor Count" />
+  <img src="https://count.getloli.com/get/@kifranei_ella?theme=capoo-2" alt="Visitor Count" />
 </p>
-
----
-
-## 📄 License
-
-The Ella Music main project is licensed under **Apache-2.0**. Third-party components retain their own licenses; see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

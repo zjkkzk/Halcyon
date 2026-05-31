@@ -23,7 +23,6 @@ import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.metadata.AudioTagInfo
 import com.ella.music.data.metadata.AudioTagRepository
-import com.ella.music.data.metadata.LegacyAudioTagReader
 import com.ella.music.data.metadata.LyricoAudioTagReaderWriter
 import com.ella.music.data.parser.LrcParser
 import com.ella.music.data.scanner.MediaStoreAudioItem
@@ -67,8 +66,7 @@ class MusicRepository(private val context: Context) {
 
     private val scanner = MusicScanner(context)
     private val audioTagRepository = AudioTagRepository(
-        primary = LyricoAudioTagReaderWriter(),
-        legacy = LegacyAudioTagReader(scanner)
+        primary = LyricoAudioTagReaderWriter()
     )
     private val settingsManager = SettingsManager(context)
     private val httpClient = OkHttpClient.Builder()

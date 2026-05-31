@@ -8,8 +8,6 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.util.LruCache
 import com.ella.music.data.looksLikeNeteaseKeyValue
-import com.ella.music.data.model.SongTagInfo
-import com.ella.music.data.scanner.MusicScanner
 import com.lonx.audiotag.model.AudioPicture
 import com.lonx.audiotag.rw.AudioTagReader as LyricoReader
 import com.lonx.audiotag.rw.AudioTagWriter as LyricoWriter
@@ -77,7 +75,6 @@ interface AudioTagWriter {
 
 class AudioTagRepository(
     private val primary: AudioTagReader,
-    private val legacy: AudioTagReader,
     private val writer: AudioTagWriter? = primary as? AudioTagWriter
 ) {
     private val coverDataCache = object : LruCache<String, AudioCoverInfo>(8 * 1024) {
@@ -182,12 +179,8 @@ class AudioTagRepository(
         path: String,
         block: suspend (AudioTagReader) -> T?
     ): T? {
-        val primaryResult = runCatching { block(primary) }
+        return runCatching { block(primary) }
             .onFailure { Log.d(TAG, "lyrico-audiotag $label failed for $path", it) }
-            .getOrNull()
-        if (primaryResult != null) return primaryResult
-        return runCatching { block(legacy) }
-            .onFailure { Log.d(TAG, "legacy $label failed for $path", it) }
             .getOrNull()
     }
 
@@ -343,47 +336,6 @@ class LyricoAudioTagReaderWriter : AudioTagReader, AudioTagWriter {
             if (key.isNotBlank() && values.isNotEmpty()) put(key, values.joinToString("; "))
         }
     }
-}
-
-class LegacyAudioTagReader(
-    private val scanner: MusicScanner
-) : AudioTagReader {
-    override suspend fun readTags(path: String): AudioTagInfo? = withContext(Dispatchers.IO) {
-        scanner.extractSongTagInfo(path).toAudioTagInfo().takeIf { it.hasLegacyTagData() }
-    }
-
-    override suspend fun readEmbeddedCover(path: String): AudioCoverInfo? = withContext(Dispatchers.IO) {
-        scanner.extractCoverArt(path)?.let { AudioCoverInfo(bytes = it, mimeType = sniffImageMimeType(it)) }
-    }
-
-    override suspend fun readEmbeddedLyrics(path: String): String? = withContext(Dispatchers.IO) {
-        scanner.extractEmbeddedLyrics(path)
-    }
-
-    private fun SongTagInfo.toAudioTagInfo(): AudioTagInfo {
-        val resolvedComment = comment.cleanTagValue()
-        val resolvedNeteaseKey = neteaseKey.cleanTagValue()?.extractNeteaseKeyCandidate()
-            ?: resolvedComment?.extractNeteaseKeyCandidate()
-        return AudioTagInfo(
-            title = title.takeIf { it.isNotBlank() },
-            artist = artist.takeIf { it.isNotBlank() },
-            album = album.takeIf { it.isNotBlank() },
-            albumArtist = albumArtist.takeIf { it.isNotBlank() },
-            composer = composer.takeIf { it.isNotBlank() },
-            lyricist = lyricist.takeIf { it.isNotBlank() },
-            genre = genre.takeIf { it.isNotBlank() },
-            year = year.takeIf { it.isNotBlank() },
-            trackNumber = track.substringBefore('/').toIntOrNull(),
-            comment = resolvedComment,
-            copyright = copyright.takeIf { it.isNotBlank() },
-            neteaseKey = resolvedNeteaseKey,
-            rating = rating.takeIf { it > 0 }
-        )
-    }
-
-    private fun AudioTagInfo.hasLegacyTagData(): Boolean =
-        listOf(title, artist, album, albumArtist, composer, lyricist, genre, year, comment, copyright, neteaseKey)
-            .any { !it.isNullOrBlank() } || trackNumber != null || rating != null
 }
 
 private fun Map<String, List<String>>.bestLyrics(): String? =

@@ -163,6 +163,7 @@ import com.ella.music.data.neteaseSongUrl
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import com.ella.music.data.model.AudioInfo
+import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
@@ -178,11 +179,14 @@ import com.ella.music.ui.components.LyricSharePicker
 import com.ella.music.ui.components.TagEditorOption
 import com.ella.music.ui.components.TagEditorOptionIds
 import com.ella.music.ui.components.TagEditorOptionKind
+import com.ella.music.ui.components.AddToPlaylistSheet
+import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.buildTagEditorOptions
 import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.SongInfoSheet
 import com.ella.music.ui.components.shareLyricCard
 import com.ella.music.ui.components.shareLocalSong
+import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -236,6 +240,7 @@ private fun rememberThrottledPlayerPosition(
 
 @Composable
 fun PlayerScreen(
+    mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit = {},
@@ -282,6 +287,7 @@ fun PlayerScreen(
     val lyricTimingEditorId by settingsManager.lyricTimingEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
     val sleepTimerCustomMinutes by settingsManager.sleepTimerCustomMinutes.collectAsState(initial = 45)
     val sleepTimerStopAfterCurrent by settingsManager.sleepTimerStopAfterCurrent.collectAsState(initial = false)
+    val playlists by mainViewModel.playlists.collectAsState()
     val playlist by playerViewModel.playlist.collectAsState()
     val lyrics by playerViewModel.lyrics.collectAsState()
     val currentLyricIndex by playerViewModel.currentLyricIndex.collectAsState()
@@ -300,6 +306,8 @@ fun PlayerScreen(
     var songInfoExpanded by remember { mutableStateOf(false) }
     var queueExpanded by remember { mutableStateOf(false) }
     var artistChoices by remember { mutableStateOf<List<String>>(emptyList()) }
+    var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
+    var createPlaylistSong by remember { mutableStateOf<Song?>(null) }
     var landscapeExpanded by rememberSaveable { mutableStateOf(false) }
     var dynamicCoverFailedPath by remember { mutableStateOf<String?>(null) }
     var hasVisualizerPermission by remember {
@@ -559,6 +567,15 @@ fun PlayerScreen(
             onSongInfo = {
                 menuExpanded = false
                 songInfoExpanded = true
+            },
+            onAddToPlaylist = {
+                val current = song
+                if (current != null) {
+                    menuExpanded = false
+                    playlistPickerSong = current
+                } else {
+                    Toast.makeText(context, "当前没有正在播放的歌曲", Toast.LENGTH_SHORT).show()
+                }
             },
             onShareSong = {
                 val current = song
@@ -934,6 +951,48 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
+
+            playlistPickerSong?.let { currentSong ->
+                WindowBottomSheet(
+                    show = true,
+                    enableNestedScroll = false,
+                    title = "添加到歌单",
+                    onDismissRequest = { playlistPickerSong = null }
+                ) {
+                    AddToPlaylistSheet(
+                        playlists = playlists
+                            .filterNot { it.id == FAVORITES_PLAYLIST_ID }
+                            .sortedByDescending { it.createdAt },
+                        onDismiss = { playlistPickerSong = null },
+                        onCreatePlaylist = {
+                            createPlaylistSong = currentSong
+                            playlistPickerSong = null
+                        },
+                        onPlaylistsConfirm = { selectedPlaylists ->
+                            selectedPlaylists.forEach { playlist ->
+                                mainViewModel.addSongsToPlaylist(playlist.id, listOf(currentSong))
+                            }
+                            Toast.makeText(context, "已添加到 ${selectedPlaylists.size} 个歌单", Toast.LENGTH_SHORT).show()
+                            playlistPickerSong = null
+                        }
+                    )
+                }
+            }
+
+            createPlaylistSong?.let { currentSong ->
+                CreatePlaylistAndAddSheet(
+                    onDismiss = { createPlaylistSong = null },
+                    onCreate = { name ->
+                        mainViewModel.createPlaylist(name) { playlist ->
+                            if (playlist != null) {
+                                mainViewModel.addSongsToPlaylist(playlist.id, listOf(currentSong))
+                                Toast.makeText(context, "已添加到 ${playlist.name}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        createPlaylistSong = null
+                    }
+                )
+            }
         }
 
         lyricShareInitialLine?.let { initialLine ->
@@ -1013,6 +1072,7 @@ private fun CoverPlayerPage(
     onDownload: () -> Unit,
     onLandscape: () -> Unit,
     onSongInfo: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onShareSong: () -> Unit,
     onOpenTimer: () -> Unit,
     onOpenMetadataEditor: () -> Unit,
@@ -1062,7 +1122,9 @@ private fun CoverPlayerPage(
                 audioSessionId = audioSessionId,
                 visualizerEnabled = visualizerEnabled,
                 onDynamicCoverFailed = onDynamicCoverFailed,
+                isFavorite = isFavorite,
                 onToggleMenu = onToggleMenu,
+                onToggleFavorite = onToggleFavorite,
                 onToggleQueue = onToggleQueue,
                 onDismissQueue = onDismissQueue,
                 onShowLyrics = onShowLyrics,
@@ -1369,6 +1431,7 @@ private fun CoverPlayerPage(
                     onDownload = onDownload,
                     onLandscape = onLandscape,
                     onSongInfo = onSongInfo,
+                    onAddToPlaylist = onAddToPlaylist,
                     onStopAfterCurrent = onStopAfterCurrent,
                     onTimer = onTimer,
                     onCustomTimerMinutes = onCustomTimerMinutes,
@@ -1409,7 +1472,9 @@ private fun LandscapeCoverPlayerPage(
     flowEffectMode: Int,
     dynamicFlowEnabled: Boolean,
     onDynamicCoverFailed: (String) -> Unit,
+    isFavorite: Boolean,
     onToggleMenu: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onToggleQueue: () -> Unit,
     onDismissQueue: () -> Unit,
     onShowLyrics: () -> Unit,
@@ -1500,6 +1565,11 @@ private fun LandscapeCoverPlayerPage(
                         artistAlpha = 0.56f,
                         onArtistClick = onArtist,
                         modifier = Modifier.weight(1f)
+                    )
+                    PlayerHeaderAction(
+                        kind = PlayerHeaderActionKind.Favorite,
+                        selected = isFavorite,
+                        onClick = onToggleFavorite
                     )
                     PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
                 }
@@ -3636,7 +3706,7 @@ private fun PlayerQueueMenu(
                 modifier = Modifier.heightIn(max = 420.dp)
             ) {
                 itemsIndexed(playlist, key = { _, item -> item.id }) { index, item ->
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
@@ -3645,23 +3715,33 @@ private fun PlayerQueueMenu(
                                 else Color.Transparent
                             )
                             .clickable { onSongClick(index) }
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = item.title,
-                            fontSize = 13.sp,
-                            fontWeight = if (item.id == currentSongId) FontWeight.Bold else FontWeight.Medium,
-                            color = if (item.id == currentSongId) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        AlbumArtView(
+                            song = item,
+                            embeddedCover = null,
+                            cornerRadius = 10.dp,
+                            modifier = Modifier.size(40.dp)
                         )
-                        Text(
-                            text = item.artist,
-                            fontSize = 11.sp,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                fontSize = 13.sp,
+                                fontWeight = if (item.id == currentSongId) FontWeight.Bold else FontWeight.Medium,
+                                color = if (item.id == currentSongId) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = item.artist,
+                                fontSize = 11.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -4256,6 +4336,7 @@ private fun PlayerActionMenu(
     onDownload: () -> Unit,
     onLandscape: () -> Unit,
     onSongInfo: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onStopAfterCurrent: (Boolean) -> Unit,
     onTimer: (Int) -> Unit,
     onCustomTimerMinutes: (Int) -> Unit,
@@ -4310,6 +4391,7 @@ private fun PlayerActionMenu(
                 PlayerActionMenuItem(stringResource(R.string.player_landscape_lyrics), onLandscape)
                 PlayerActionMenuItem(stringResource(R.string.player_view_album), onAlbum)
                 PlayerActionMenuItem(stringResource(R.string.player_view_artist), onArtist)
+                PlayerActionMenuItem("添加到歌单", onAddToPlaylist)
                 PlayerActionMenuItem(stringResource(R.string.player_song_info), onSongInfo)
                 PlayerActionMenuItem(stringResource(R.string.player_edit_metadata), { openEditorPage(TagEditorOptionKind.Metadata, metadataEditorId) })
                 PlayerActionMenuItem(stringResource(R.string.player_lyric_timing), { openEditorPage(TagEditorOptionKind.LyricTiming, lyricTimingEditorId) })

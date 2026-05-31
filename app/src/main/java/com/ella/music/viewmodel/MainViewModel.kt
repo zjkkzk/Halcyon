@@ -397,6 +397,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { playlistStore.addSongsToPlaylist(playlistId, songs) }
     }
 
+    fun reorderPlaylistSongs(playlistId: String, orderedKeys: List<String>) {
+        if (orderedKeys.isEmpty()) return
+        viewModelScope.launch { playlistStore.reorderPlaylistSongs(playlistId, orderedKeys) }
+    }
+
     fun importLocalPlaylist(uri: Uri, onResult: (Result<PlaylistImportResult>) -> Unit) {
         viewModelScope.launch {
             val result = runCatching { playlistStore.importLocalPlaylist(uri, songs.value) }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -53,7 +55,10 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -467,13 +472,25 @@ fun PlaylistDetailScreen(
     var searchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var removeFromPlaylistSong by remember { mutableStateOf<Song?>(null) }
+    var manualOrder by remember(playlist?.id) { mutableStateOf(songs) }
+    var dragAnchorKey by remember { mutableStateOf<String?>(null) }
+    var dragAccumulatedPx by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    var estimatedRowHeightPx by remember { mutableFloatStateOf(with(density) { 76.dp.toPx() }) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForPlaylistDetail(sortMode) }
-    val displayedSongs = remember(sortedSongs, searchQuery) {
+    LaunchedEffect(playlist?.id, songs) {
+        manualOrder = songs
+    }
+    val reorderEnabled = playlist?.isFiveStarRating != true &&
+        sortMode == PlaylistSongSortMode.Custom &&
+        searchQuery.isBlank()
+    val baseSongs = if (reorderEnabled) manualOrder else sortedSongs
+    val displayedSongs = remember(baseSongs, searchQuery) {
         val query = searchQuery.trim()
         if (query.isBlank()) {
-            sortedSongs
+            baseSongs
         } else {
-            sortedSongs.filter { song ->
+            baseSongs.filter { song ->
                 song.title.contains(query, ignoreCase = true) ||
                     song.artist.contains(query, ignoreCase = true) ||
                     song.album.contains(query, ignoreCase = true) ||
@@ -719,7 +736,67 @@ fun PlaylistDetailScreen(
                         },
                         onMore = { actionSong = song },
                         leadingLabel = (index + 1).toString(),
-                        leadingLabelBeforeCover = true
+                        leadingLabelBeforeCover = true,
+                        trailingContent = if (reorderEnabled) {
+                            {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .pointerInput(displayedSongs, song.playlistIdentityKey()) {
+                                            detectDragGestures(
+                                                onDragStart = {
+                                                    dragAnchorKey = song.playlistIdentityKey()
+                                                    dragAccumulatedPx = 0f
+                                                },
+                                                onDragCancel = {
+                                                    dragAnchorKey = null
+                                                    dragAccumulatedPx = 0f
+                                                },
+                                                onDragEnd = {
+                                                    dragAnchorKey = null
+                                                    dragAccumulatedPx = 0f
+                                                    mainViewModel.reorderPlaylistSongs(
+                                                        playlist.id,
+                                                        manualOrder.map { it.playlistIdentityKey() }
+                                                    )
+                                                }
+                                            ) { change, dragAmount ->
+                                                change.consume()
+                                                dragAccumulatedPx += dragAmount.y
+                                                val activeKey = dragAnchorKey ?: return@detectDragGestures
+                                                val rowHeight = estimatedRowHeightPx.coerceAtLeast(1f)
+                                                val steps = (dragAccumulatedPx / rowHeight).toInt()
+                                                if (steps == 0) return@detectDragGestures
+                                                val fromIndex = manualOrder.indexOfFirst { it.playlistIdentityKey() == activeKey }
+                                                if (fromIndex < 0) return@detectDragGestures
+                                                val targetIndex = (fromIndex + steps).coerceIn(0, manualOrder.lastIndex)
+                                                if (targetIndex == fromIndex) return@detectDragGestures
+                                                manualOrder = manualOrder.toMutableList().apply {
+                                                    add(targetIndex, removeAt(fromIndex))
+                                                }
+                                                dragAccumulatedPx -= (targetIndex - fromIndex) * rowHeight
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "\u2630",
+                                        fontSize = 16.sp,
+                                        color = if (dragAnchorKey == song.playlistIdentityKey()) {
+                                            MiuixTheme.colorScheme.primary
+                                        } else {
+                                            MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                        }
+                                    )
+                                }
+                            }
+                        } else null,
+                        modifier = Modifier.onSizeChanged { size ->
+                            if (size.height > 0) {
+                                estimatedRowHeightPx = size.height.toFloat()
+                            }
+                        }
                     )
                 }
             }

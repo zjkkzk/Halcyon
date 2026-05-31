@@ -373,6 +373,24 @@ class PlaylistStore private constructor(context: Context) {
         }
     }
 
+    suspend fun reorderPlaylistSongs(playlistId: String, orderedKeys: List<String>) = withContext(Dispatchers.IO) {
+        if (orderedKeys.isEmpty()) return@withContext
+        synchronized(lock) {
+            val now = System.currentTimeMillis()
+            val next = playlists.value.withPlaylist(playlistId) { playlist ->
+                val currentByKey = playlist.songs.associateBy { it.key }
+                val reordered = orderedKeys.mapNotNull(currentByKey::get)
+                if (reordered.size != playlist.songs.size) return@withPlaylist playlist
+                playlist.copy(
+                    songs = reordered,
+                    updatedAt = now
+                )
+            }
+            _playlists.value = next
+            saveLocked(next)
+        }
+    }
+
     private fun loadPlaylists(): List<UserPlaylist> {
         if (!file.exists()) return emptyList<UserPlaylist>().ensureFavorites()
         return runCatching {

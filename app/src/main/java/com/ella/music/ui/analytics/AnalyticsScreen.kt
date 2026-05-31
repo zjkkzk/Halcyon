@@ -1,5 +1,7 @@
 package com.ella.music.ui.analytics
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +50,7 @@ import com.ella.music.data.SongPlaybackStats
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
+import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -70,9 +75,11 @@ fun AnalyticsScreen(
     onBack: () -> Unit,
     onNavigateToHistory: () -> Unit = {}
 ) {
+    val songs by mainViewModel.songs.collectAsState()
     val playbackStats by mainViewModel.playbackStats.collectAsState()
     val playbackHistory by mainViewModel.playbackHistory.collectAsState()
     val dailyListenMs by mainViewModel.dailyListenMs.collectAsState()
+    val libraryById = remember(songs) { songs.associateBy { it.id } }
 
     Column(
         modifier = Modifier
@@ -117,6 +124,8 @@ fun AnalyticsScreen(
                 HistoryCard(
                     history = playbackHistory.take(20),
                     totalCount = playbackHistory.size,
+                    libraryById = libraryById,
+                    mainViewModel = mainViewModel,
                     onClick = onNavigateToHistory
                 )
             }
@@ -133,6 +142,8 @@ fun AnalyticsScreen(
                         .filter { it.listenedMs > 0L }
                         .sortedByDescending { it.listenedMs }
                         .take(10),
+                    libraryById = libraryById,
+                    mainViewModel = mainViewModel,
                     valueText = { formatListenDuration(it.listenedMs) }
                 )
             }
@@ -145,6 +156,8 @@ fun AnalyticsScreen(
                         .filter { it.playCount > 0 }
                         .sortedByDescending { it.playCount }
                         .take(10),
+                    libraryById = libraryById,
+                    mainViewModel = mainViewModel,
                     valueText = { "${it.playCount} 次" }
                 )
             }
@@ -156,12 +169,16 @@ fun AnalyticsScreen(
 fun PlaybackHistoryScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToAlbum: (Long) -> Unit = {},
+    onNavigateToArtist: (String) -> Unit = {}
 ) {
     ListeningCalendarHistoryScreen(
         mainViewModel = mainViewModel,
         playerViewModel = playerViewModel,
-        onBack = onBack
+        onBack = onBack,
+        onNavigateToAlbum = onNavigateToAlbum,
+        onNavigateToArtist = onNavigateToArtist
     )
 }
 
@@ -327,6 +344,8 @@ private fun ListenHeatmapCard(dailyListenMs: Map<String, Long>) {
 private fun HistoryCard(
     history: List<PlaybackHistoryEntry>,
     totalCount: Int,
+    libraryById: Map<Long, Song>,
+    mainViewModel: MainViewModel,
     onClick: () -> Unit
 ) {
     Card(
@@ -365,7 +384,11 @@ private fun HistoryCard(
                 )
             } else {
                 history.forEach { entry ->
-                    HistoryRow(entry = entry)
+                    HistoryRow(
+                        entry = entry,
+                        song = libraryById[entry.songId],
+                        mainViewModel = mainViewModel
+                    )
                 }
             }
         }
@@ -375,6 +398,8 @@ private fun HistoryCard(
 @Composable
 private fun HistoryRow(
     entry: PlaybackHistoryEntry,
+    song: Song?,
+    mainViewModel: MainViewModel,
     timeText: String = formatHistoryTime(entry.playedAt)
 ) {
     Row(
@@ -383,16 +408,22 @@ private fun HistoryRow(
             .padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        AnalyticsSongCover(
+            song = song,
+            mainViewModel = mainViewModel,
+            modifier = Modifier.size(42.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = entry.title,
+                text = song?.title ?: entry.title,
                 fontSize = 14.sp,
                 color = MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = entry.artist,
+                text = song?.artist ?: entry.artist,
                 fontSize = 12.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
@@ -602,6 +633,8 @@ private fun RankingCard(
     title: String,
     emptyText: String,
     stats: List<SongPlaybackStats>,
+    libraryById: Map<Long, Song>,
+    mainViewModel: MainViewModel,
     valueText: (SongPlaybackStats) -> String
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -620,7 +653,13 @@ private fun RankingCard(
                 )
             } else {
                 stats.forEachIndexed { index, stat ->
-                    RankingRow(index = index + 1, stat = stat, value = valueText(stat))
+                    RankingRow(
+                        index = index + 1,
+                        stat = stat,
+                        value = valueText(stat),
+                        song = libraryById[stat.songId],
+                        mainViewModel = mainViewModel
+                    )
                 }
             }
         }
@@ -628,7 +667,13 @@ private fun RankingCard(
 }
 
 @Composable
-private fun RankingRow(index: Int, stat: SongPlaybackStats, value: String) {
+private fun RankingRow(
+    index: Int,
+    stat: SongPlaybackStats,
+    value: String,
+    song: Song?,
+    mainViewModel: MainViewModel
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -642,16 +687,22 @@ private fun RankingRow(index: Int, stat: SongPlaybackStats, value: String) {
             color = MiuixTheme.colorScheme.primary,
             modifier = Modifier.width(28.dp)
         )
+        AnalyticsSongCover(
+            song = song,
+            mainViewModel = mainViewModel,
+            modifier = Modifier.size(42.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stat.title,
+                text = song?.title ?: stat.title,
                 fontSize = 14.sp,
                 color = MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = stat.artist,
+                text = song?.artist ?: stat.artist,
                 fontSize = 12.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
@@ -663,6 +714,36 @@ private fun RankingRow(index: Int, stat: SongPlaybackStats, value: String) {
             fontSize = 12.sp,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
+    }
+}
+
+@Composable
+private fun AnalyticsSongCover(
+    song: Song?,
+    mainViewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val coverBitmap by produceState<Bitmap?>(initialValue = null, song?.id, song?.dateModified, song?.fileSize) {
+        value = withContext(Dispatchers.IO) {
+            song?.let(mainViewModel::getCoverArtBitmap)
+        }
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MiuixTheme.colorScheme.surfaceContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        if (coverBitmap != null && !coverBitmap!!.isRecycled) {
+            Image(
+                bitmap = coverBitmap!!.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            DefaultAlbumCover(modifier = Modifier.fillMaxSize())
+        }
     }
 }
 

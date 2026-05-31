@@ -548,6 +548,7 @@ fun EllaApp(
             modifier = Modifier.fillMaxSize()
         ) {
             PlayerScreen(
+                mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 onBack = {
                     playerViewModel.setShowLyrics(false)

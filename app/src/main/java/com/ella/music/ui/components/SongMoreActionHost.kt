@@ -87,10 +87,12 @@ fun SongMoreActionHost(
     val context = LocalContext.current
     val playlists by mainViewModel.playlists.collectAsState(initial = emptyList())
     val metadataEditorId by mainViewModel.settingsManager.metadataEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
+    val lyricTimingEditorId by mainViewModel.settingsManager.lyricTimingEditorId.collectAsState(initial = TagEditorOptionIds.ASK_EACH_TIME)
     val scope = rememberCoroutineScope()
     var playlistSong by remember { mutableStateOf<Song?>(null) }
     var createPlaylistSong by remember { mutableStateOf<Song?>(null) }
     var tagEditorSong by remember { mutableStateOf<Song?>(null) }
+    var tagEditorKind by remember { mutableStateOf(TagEditorOptionKind.Metadata) }
     var infoSong by remember { mutableStateOf<Song?>(null) }
     var aiSong by remember { mutableStateOf<Song?>(null) }
     var artistChoices by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -192,6 +194,14 @@ fun SongMoreActionHost(
                 },
                 onEditTag = if (showLocalFileActions) {
                     {
+                        tagEditorKind = TagEditorOptionKind.Metadata
+                        tagEditorSong = song
+                        closeAction()
+                    }
+                } else null,
+                onLyricTiming = if (showLocalFileActions) {
+                    {
+                        tagEditorKind = TagEditorOptionKind.LyricTiming
                         tagEditorSong = song
                         closeAction()
                     }
@@ -309,15 +319,20 @@ fun SongMoreActionHost(
     }
 
     tagEditorSong?.let { song ->
-        val tagOptions = remember(song.id, song.path, song.mimeType) {
+        val tagOptions = remember(song.id, song.path, song.mimeType, tagEditorKind) {
             buildTagEditorOptions(context, song)
-                .filter { it.kind == TagEditorOptionKind.Metadata }
+                .filter { it.kind == tagEditorKind }
         }
-        val preferredOption = remember(tagOptions, metadataEditorId) {
-            tagOptions.firstOrNull { it.id == metadataEditorId }
+        val preferredEditorId = if (tagEditorKind == TagEditorOptionKind.LyricTiming) {
+            lyricTimingEditorId
+        } else {
+            metadataEditorId
         }
-        LaunchedEffect(song.id, metadataEditorId, preferredOption) {
-            if (metadataEditorId.isNotBlank() && preferredOption != null) {
+        val preferredOption = remember(tagOptions, preferredEditorId) {
+            tagOptions.firstOrNull { it.id == preferredEditorId }
+        }
+        LaunchedEffect(song.id, preferredEditorId, preferredOption, tagEditorKind) {
+            if (preferredEditorId.isNotBlank() && preferredOption != null) {
                 launchTagEditorOption(context, preferredOption)
                 tagEditorSong = null
             }
@@ -325,7 +340,7 @@ fun SongMoreActionHost(
         WindowBottomSheet(
             show = true,
             enableNestedScroll = false,
-            title = "编辑歌曲标签信息",
+            title = if (tagEditorKind == TagEditorOptionKind.LyricTiming) "歌词打轴" else "编辑歌曲标签信息",
             onDismissRequest = { tagEditorSong = null }
         ) {
             SongTagEditorSheet(
@@ -385,6 +400,7 @@ private fun SongMoreActionSheet(
     onArtist: () -> Unit,
     onAlbum: () -> Unit,
     onEditTag: (() -> Unit)?,
+    onLyricTiming: (() -> Unit)?,
     onRemoveFromPlaylist: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     showSpectrum: Boolean
@@ -403,6 +419,9 @@ private fun SongMoreActionSheet(
         if (onEditTag != null) {
             SongMenuItem("编辑歌曲标签信息", onEditTag)
         }
+        if (onLyricTiming != null) {
+            SongMenuItem("歌词打轴", onLyricTiming)
+        }
         if (onRemoveFromPlaylist != null) {
             SongMenuItem("从歌单移除", onRemoveFromPlaylist, danger = true)
         }
@@ -414,7 +433,7 @@ private fun SongMoreActionSheet(
 }
 
 @Composable
-private fun AddToPlaylistSheet(
+fun AddToPlaylistSheet(
     playlists: List<UserPlaylist>,
     onDismiss: () -> Unit,
     onCreatePlaylist: () -> Unit,
@@ -481,7 +500,7 @@ private fun ArtistPickerContent(
 }
 
 @Composable
-private fun CreatePlaylistAndAddSheet(
+fun CreatePlaylistAndAddSheet(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit
 ) {

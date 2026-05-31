@@ -96,7 +96,6 @@ object AppLogcatCollector {
         "scanner",
         "musicrepo",
         "taglib",
-        "jaudiotagger",
         "metadata",
         "cover",
         "wav",

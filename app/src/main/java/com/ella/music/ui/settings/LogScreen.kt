@@ -501,7 +501,7 @@ private enum class EllaLogTypeFilter(val label: String, val storageNames: Set<St
     PLAYBACK("播放", setOf("PLAYBACK"), setOf("player", "playback", "play", "exo", "media", "audio", "decoder", "queue", "播放", "播放器", "解码", "队列")),
     LYRICS("歌词", setOf("LYRICS"), setOf("lyric", "lyrics", "ticker", "superlyric", "lyricon", "flyme", "samsung", "bluetooth", "词幕", "歌词")),
     LIBRARY("音乐库", setOf("LIBRARY"), setOf("scan", "scanner", "library", "folder", "album", "artist", "cover", "音乐库", "扫描", "文件夹", "专辑", "艺术家", "封面")),
-    METADATA("元数据", setOf("METADATA"), setOf("tag", "metadata", "jaudiotagger", "taglib", "wav", "alac", "元数据", "标签")),
+    METADATA("元数据", setOf("METADATA"), setOf("tag", "metadata", "taglib", "wav", "alac", "元数据", "标签")),
     ONLINE("在线", setOf("ONLINE"), setOf("lx", "download", "api", "在线", "下载")),
     NETWORK("网络", setOf("NETWORK"), setOf("network", "http", "okhttp", "webdav", "request", "response", "网络")),
     DATABASE("数据", setOf("DATABASE"), setOf("database", "db", "room", "dao", "backup", "restore", "playlist", "stats", "数据库", "备份", "恢复")),

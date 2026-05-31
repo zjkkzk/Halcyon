@@ -435,7 +435,13 @@ fun AppNavigation(
             PlaybackHistoryScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateToAlbum = { albumId ->
+                    navController.navigate(Screen.AlbumDetail.createRoute(albumId))
+                },
+                onNavigateToArtist = { artistName ->
+                    navController.navigate(Screen.ArtistDetail.createRoute(artistName))
+                }
             )
         }
 
