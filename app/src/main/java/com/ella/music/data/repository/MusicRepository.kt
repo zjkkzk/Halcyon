@@ -846,7 +846,7 @@ class MusicRepository(private val context: Context) {
                     name = first.album.takeIf { it.isUsableAlbumText() } ?: "Unknown Album",
                     artist = albumOwner,
                     songCount = albumSongs.size,
-                    year = albumSongs.mapNotNull { it.year.extractYearInt() }.minOrNull() ?: 0,
+                    year = albumSongs.mapNotNull { s -> s.year.takeIf { it.isNotBlank() } }.minByOrNull { it } ?: "",
                     artAlbumId = first.albumId,
                     albumArtist = first.albumArtist.takeIf { it.isUsableTagText() }.orEmpty()
                 )
@@ -1009,7 +1009,7 @@ class MusicRepository(private val context: Context) {
                 name = item.optString("name"),
                 artist = item.optString("artist"),
                 songCount = item.optInt("songCount"),
-                year = item.optInt("year"),
+                year = item.optString("year", "").ifBlank { item.optInt("year").takeIf { it > 0 }?.toString() ?: "" },
                 artAlbumId = item.optLong("artAlbumId", item.optLong("id")),
                 albumArtist = item.optString("albumArtist")
             )

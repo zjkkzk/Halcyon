@@ -260,6 +260,7 @@ fun PlayerScreen(
     val lyricFontWeightValue by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     val lyricFontScaleValue by settingsManager.lyricFontScale.collectAsState(initial = 100)
     val lyricSourceMode by settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
+    val transportButtonOutlines by settingsManager.transportButtonOutlines.collectAsState(initial = false)
     val lyricFontFamily = remember(lyricFontPath, lyricFontWeightValue) {
         lyricFontPath.toPlayerLyricFontFamily(lyricFontWeightValue)
     }
@@ -828,24 +829,10 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                PlayerFlowBackground(
+                ImmersiveCoverBackground(
                     palette = palette,
                     flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                    animate = false,
                     modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Black.copy(alpha = 0.08f),
-                                    0.42f to Color.Black.copy(alpha = 0.18f),
-                                    1.0f to Color.Black.copy(alpha = 0.34f)
-                                )
-                            )
-                        )
                 )
             }
 
@@ -964,8 +951,7 @@ fun PlayerScreen(
                 ) {
                     AddToPlaylistSheet(
                         playlists = playlists
-                            .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                            .sortedByDescending { it.createdAt },
+                            .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                         onDismiss = { playlistPickerSong = null },
                         onCreatePlaylist = {
                             createPlaylistSong = currentSong
@@ -2669,7 +2655,6 @@ private fun LandscapeTransportControls(
             modifier = Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f))
                 .playerNoIndicationClick(onPlayPause),
             contentAlignment = Alignment.Center
         ) {
@@ -2729,7 +2714,7 @@ private enum class PlayerHeaderActionKind {
 }
 
 @Composable
-private fun Modifier.playerNoIndicationClick(onClick: () -> Unit): Modifier =
+internal fun Modifier.playerNoIndicationClick(onClick: () -> Unit): Modifier =
     clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
@@ -2772,6 +2757,9 @@ private fun PlayerQuickAction(
     kind: PlayerQuickActionKind,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
+    val showOutlines by settingsManager.transportButtonOutlines.collectAsState(initial = false)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -2782,7 +2770,7 @@ private fun PlayerQuickAction(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.12f)),
+                .then(if (showOutlines) Modifier.background(Color.White.copy(alpha = 0.18f)) else Modifier),
             contentAlignment = Alignment.Center
         ) {
             QuickActionIcon(
@@ -3045,6 +3033,9 @@ private fun PlayerTransportControls(
     onClearQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
+    val showOutlines by settingsManager.transportButtonOutlines.collectAsState(initial = false)
     val density = LocalDensity.current
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -3066,7 +3057,7 @@ private fun PlayerTransportControls(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.18f))
+                .then(if (showOutlines) Modifier.background(Color.White.copy(alpha = 0.18f)) else Modifier)
                 .playerNoIndicationClick(onPlayPause),
             contentAlignment = Alignment.Center
         ) {
@@ -3317,8 +3308,7 @@ private fun PlaybackModeIcon(
     Box(
         modifier = Modifier
             .size(28.dp)
-            .clip(CircleShape)
-            .background((if (active) accent else Color.White).copy(alpha = if (active) 0.28f else 0.10f)),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -3658,7 +3648,7 @@ private fun PlayerBlurBackground(
 }
 
 @Composable
-private fun PlayerQueueMenu(
+internal fun PlayerQueueMenu(
     playlist: List<Song>,
     currentSongId: Long?,
     onSongClick: (Int) -> Unit,
@@ -5185,7 +5175,7 @@ private fun mapFftToLogBars(
 }
 
 @Composable
-private fun AlbumArtView(
+internal fun AlbumArtView(
     song: Song?,
     embeddedCover: Bitmap?,
     cornerRadius: androidx.compose.ui.unit.Dp = 20.dp,

@@ -5,7 +5,9 @@ data class Album(
     val name: String,
     val artist: String,
     val songCount: Int,
-    val year: Int = 0,
+    val year: String = "",
     val artAlbumId: Long = id,
     val albumArtist: String = ""
-)
+) {
+    val yearInt: Int get() = Regex("""\d{4}""").find(year)?.value?.toIntOrNull() ?: 0
+}

@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -634,8 +635,7 @@ fun LibraryScreen(
             ) {
                 AddToPlaylistMenu(
                     playlists = playlists
-                        .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                        .sortedByDescending { it.createdAt },
+                        .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                     songCount = songsToAdd.size,
                     onDismiss = { playlistPickerSongs = null },
                     onCreatePlaylist = {
@@ -1133,13 +1133,16 @@ private fun AddToPlaylistMenu(
 ) {
     var selectedPlaylistIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
     val selectedPlaylists = playlists.filter { it.id in selectedPlaylistIds }
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .background(MiuixTheme.colorScheme.background.copy(alpha = 0.98f))
             .navigationBarsPadding()
-            .padding(horizontal = 18.dp, vertical = 16.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .heightIn(max = 400.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         SheetHandle()

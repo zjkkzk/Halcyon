@@ -120,7 +120,7 @@ fun AnalyticsScreen(
             contentPadding = PaddingValues(
                 start = 12.dp,
                 end = 12.dp,
-                top = 8.dp,
+                top = 12.dp,
                 bottom = 160.dp
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -233,7 +233,7 @@ fun LibraryAnalysisScreen(
             contentPadding = PaddingValues(
                 start = 12.dp,
                 end = 12.dp,
-                top = 8.dp,
+                top = 12.dp,
                 bottom = 160.dp
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp)

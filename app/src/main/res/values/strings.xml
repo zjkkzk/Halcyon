@@ -439,6 +439,11 @@
     <string name="settings_startup_play">启动后自动播放</string>
     <string name="settings_bluetooth_auto_play">蓝牙连接自动播放</string>
     <string name="settings_bluetooth_auto_play_summary">蓝牙音频设备连接后自动开始播放</string>
+    <string name="settings_mini_player_right_button">迷你播放条右侧按钮</string>
+    <string name="settings_mini_player_right_next">下一曲</string>
+    <string name="settings_mini_player_right_queue">播放列表</string>
+    <string name="settings_transport_button_outlines">播放页按钮轮廓</string>
+    <string name="settings_transport_button_outlines_summary">非沉浸模式下显示播放控制按钮的半透明圆形轮廓</string>
     <string name="settings_backup_export_title">导出设置和听歌统计</string>
     <string name="settings_backup_export_summary">导出设置、听歌历史和排行热力图数据</string>
     <string name="settings_backup_restore_title">恢复设置和听歌统计</string>

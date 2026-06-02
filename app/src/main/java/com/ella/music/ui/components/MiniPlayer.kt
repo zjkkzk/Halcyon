@@ -86,10 +86,12 @@ fun MiniPlayer(
     backdrop: Backdrop? = null,
     liquidGlass: Boolean = false,
     glassEffect: BottomBarGlassEffect = BottomBarGlassEffect.Blur,
+    showQueueButton: Boolean = false,
     onClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipPrevious: () -> Unit = {},
     onSkipNext: () -> Unit = {},
+    onShowQueue: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coverModel = rememberMiniPlayerCoverModel(song, albumArtUri, loadCoverArt)
@@ -215,19 +217,21 @@ fun MiniPlayer(
             modifier = Modifier.weight(1f)
         )
 
-        IconButton(
-            onClick = {
-                transitionDirection = -1
-                onSkipPrevious()
-            },
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_skip_previous),
-                contentDescription = stringResource(R.string.common_previous),
-                tint = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp)
-            )
+        if (!showQueueButton) {
+            IconButton(
+                onClick = {
+                    transitionDirection = -1
+                    onSkipPrevious()
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_skip_previous),
+                    contentDescription = stringResource(R.string.common_previous),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
 
         IconButton(
@@ -255,6 +259,18 @@ fun MiniPlayer(
                 tint = MiuixTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)
             )
+        }
+
+        if (showQueueButton) {
+            IconButton(
+                onClick = onShowQueue,
+                modifier = Modifier.size(36.dp)
+            ) {
+                QueueListIcon(
+                    color = MiuixTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
@@ -659,3 +675,24 @@ private data class MiniPlayerTextState(
     val showingLyric: Boolean,
     val scrollSecondary: Boolean
 )
+
+@Composable
+private fun QueueListIcon(
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val stroke = 2.5.dp.toPx()
+        val startX = size.width * 0.22f
+        val endX = size.width * 0.78f
+        listOf(0.30f, 0.50f, 0.70f).forEach { yFraction ->
+            drawLine(
+                color = color,
+                start = androidx.compose.ui.geometry.Offset(startX, size.height * yFraction),
+                end = androidx.compose.ui.geometry.Offset(endX, size.height * yFraction),
+                strokeWidth = stroke,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+}

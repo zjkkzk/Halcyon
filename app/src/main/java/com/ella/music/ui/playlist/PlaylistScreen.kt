@@ -484,6 +484,7 @@ fun PlaylistDetailScreen(
     val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
     val librarySongs by mainViewModel.songs.collectAsState()
     val ratingRevision by mainViewModel.ratingRevision.collectAsState()
+    val playbackStats by mainViewModel.playbackStats.collectAsState()
     val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
     val isFiveStarPlaylist = playlistId == FIVE_STAR_PLAYLIST_ID
     val storedPlaylist = playlists.firstOrNull { it.id == playlistId }
@@ -598,9 +599,8 @@ fun PlaylistDetailScreen(
             EllaSmallTopAppBar(
                 title = when {
                     playlist == null -> stringResource(R.string.playlist_title)
-                    isFiveStarPlaylist -> playlist.name
                     listState.firstVisibleItemIndex > 0 -> playlist.name
-                    else -> stringResource(R.string.playlist_custom_title)
+                    else -> stringResource(R.string.playlist_title)
                 },
                 color = ellaPageBackground(),
                 navigationIcon = {
@@ -713,10 +713,15 @@ fun PlaylistDetailScreen(
                 contentPadding = PaddingValues(bottom = 150.dp)
             ) {
                 item {
+                    val playlistPlayCount = remember(sortedSongs, playbackStats) {
+                        val statsMap = playbackStats.associateBy { it.songId }
+                        sortedSongs.sumOf { statsMap[it.id]?.playCount ?: 0 }
+                    }
                     PlaylistDetailHero(
                         playlist = playlist,
                         coverModel = playlistCoverModel,
                         songCount = sortedSongs.size,
+                        playCount = playlistPlayCount,
                         duration = sortedSongs.sumOf { it.duration },
                         sortLabel = stringResource(sortMode.labelRes)
                     )
@@ -909,6 +914,7 @@ private fun PlaylistDetailHero(
     playlist: UserPlaylist,
     coverModel: Any?,
     songCount: Int,
+    playCount: Int = 0,
     duration: Long,
     sortLabel: String
 ) {
@@ -949,7 +955,7 @@ private fun PlaylistDetailHero(
                     DefaultAlbumCover(modifier = Modifier.fillMaxSize())
                 }
                 Text(
-                    text = "▶ $songCount",
+                    text = "▶ $playCount",
                     fontSize = 12.sp,
                     color = Color.White,
                     modifier = Modifier

@@ -74,6 +74,8 @@ class SettingsManager(private val context: Context) {
         val KEY_MINI_PLAYER_LYRIC_SECONDARY = intPreferencesKey("mini_player_lyric_secondary")
         val KEY_MINI_PLAYER_COVER_ROTATION = booleanPreferencesKey("mini_player_cover_rotation")
         val KEY_MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
+        val KEY_MINI_PLAYER_RIGHT_BUTTON = intPreferencesKey("mini_player_right_button")
+        val KEY_TRANSPORT_BUTTON_OUTLINES = booleanPreferencesKey("transport_button_outlines")
         val KEY_PLAYER_HDR_GLOW = booleanPreferencesKey("player_hdr_glow")
         val KEY_PLAYER_IMMERSIVE_COVER = booleanPreferencesKey("player_immersive_cover")
         val KEY_PLAYER_DYNAMIC_FLOW_ENABLED = booleanPreferencesKey("player_dynamic_flow_enabled")
@@ -168,6 +170,8 @@ class SettingsManager(private val context: Context) {
         const val LYRIC_SECONDARY_OFF = 0
         const val LYRIC_SECONDARY_TRANSLATION = 1
         const val LYRIC_SECONDARY_PRONUNCIATION = 2
+        const val MINI_PLAYER_RIGHT_NEXT = 0
+        const val MINI_PLAYER_RIGHT_QUEUE = 1
 
         const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
         const val DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
@@ -264,6 +268,10 @@ class SettingsManager(private val context: Context) {
 
     val miniPlayerLyricsEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_MINI_PLAYER_LYRICS_ENABLED] ?: true }
+    val miniPlayerRightButton: Flow<Int> =
+        context.dataStore.data.map { it[KEY_MINI_PLAYER_RIGHT_BUTTON] ?: MINI_PLAYER_RIGHT_NEXT }
+    val transportButtonOutlines: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_TRANSPORT_BUTTON_OUTLINES] ?: false }
     val playerHdrGlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_PLAYER_HDR_GLOW] ?: false }
     val playerImmersiveCover: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_IMMERSIVE_COVER] ?: true }
@@ -581,6 +589,14 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setMiniPlayerLyricsEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_MINI_PLAYER_LYRICS_ENABLED] = enabled }
+    }
+
+    suspend fun setMiniPlayerRightButton(mode: Int) {
+        context.dataStore.edit { it[KEY_MINI_PLAYER_RIGHT_BUTTON] = mode.coerceIn(MINI_PLAYER_RIGHT_NEXT, MINI_PLAYER_RIGHT_QUEUE) }
+    }
+
+    suspend fun setTransportButtonOutlines(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_TRANSPORT_BUTTON_OUTLINES] = enabled }
     }
 
     suspend fun setPlayerHdrGlow(enabled: Boolean) {
@@ -960,6 +976,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_LYRIC_PAGE_KEEP_SCREEN_ON)
             setBoolean(KEY_LYRIC_PERSPECTIVE_EFFECT)
             setBoolean(KEY_MINI_PLAYER_LYRIC_TRANSLATION)
+            setInt(KEY_MINI_PLAYER_RIGHT_BUTTON)
             setBoolean(KEY_PLAYER_HDR_GLOW)
             setBoolean(KEY_PLAYER_IMMERSIVE_COVER)
             setBoolean(KEY_AUDIO_VISUALIZER_ENABLED)

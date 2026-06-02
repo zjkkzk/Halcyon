@@ -222,7 +222,7 @@ fun AlbumDetailScreen(
                         }
                     },
                     onReleaseYearClick = {
-                        album?.year?.takeIf { it > 0 }?.let { year ->
+                        album?.yearInt?.takeIf { it > 0 }?.let { year ->
                             onNavigateToMetadataCategory("year", year.toString())
                         }
                     },
@@ -728,14 +728,11 @@ private fun AlbumHeader(
                     )
                 }
                 Text(
-                    text = if ((album?.year ?: 0) > 0) {
-                        album?.year.toString()
-                    } else {
-                        stringResource(R.string.album_unknown_year)
-                    },
+                    text = album?.year?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.album_unknown_year),
                     fontSize = 14.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.clickable(enabled = (album?.year ?: 0) > 0, onClick = onReleaseYearClick)
+                    modifier = Modifier.clickable(enabled = !album?.year.isNullOrBlank(), onClick = onReleaseYearClick)
                 )
             }
         }
@@ -748,7 +745,7 @@ private fun AlbumHeader(
             AlbumStatItem(value = songCount.toString(), label = stringResource(R.string.album_stat_songs))
             AlbumStatItem(value = duration.formatPlaybackDuration(), label = stringResource(R.string.album_stat_duration))
             AlbumStatItem(
-                value = (album?.year ?: 0).takeIf { it > 0 }?.toString() ?: stringResource(R.string.album_unknown_year),
+                value = album?.year?.takeIf { it.isNotBlank() } ?: stringResource(R.string.album_unknown_year),
                 label = stringResource(R.string.album_stat_year)
             )
         }

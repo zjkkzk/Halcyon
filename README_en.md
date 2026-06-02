@@ -312,6 +312,7 @@ Normal `assembleDebug` builds do not rebuild native code by default. Before rele
 | [QuickJS wrapper Android](https://github.com/HarlonWang/quickjs-wrapper) | Runtime for LX Music API JavaScript sources                                     |
 | [LX Music Mobile](https://github.com/lyswhut/lx-music-mobile) | LX Music API compatibility implementation and reference                         |
 | [accompanist-lyrics-core](https://github.com/6xingyv/accompanist-lyrics-core) | Lyric parsing and TTML / LRC structure reference (Apache-2.0)                   |
+| [accompanist-lyrics-ui](https://github.com/6xingyv/accompanist-lyrics-ui) | Karaoke-style word-by-word lyric sweep and glow animation reference (Apache-2.0) |
 
 
 ---
@@ -324,14 +325,12 @@ The Ella Music main project is open-sourced under **Apache-2.0**. Third-party co
 
 ## 👥 Credits
 
-- **Codex** — Primary development and code collaboration since version 1.0.2.
-- **Mimo-V2.5-Pro** — Main development contributor for early versions 1.0.0 to 1.0.1.
 - **BetterLyrics** — Visual reference for blurred cover backgrounds and lyric display.
 - **SPlayer** — Visual reference for playback page animations and lyric experience.
 - **Lyrico** — Reference for external tag editor adaptation and log page interaction.
 - **LX Music Mobile** — Provides LX Music API compatibility implementation and testing reference.
 - **Light Cone Music** — Interface design and feature implementation reference.
-- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, lyrico-audiotag / Lyrico, TagLib, 163KeyDecrypter, Kyant Backdrop, Coil, OkHttp, accompanist-lyrics-core, and other open source projects used by Ella Music.
+- Thanks to Miuix, Media3, FFmpeg, Lyricon, SuperLyricApi, LyricGetter-API, lyrico-audiotag / Lyrico, TagLib, 163KeyDecrypter, Kyant Backdrop, Coil, OkHttp, accompanist-lyrics-core, accompanist-lyrics-ui, and other open source projects used by Ella Music.
 
 ---
 

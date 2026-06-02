@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -463,8 +464,7 @@ fun ArtistScreen(
             ) {
                 ArtistAddToPlaylistMenu(
                     playlists = playlists
-                        .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                        .sortedByDescending { it.createdAt },
+                        .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                     onDismiss = { playlistPickerSong = null },
                     onCreatePlaylist = {
                         createPlaylistSong = song
@@ -850,6 +850,7 @@ private fun ArtistSheetColumn(content: @Composable ColumnScope.() -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .background(MiuixTheme.colorScheme.background.copy(alpha = 0.98f))
+            .heightIn(max = 400.dp)
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
             .padding(horizontal = 18.dp, vertical = 16.dp),
@@ -1092,8 +1093,8 @@ private fun List<Album>.sortedForArtistAlbumDetail(
     durations: Map<Long, Long>
 ): List<Album> {
     return when (mode) {
-        ArtistDetailAlbumSortMode.YearAsc -> sortedWith(compareBy<Album> { it.year <= 0 }.thenBy { it.year }.thenBy { it.name.lowercase(Locale.ROOT) })
-        ArtistDetailAlbumSortMode.YearDesc -> sortedWith(compareBy<Album> { it.year <= 0 }.thenByDescending { it.year }.thenBy { it.name.lowercase(Locale.ROOT) })
+        ArtistDetailAlbumSortMode.YearAsc -> sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenBy { it.yearInt }.thenBy { it.name.lowercase(Locale.ROOT) })
+        ArtistDetailAlbumSortMode.YearDesc -> sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenByDescending { it.yearInt }.thenBy { it.name.lowercase(Locale.ROOT) })
         ArtistDetailAlbumSortMode.SongCount -> sortedByDescending { it.songCount }
         ArtistDetailAlbumSortMode.Duration -> sortedByDescending { durations[it.id] ?: 0L }
         ArtistDetailAlbumSortMode.Name -> sortedBy { it.name.lowercase(Locale.ROOT) }
@@ -1129,7 +1130,7 @@ private fun ArtistAlbumRow(
 ) {
     val summary = buildList {
         add("${album.songCount} 首歌曲")
-        if (album.year > 0) add("${album.year}年")
+        if (album.year.isNotBlank()) add(album.year)
         add(duration.formatArtistDetailDuration())
     }.joinToString(" · ")
 

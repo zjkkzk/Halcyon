@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
@@ -516,8 +519,7 @@ fun FolderDetailScreen(
             ) {
                 AddSelectedSongsToPlaylistSheet(
                     playlists = playlists
-                        .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                        .sortedByDescending { it.createdAt },
+                        .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                     songCount = songsToAdd.size,
                     onDismiss = { playlistPickerSongs = null },
                     onCreatePlaylist = {
@@ -581,8 +583,12 @@ private fun AddSelectedSongsToPlaylistSheet(
 ) {
     var selectedPlaylistIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
     val selectedPlaylists = playlists.filter { it.id in selectedPlaylistIds }
+    val scrollState = rememberScrollState()
     Column(
-        modifier = Modifier.padding(bottom = 18.dp),
+        modifier = Modifier
+            .padding(bottom = 18.dp)
+            .heightIn(max = 400.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(

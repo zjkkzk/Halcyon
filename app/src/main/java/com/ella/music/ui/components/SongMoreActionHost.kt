@@ -356,8 +356,7 @@ fun SongMoreActionHost(
         ) {
             AddToPlaylistSheet(
                 playlists = playlists
-                    .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                    .sortedByDescending { it.createdAt },
+                    .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                 onDismiss = { playlistSong = null },
                 onCreatePlaylist = {
                     createPlaylistSong = song

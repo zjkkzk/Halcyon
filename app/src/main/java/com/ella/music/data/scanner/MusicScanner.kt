@@ -394,7 +394,7 @@ class MusicScanner(private val context: Context) {
                     cursor.getString(1) ?: "Unknown",
                     cursor.getString(2) ?: "Unknown",
                     cursor.getInt(3),
-                    cursor.getInt(4)
+                    cursor.getInt(4).takeIf { it > 0 }?.toString() ?: ""
                 ))
             }
         }

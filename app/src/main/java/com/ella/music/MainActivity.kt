@@ -97,6 +97,7 @@ import com.ella.music.ui.components.LiquidGlassBottomBar
 import com.ella.music.ui.components.LiquidGlassBottomBarItem
 import com.ella.music.ui.components.MiniPlayer
 import com.ella.music.ui.components.TagEditorEditTracker
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
@@ -110,7 +111,6 @@ import com.ella.music.viewmodel.PlayerViewModel
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Music
@@ -423,6 +423,7 @@ fun EllaApp(
     val miniPlayerLyricSecondary by settingsManager.miniPlayerLyricSecondary.collectAsState(initial = SettingsManager.LYRIC_SECONDARY_TRANSLATION)
     val miniPlayerCoverRotation by settingsManager.miniPlayerCoverRotation.collectAsState(initial = true)
     val miniPlayerLyricsEnabled by settingsManager.miniPlayerLyricsEnabled.collectAsState(initial = true)
+    val miniPlayerRightButton by settingsManager.miniPlayerRightButton.collectAsState(initial = 0)
     val bottomBarGlassEffect by settingsManager.bottomBarGlassEffect.collectAsState(initial = BottomBarGlassEffect.LiquidGlass)
 
     val currentLyricLine = lyrics.getOrNull(currentLyricIndex)
@@ -519,6 +520,8 @@ fun EllaApp(
                 duration = duration,
                 lyricText = miniPlayerLyricText,
                 lyricTranslation = miniPlayerLyricSecondaryText,
+                lyricProgress = miniPlayerLyricProgress,
+                miniPlayerRightButton = miniPlayerRightButton,
                 tabs = tabs,
                 currentTab = currentTab,
                 currentRoute = currentRoute,
@@ -526,7 +529,6 @@ fun EllaApp(
                 canCompact = canCompactBottomDock,
                 backdrop = backdrop,
                 glassEffect = bottomBarGlassEffect,
-                lyricProgress = miniPlayerLyricProgress,
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 onNavigate = { route ->
@@ -635,7 +637,7 @@ private fun InitialScanPromptDialog(
         onDismissRequest = onDismiss
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
+            top.yukonga.miuix.kmp.basic.Text(
                 text = stringResource(R.string.initial_scan_message),
                 color = MiuixTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
@@ -692,6 +694,7 @@ private fun FloatingBottomControls(
     lyricText: String?,
     lyricTranslation: String?,
     lyricProgress: Float,
+    miniPlayerRightButton: Int = 0,
     tabs: List<Triple<String, String, ImageVector>>,
     currentTab: Triple<String, String, ImageVector>,
     currentRoute: String?,
@@ -707,6 +710,9 @@ private fun FloatingBottomControls(
     modifier: Modifier = Modifier,
     useGlass: Boolean = true
 ) {
+    var queueSheetExpanded by remember { mutableStateOf(false) }
+    val playlist by playerViewModel.playlist.collectAsState()
+    val currentSongId = currentSong?.id
     val effectiveMode = if (showMiniPlayer && canCompact) bottomDockMode else BottomDockMode.Expanded
     AnimatedContent(
         targetState = effectiveMode,
@@ -758,10 +764,12 @@ private fun FloatingBottomControls(
                             backdrop = if (useGlass) backdrop else null,
                             liquidGlass = useGlass,
                             glassEffect = glassEffect,
+                            showQueueButton = miniPlayerRightButton == SettingsManager.MINI_PLAYER_RIGHT_QUEUE,
                             onClick = onNavigatePlayer,
                             onPlayPause = { playerViewModel.togglePlayPause() },
                             onSkipNext = { playerViewModel.skipToNext() },
                             onSkipPrevious = { playerViewModel.skipToPrevious() },
+                            onShowQueue = { queueSheetExpanded = true },
                             lyricProgress = lyricProgress,
                         )
                     }
@@ -790,7 +798,7 @@ private fun FloatingBottomControls(
                                         )
                                     },
                                     label = {
-                                        Text(
+                                        top.yukonga.miuix.kmp.basic.Text(
                                             text = label,
                                             fontSize = 11.sp,
                                             color = if (currentTab.first == route) MiuixTheme.colorScheme.primary
@@ -803,6 +811,30 @@ private fun FloatingBottomControls(
                     }
                 }
             }
+        }
+    }
+
+    if (queueSheetExpanded) {
+        WindowBottomSheet(
+            show = true,
+            enableNestedScroll = false,
+            title = stringResource(R.string.player_queue_title),
+            onDismissRequest = { queueSheetExpanded = false }
+        ) {
+            com.ella.music.ui.player.PlayerQueueMenu(
+                playlist = playlist,
+                currentSongId = currentSongId,
+                onSongClick = { index ->
+                    queueSheetExpanded = false
+                    playerViewModel.playQueueIndex(index)
+                },
+                onRemoveSong = { index -> playerViewModel.removeFromPlaylist(index) },
+                onClearQueue = {
+                    queueSheetExpanded = false
+                    playerViewModel.clearPlaylist()
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

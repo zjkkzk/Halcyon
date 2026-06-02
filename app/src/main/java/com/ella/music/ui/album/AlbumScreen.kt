@@ -114,8 +114,8 @@ fun AlbumScreen(
             AlbumSortMode.Artist -> filteredAlbums.sortedBy { it.artist.musicSortKey() }
             AlbumSortMode.SongCount -> filteredAlbums.sortedByDescending { it.songCount }
             AlbumSortMode.Duration -> filteredAlbums.sortedByDescending { albumDurations[it.id] ?: 0L }
-            AlbumSortMode.YearAsc -> filteredAlbums.sortedWith(compareBy<Album> { it.year <= 0 }.thenBy { it.year }.thenBy { it.name.musicSortKey() })
-            AlbumSortMode.YearDesc -> filteredAlbums.sortedWith(compareBy<Album> { it.year <= 0 }.thenByDescending { it.year }.thenBy { it.name.musicSortKey() })
+            AlbumSortMode.YearAsc -> filteredAlbums.sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenBy { it.yearInt }.thenBy { it.name.musicSortKey() })
+            AlbumSortMode.YearDesc -> filteredAlbums.sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenByDescending { it.yearInt }.thenBy { it.name.musicSortKey() })
         }
     }
 
@@ -346,7 +346,7 @@ private fun Album.summaryForSort(context: android.content.Context, sortMode: Alb
     }
     return buildList {
         add(first)
-        if (year > 0) add(year.toString())
+        if (year.isNotBlank()) add(year)
         val artistText = albumArtist.trim()
         if (artistText.isNotBlank()) add(artistText)
     }.joinToString(" · ")

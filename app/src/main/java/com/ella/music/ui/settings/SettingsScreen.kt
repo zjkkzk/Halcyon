@@ -551,12 +551,14 @@ fun SettingsDetailScreen(
     val bluetoothLyricPronunciation by settingsManager.bluetoothLyricPronunciation.collectAsState(initial = false)
     val miniPlayerLyricSecondary by settingsManager.miniPlayerLyricSecondary.collectAsState(initial = SettingsManager.LYRIC_SECONDARY_TRANSLATION)
     val miniPlayerCoverRotation by settingsManager.miniPlayerCoverRotation.collectAsState(initial = true)
+    val miniPlayerRightButton by settingsManager.miniPlayerRightButton.collectAsState(initial = 0)
     val miniPlayerLyricsEnabled by settingsManager.miniPlayerLyricsEnabled.collectAsState(initial = true)
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val playerImmersiveCover by settingsManager.playerImmersiveCover.collectAsState(initial = true)
+    val transportButtonOutlines by settingsManager.transportButtonOutlines.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
@@ -901,6 +903,14 @@ fun SettingsDetailScreen(
                                 scope.launch { settingsManager.setPlayerImmersiveCover(it) }
                             }
                         )
+                        SwitchPreference(
+                            title = stringResource(R.string.settings_transport_button_outlines),
+                            summary = stringResource(R.string.settings_transport_button_outlines_summary),
+                            checked = transportButtonOutlines,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.setTransportButtonOutlines(it) }
+                            }
+                        )
                         ArrowPreference(
                             title = stringResource(R.string.settings_lyric_font),
                             summary = lyricFontName.ifBlank { stringResource(R.string.settings_system_default) },
@@ -973,7 +983,7 @@ fun SettingsDetailScreen(
                     Column {
                         WindowSpinnerPreference(
                             title = stringResource(R.string.settings_metadata_editor),
-                            summary = "",
+                            summary = stringResource(R.string.settings_current_value, metadataEditorOptions.getOrNull(metadataEditorIndex)?.second.orEmpty()),
                             items = metadataEditorEntries,
                             selectedIndex = metadataEditorIndex,
                             onSelectedIndexChange = { index ->
@@ -986,7 +996,7 @@ fun SettingsDetailScreen(
                         )
                         WindowSpinnerPreference(
                             title = stringResource(R.string.settings_lyric_timing_editor),
-                            summary = "",
+                            summary = stringResource(R.string.settings_current_value, lyricTimingEditorOptions.getOrNull(lyricTimingEditorIndex)?.second.orEmpty()),
                             items = lyricTimingEditorEntries,
                             selectedIndex = lyricTimingEditorIndex,
                             onSelectedIndexChange = { index ->
@@ -1138,6 +1148,20 @@ fun SettingsDetailScreen(
                         checked = miniPlayerCoverRotation,
                         onCheckedChange = { enabled ->
                             scope.launch { settingsManager.setMiniPlayerCoverRotation(enabled) }
+                        }
+                    )
+
+                    val miniPlayerRightButtonLabels = listOf(
+                        stringResource(R.string.settings_mini_player_right_next),
+                        stringResource(R.string.settings_mini_player_right_queue)
+                    )
+                    WindowSpinnerPreference(
+                        title = stringResource(R.string.settings_mini_player_right_button),
+                        summary = stringResource(R.string.settings_current_value, miniPlayerRightButtonLabels.getOrElse(miniPlayerRightButton) { miniPlayerRightButtonLabels[0] }),
+                        items = miniPlayerRightButtonLabels.map { DropdownItem(title = it) },
+                        selectedIndex = miniPlayerRightButton.coerceIn(0, 1),
+                        onSelectedIndexChange = { index ->
+                            scope.launch { settingsManager.setMiniPlayerRightButton(index) }
                         }
                     )
 

@@ -271,10 +271,6 @@ private fun AboutContent(
                 SmallTitle(text = stringResource(R.string.about_acknowledgements))
                 FrostedCard(backdrop = backdrop, blurEnable = blurEnable, cardBlendColors = cardBlendColors, scrollProgress = scrollProgress) {
                     BasicComponent(
-                        title = "Codex",
-                        summary = "1.0.2 至今主要开发与代码协作",
-                    )
-                    BasicComponent(
                         title = "BetterLyrics",
                         summary = "播放页封面模糊背景和歌词视觉效果参考",
                         onClick = { uriHandler.openUri("https://github.com/jayfunc/BetterLyrics") },
@@ -333,6 +329,11 @@ private fun AboutContent(
                         title = "Lyrico",
                         summary = "歌曲标签读取与应用日志页面参考（Apache-2.0）",
                         onClick = { uriHandler.openUri("https://github.com/Replica0110/Lyrico") },
+                    )
+                    BasicComponent(
+                        title = "Accompanist Lyrics UI",
+                        summary = "逐字卡拉OK歌词渲染与动画效果（Apache-2.0）",
+                        onClick = { uriHandler.openUri("https://github.com/6xingyv/accompanist-lyrics-ui") },
                     )
                     BasicComponent(
                         title = "163KeyDecrypter",

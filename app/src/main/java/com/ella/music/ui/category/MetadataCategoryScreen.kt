@@ -20,10 +20,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -660,8 +663,7 @@ fun MetadataCategoryDetailScreen(
                 ) {
                     CategoryAddSelectedSongsToPlaylistSheet(
                         playlists = playlists
-                            .filterNot { it.id == FAVORITES_PLAYLIST_ID }
-                            .sortedByDescending { it.createdAt },
+                            .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                         songCount = songsToAdd.size,
                         onDismiss = { playlistPickerSongs = null },
                         onCreatePlaylist = {
@@ -726,8 +728,12 @@ private fun CategoryAddSelectedSongsToPlaylistSheet(
 ) {
     var selectedPlaylistIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
     val selectedPlaylists = playlists.filter { it.id in selectedPlaylistIds }
+    val scrollState = rememberScrollState()
     Column(
-        modifier = Modifier.padding(bottom = 18.dp),
+        modifier = Modifier
+            .padding(bottom = 18.dp)
+            .heightIn(max = 400.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
@@ -1288,8 +1294,8 @@ private fun List<Album>.sortedForMetadataAlbumDetail(
     durations: Map<Long, Long>
 ): List<Album> {
     return when (mode) {
-        MetadataDetailAlbumSortMode.YearAsc -> sortedWith(compareBy<Album> { it.year <= 0 }.thenBy { it.year }.thenBy { it.name.lowercase(Locale.ROOT) })
-        MetadataDetailAlbumSortMode.YearDesc -> sortedWith(compareBy<Album> { it.year <= 0 }.thenByDescending { it.year }.thenBy { it.name.lowercase(Locale.ROOT) })
+        MetadataDetailAlbumSortMode.YearAsc -> sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenBy { it.yearInt }.thenBy { it.name.lowercase(Locale.ROOT) })
+        MetadataDetailAlbumSortMode.YearDesc -> sortedWith(compareBy<Album> { it.yearInt <= 0 }.thenByDescending { it.yearInt }.thenBy { it.name.lowercase(Locale.ROOT) })
         MetadataDetailAlbumSortMode.SongCount -> sortedByDescending { it.songCount }
         MetadataDetailAlbumSortMode.Duration -> sortedByDescending { durations[it.id] ?: 0L }
         MetadataDetailAlbumSortMode.Name -> sortedBy { it.name.lowercase(Locale.ROOT) }
@@ -1305,7 +1311,7 @@ private fun List<Song>.toMetadataAlbums(libraryAlbums: List<Album>): List<Album>
                 name = albumSongs.firstOrNull()?.album.orEmpty().ifBlank { "未知专辑" },
                 artist = albumSongs.firstOrNull()?.artist.orEmpty(),
                 songCount = albumSongs.size,
-                year = albumSongs.mapNotNull { it.releaseYearOrNull() }.minOrNull() ?: 0,
+                year = albumSongs.mapNotNull { s -> s.year.takeIf { it.isNotBlank() } }.minByOrNull { it } ?: "",
                 artAlbumId = albumSongs.firstOrNull()?.albumId ?: albumId,
                 albumArtist = albumSongs.firstOrNull()?.albumArtist.orEmpty()
             )
@@ -1321,7 +1327,7 @@ private fun MetadataAlbumRow(
 ) {
     val summary = buildList {
         add("${album.songCount} 首歌曲")
-        if (album.year > 0) add("${album.year}年")
+        if (album.year.isNotBlank()) add(album.year)
         add(duration.formatDuration())
     }.joinToString(" · ")
 

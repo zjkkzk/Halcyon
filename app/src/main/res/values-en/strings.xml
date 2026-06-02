@@ -439,6 +439,11 @@
     <string name="settings_startup_play">Autoplay on launch</string>
     <string name="settings_bluetooth_auto_play">Bluetooth auto-play</string>
     <string name="settings_bluetooth_auto_play_summary">Automatically start playback when a Bluetooth audio device connects</string>
+    <string name="settings_mini_player_right_button">Mini player right button</string>
+    <string name="settings_mini_player_right_next">Next track</string>
+    <string name="settings_mini_player_right_queue">Playlist</string>
+    <string name="settings_transport_button_outlines">Player button outlines</string>
+    <string name="settings_transport_button_outlines_summary">Show semi-transparent circular outlines on playback control buttons in non-immersive mode</string>
     <string name="settings_backup_export_title">Export settings and listening stats</string>
     <string name="settings_backup_export_summary">Export settings, listening history, and heatmap ranking data</string>
     <string name="settings_backup_restore_title">Restore settings and listening stats</string>

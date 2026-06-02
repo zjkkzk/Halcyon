@@ -678,20 +678,29 @@ object LrcParser {
         }
     }
 
+    private val lyricExtensions = listOf("lrc", "ttml", "elrc")
+
     fun findLrcFile(songPath: String): String? {
         val baseName = songPath.substringBeforeLast('.')
-        val candidates = listOf("$baseName.lrc", "${baseName}.LRC")
-        for (candidate in candidates) {
-            readViaFd(candidate)?.let { return it }
+        // Exact name match: try each extension (lrc first, then ttml, elrc)
+        for (ext in lyricExtensions) {
+            readViaFd("$baseName.$ext")?.let { return it }
         }
 
         val parentDir = File(songPath).parentFile
         if (parentDir != null) {
             val songName = File(songPath).nameWithoutExtension
             try {
-                parentDir.listFiles()?.find {
-                    it.extension.equals("lrc", ignoreCase = true) &&
-                        it.nameWithoutExtension.contains(songName, ignoreCase = true)
+                // Fuzzy match: find any lyric file whose name contains the song name
+                parentDir.listFiles()?.filter {
+                    it.extension.equals("lrc", ignoreCase = true) ||
+                        it.extension.equals("ttml", ignoreCase = true) ||
+                        it.extension.equals("elrc", ignoreCase = true)
+                }?.sortedWith(
+                    compareBy<File> { lyricExtensions.indexOf(it.extension.lowercase()) }
+                        .thenBy { it.name }
+                )?.find {
+                    it.nameWithoutExtension.contains(songName, ignoreCase = true)
                 }?.let { readViaFd(it.absolutePath)?.let { text -> return text } }
             } catch (_: Exception) {}
         }
