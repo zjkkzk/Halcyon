@@ -694,7 +694,7 @@ fun SettingsDetailScreen(
     val lyricSourcePriority by settingsManager.lyricSourcePriority.collectAsState(initial = SettingsManager.DEFAULT_LYRIC_SOURCE_PRIORITY)
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
-    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val startupPosterEnabled by settingsManager.startupPosterEnabled.collectAsState(initial = false)
     val startupPosterUri by settingsManager.startupPosterUri.collectAsState(initial = "")
@@ -747,6 +747,13 @@ fun SettingsDetailScreen(
             DropdownItem(title = bottomBarGlassBlurLabel),
             DropdownItem(title = bottomBarGlassLiquidLabel)
         )
+    }
+    val lyricPageModeLabels = listOf(
+        stringResource(R.string.settings_lyric_page_mode_standard),
+        stringResource(R.string.settings_lyric_page_mode_smooth)
+    )
+    val lyricPageModeEntries = remember(lyricPageModeLabels) {
+        lyricPageModeLabels.map { DropdownItem(title = it) }
     }
     val selectedBottomBarGlassEffectIndex =
         bottomBarGlassEffects.indexOf(bottomBarGlassEffect).takeIf { it >= 0 } ?: 0
@@ -865,6 +872,10 @@ fun SettingsDetailScreen(
         HomePreferenceItem("lyricist", stringResource(R.string.settings_library_tile_lyricist), stringResource(R.string.settings_library_tile_lyricist_summary))
     )
     var showHomeDisplayPage by remember { mutableStateOf(false) }
+    val contentScrollState = rememberScrollState()
+    LaunchedEffect(showHomeDisplayPage) {
+        contentScrollState.scrollTo(0)
+    }
     val startupPosterPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1007,7 +1018,7 @@ fun SettingsDetailScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(contentScrollState)
                 .padding(horizontal = 12.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -1502,12 +1513,16 @@ fun SettingsDetailScreen(
                         }
                     )
 
-                    SwitchPreference(
+                    WindowSpinnerPreference(
                         title = stringResource(R.string.settings_smooth_lyric_view),
-                        summary = stringResource(R.string.settings_smooth_lyric_view_summary),
-                        checked = smoothLyricView,
-                        onCheckedChange = { enabled ->
-                            scope.launch { settingsManager.setSmoothLyricView(enabled) }
+                        summary = stringResource(
+                            R.string.settings_current_value,
+                            lyricPageModeLabels[if (smoothLyricView) 1 else 0]
+                        ),
+                        items = lyricPageModeEntries,
+                        selectedIndex = if (smoothLyricView) 1 else 0,
+                        onSelectedIndexChange = { index ->
+                            scope.launch { settingsManager.setSmoothLyricView(index == 1) }
                         }
                     )
 

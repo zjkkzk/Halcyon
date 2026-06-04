@@ -69,6 +69,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun LibrarySearchScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
+    initialFilterType: String? = null,
+    initialQuery: String? = null,
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
@@ -79,8 +81,8 @@ fun LibrarySearchScreen(
     val albums by mainViewModel.albums.collectAsState()
     val currentSong by playerViewModel.currentSong.collectAsState()
     val lyricSourceMode by mainViewModel.settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
-    var query by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(SearchFilter.All) }
+    var query by remember(initialQuery) { mutableStateOf(initialQuery.orEmpty()) }
+    var filter by remember(initialFilterType) { mutableStateOf(SearchFilter.fromRouteType(initialFilterType)) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
     var history by remember { mutableStateOf(loadSearchHistory(context)) }
 
@@ -348,7 +350,20 @@ private enum class SearchFilter {
     Songs,
     Albums,
     Artists,
-    Duplicates
+    Duplicates;
+
+    companion object {
+        fun fromRouteType(type: String?): SearchFilter {
+            return when (type?.trim()?.lowercase()) {
+                null, "", "all" -> All
+                "song", "songs" -> Songs
+                "album", "albums" -> Albums
+                "artist", "artists" -> Artists
+                "duplicate", "duplicates" -> Duplicates
+                else -> All
+            }
+        }
+    }
 }
 
 private data class ArtistSearchResult(

@@ -15,30 +15,44 @@
     </shortcut>
 
     <shortcut
-        android:shortcutId="playlists"
+        android:shortcutId="search"
         android:enabled="true"
-        android:icon="@drawable/ic_shortcut_playlist"
-        android:shortcutShortLabel="@string/shortcut_playlists_short"
-        android:shortcutLongLabel="@string/shortcut_playlists_long">
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search_short"
+        android:shortcutLongLabel="@string/shortcut_search_long">
         <intent
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.ella.music"
             android:targetClass="com.ella.music.MainActivity">
-            <extra android:name="ella_shortcut_route" android:value="playlists" />
+            <extra android:name="ella_shortcut_route" android:value="library_search" />
         </intent>
     </shortcut>
 
     <shortcut
-        android:shortcutId="folder"
+        android:shortcutId="play"
         android:enabled="true"
-        android:icon="@drawable/ic_shortcut_folder"
-        android:shortcutShortLabel="@string/shortcut_folder_short"
-        android:shortcutLongLabel="@string/shortcut_folder_long">
+        android:icon="@drawable/ic_player_play"
+        android:shortcutShortLabel="@string/shortcut_play_short"
+        android:shortcutLongLabel="@string/shortcut_play_long">
         <intent
             android:action="android.intent.action.VIEW"
             android:targetPackage="com.ella.music"
             android:targetClass="com.ella.music.MainActivity">
-            <extra android:name="ella_shortcut_route" android:value="folder" />
+            <extra android:name="ella_shortcut_action" android:value="play" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="shuffle_all"
+        android:enabled="true"
+        android:icon="@drawable/ic_shuffle"
+        android:shortcutShortLabel="@string/shortcut_shuffle_all_short"
+        android:shortcutLongLabel="@string/shortcut_shuffle_all_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.ella.music"
+            android:targetClass="com.ella.music.MainActivity">
+            <extra android:name="ella_shortcut_action" android:value="shuffle_all" />
         </intent>
     </shortcut>
 

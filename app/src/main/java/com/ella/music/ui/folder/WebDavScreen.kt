@@ -60,7 +60,7 @@ fun WebDavScreen(
     val savedUser by mainViewModel.settingsManager.webDavUsername.collectAsState(initial = "")
     val savedPassword by mainViewModel.settingsManager.webDavPassword.collectAsState(initial = "")
     val savedLastUrl by mainViewModel.settingsManager.webDavLastUrl.collectAsState(initial = "")
-    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = false)
 
     var showSettings by remember { mutableStateOf(false) }
     var webDavUrl by remember { mutableStateOf("") }

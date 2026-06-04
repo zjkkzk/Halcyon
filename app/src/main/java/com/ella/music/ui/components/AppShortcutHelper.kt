@@ -9,19 +9,23 @@ import android.os.Build
 import com.ella.music.MainActivity
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
 import com.ella.music.ui.navigation.Screen
+import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
+import com.ella.music.ui.navigation.SHORTCUT_ACTION_SHUFFLE_ALL
 
 private const val SHORTCUT_LIBRARY = "library"
-private const val SHORTCUT_PLAYLISTS = "playlists"
-private const val SHORTCUT_FOLDER = "folder"
+private const val SHORTCUT_SEARCH = "search"
+private const val SHORTCUT_PLAY = "play"
+private const val SHORTCUT_SHUFFLE_ALL = "shuffle_all"
 private const val SHORTCUT_SETTINGS = "settings"
 
 fun updateEllaDynamicShortcuts(
     context: Context,
     libraryLabel: String,
-    playlistsLabel: String,
-    folderLabel: String
+    searchLabel: String,
+    shuffleLabel: String
 ) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) return
     val shortcutManager = context.getSystemService(ShortcutManager::class.java) ?: return
@@ -29,13 +33,13 @@ fun updateEllaDynamicShortcuts(
         SettingsManager.DEFAULT_SHORTCUT_LIBRARY_LABEL,
         context.getString(R.string.shortcut_library_short)
     )
-    val resolvedPlaylistsLabel = playlistsLabel.localizedShortcutDefault(
+    val resolvedSearchLabel = searchLabel.localizedShortcutDefault(
         SettingsManager.DEFAULT_SHORTCUT_PLAYLISTS_LABEL,
-        context.getString(R.string.shortcut_playlists_short)
+        context.getString(R.string.shortcut_search_short)
     )
-    val resolvedFolderLabel = folderLabel.localizedShortcutDefault(
+    val resolvedShuffleLabel = shuffleLabel.localizedShortcutDefault(
         SettingsManager.DEFAULT_SHORTCUT_FOLDER_LABEL,
-        context.getString(R.string.shortcut_folder_short)
+        context.getString(R.string.shortcut_shuffle_all_short)
     )
     val shortcuts = listOf(
         context.buildEllaShortcut(
@@ -46,18 +50,25 @@ fun updateEllaDynamicShortcuts(
             rank = 0
         ),
         context.buildEllaShortcut(
-            id = SHORTCUT_PLAYLISTS,
-            label = resolvedPlaylistsLabel,
-            route = Screen.Playlists.route,
-            iconRes = R.drawable.ic_shortcut_playlist,
+            id = SHORTCUT_SEARCH,
+            label = resolvedSearchLabel,
+            route = Screen.LibrarySearch.createRoute(),
+            iconRes = R.drawable.ic_shortcut_search,
             rank = 1
         ),
-        context.buildEllaShortcut(
-            id = SHORTCUT_FOLDER,
-            label = resolvedFolderLabel,
-            route = Screen.Folder.route,
-            iconRes = R.drawable.ic_shortcut_folder,
+        context.buildEllaActionShortcut(
+            id = SHORTCUT_PLAY,
+            label = context.getString(R.string.shortcut_play_short),
+            shortcutAction = SHORTCUT_ACTION_PLAY,
+            iconRes = R.drawable.ic_player_play,
             rank = 2
+        ),
+        context.buildEllaActionShortcut(
+            id = SHORTCUT_SHUFFLE_ALL,
+            label = resolvedShuffleLabel,
+            shortcutAction = SHORTCUT_ACTION_SHUFFLE_ALL,
+            iconRes = R.drawable.ic_shuffle,
+            rank = 3
         )
     )
     runCatching { shortcutManager.removeDynamicShortcuts(listOf(SHORTCUT_SETTINGS)) }
@@ -113,6 +124,27 @@ private fun Context.buildEllaShortcut(
             Intent(this, MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 putExtra(EXTRA_SHORTCUT_ROUTE, route)
+            }
+        )
+        .setRank(rank)
+        .build()
+}
+
+private fun Context.buildEllaActionShortcut(
+    id: String,
+    label: String,
+    shortcutAction: String,
+    iconRes: Int,
+    rank: Int
+): ShortcutInfo {
+    return ShortcutInfo.Builder(this, id)
+        .setShortLabel(label.take(10).ifBlank { "Ella Music" })
+        .setLongLabel(label.ifBlank { "Ella Music" })
+        .setIcon(Icon.createWithResource(this, iconRes))
+        .setIntent(
+            Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                putExtra(EXTRA_SHORTCUT_ACTION, shortcutAction)
             }
         )
         .setRank(rank)

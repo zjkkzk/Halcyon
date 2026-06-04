@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -116,7 +117,7 @@ fun FolderDetailScreen(
     val currentSong by playerViewModel.currentSong.collectAsState()
     val favoriteSongKeys by playerViewModel.favoriteSongKeys.collectAsState()
     val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
-    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
     val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
     val scope = rememberCoroutineScope()
@@ -133,6 +134,9 @@ fun FolderDetailScreen(
     var folderToBlock by remember { mutableStateOf<String?>(null) }
     val sortIndex by mainViewModel.settingsManager.folderDetailSongSortIndex.collectAsState(initial = LibrarySortUiState.folderDetailSongSortIndex)
     val sortMode = FolderSongSortMode.entries.getOrElse(sortIndex) { FolderSongSortMode.Title }
+    LaunchedEffect(sortIndex) {
+        LibrarySortUiState.folderDetailSongSortIndex = sortIndex
+    }
     val normalizedFolderPath = remember(folderPath) { folderPath.normalizeFolderPath() }
     var scrollToTopRequest by remember { mutableStateOf(0) }
 
@@ -413,7 +417,7 @@ fun FolderDetailScreen(
                 )
             }
         } else {
-            val listState = rememberLazyListState()
+            val listState = remember(normalizedFolderPath) { LazyListState() }
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
@@ -566,9 +570,9 @@ fun FolderDetailScreen(
                         createPlaylistSongs = songsToAdd
                         playlistPickerSongs = null
                     },
-                    onPlaylistsConfirm = { selectedPlaylists ->
+                    onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                         selectedPlaylists.forEach { playlist ->
-                            mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
+                            mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd, appendToEnd)
                         }
                         Toast.makeText(context, context.getString(R.string.player_added_to_playlists, selectedPlaylists.size), Toast.LENGTH_SHORT).show()
                         playlistPickerSongs = null

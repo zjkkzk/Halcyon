@@ -790,6 +790,7 @@ private fun buildWordTimedAnnotatedString(
 }
 
 private fun LyricWord.sustainShadowAt(positionMs: Long): Shadow? {
+    if (!text.lineBreakSafeText().hasCjkKanaOrHangul()) return null
     val duration = endMs - startMs
     if (duration < 900L || positionMs !in startMs..endMs) return null
     val triggerDelay = minOf(420L, (duration * 0.36f).toLong().coerceAtLeast(1L))

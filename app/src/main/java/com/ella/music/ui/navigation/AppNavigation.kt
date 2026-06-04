@@ -46,7 +46,20 @@ import com.ella.music.viewmodel.PlayerViewModel
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Library : Screen("library")
-    data object LibrarySearch : Screen("library_search")
+    data object LibrarySearch : Screen("library_search?type={type}&keyword={keyword}") {
+        const val baseRoute = "library_search"
+        fun createRoute(type: String? = null, keyword: String? = null): String {
+            val params = buildList {
+                type?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    add("type=${java.net.URLEncoder.encode(it, "UTF-8")}")
+                }
+                keyword?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    add("keyword=${java.net.URLEncoder.encode(it, "UTF-8")}")
+                }
+            }
+            return if (params.isEmpty()) baseRoute else "$baseRoute?${params.joinToString("&")}"
+        }
+    }
     data object Album : Screen("album")
     data object Artist : Screen("artist")
     data object AlbumDetail : Screen("album/{albumId}") {
@@ -147,16 +160,32 @@ fun AppNavigation(
                 playerViewModel = playerViewModel,
                 onNavigateToPlayer = onNavigateToPlayer,
                 onNavigateToAbout = { navController.navigate(Screen.About.route) },
-                onNavigateToSearch = { navController.navigate(Screen.LibrarySearch.route) },
+                onNavigateToSearch = { navController.navigate(Screen.LibrarySearch.createRoute()) },
                 onNavigateToAlbum = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },
                 onNavigateToArtist = { artistName -> navController.navigate(Screen.ArtistDetail.createRoute(artistName)) }
             )
         }
 
-        composable(Screen.LibrarySearch.route) {
+        composable(
+            route = Screen.LibrarySearch.route,
+            arguments = listOf(
+                navArgument("type") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("keyword") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             LibrarySearchScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
+                initialFilterType = backStackEntry.arguments?.getString("type"),
+                initialQuery = backStackEntry.arguments?.getString("keyword"),
                 onBack = { navController.popBackStack() },
                 onNavigateToAlbum = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },
                 onNavigateToArtist = { artistName -> navController.navigate(Screen.ArtistDetail.createRoute(artistName)) },

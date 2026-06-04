@@ -344,7 +344,7 @@ fun MetadataCategoryDetailScreen(
     val currentSong by playerViewModel.currentSong.collectAsState()
     val favoriteSongKeys by playerViewModel.favoriteSongKeys.collectAsState()
     val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
-    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val songs = remember(type, name, librarySongs) { mainViewModel.getSongsForMetadataCategory(type, name) }
     var sortExpanded by remember { mutableStateOf(false) }
     val detailSongSortIndexFlow = remember(type) { mainViewModel.settingsManager.metadataCategoryDetailSongSortIndex(type) }
@@ -719,9 +719,9 @@ fun MetadataCategoryDetailScreen(
                             createPlaylistSongs = songsToAdd
                             playlistPickerSongs = null
                         },
-                        onPlaylistsConfirm = { selectedPlaylists ->
+                        onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                             selectedPlaylists.forEach { playlist ->
-                                mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
+                                mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd, appendToEnd)
                             }
                             Toast.makeText(context, "已添加到 ${selectedPlaylists.size} 个歌单", Toast.LENGTH_SHORT).show()
                             playlistPickerSongs = null

@@ -82,7 +82,7 @@ fun LxOnlineScreen(
     val selectedSource = remember(sources, selectedSourceId) {
         sources.firstOrNull { it.id == selectedSourceId } ?: sources.firstOrNull()
     }
-    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val currentSourceId = selectedSource?.id.orEmpty()
     var observedSourceId by remember { mutableStateOf<String?>(null) }
     var actionItem by remember { mutableStateOf<LxOnlineSong?>(null) }

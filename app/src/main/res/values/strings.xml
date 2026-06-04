@@ -49,10 +49,16 @@
     <string name="about_copyright">© 2026 Kifranei. All rights reserved.</string>
     <string name="shortcut_library_short">音乐库</string>
     <string name="shortcut_library_long">音乐库</string>
-    <string name="shortcut_playlists_short">歌单</string>
-    <string name="shortcut_playlists_long">歌单</string>
-    <string name="shortcut_folder_short">文件夹</string>
-    <string name="shortcut_folder_long">文件夹</string>
+    <string name="shortcut_playlists_short">搜索</string>
+    <string name="shortcut_playlists_long">搜索</string>
+    <string name="shortcut_folder_short">随机全部</string>
+    <string name="shortcut_folder_long">随机全部</string>
+    <string name="shortcut_search_short">搜索</string>
+    <string name="shortcut_search_long">搜索</string>
+    <string name="shortcut_play_short">播放</string>
+    <string name="shortcut_play_long">播放</string>
+    <string name="shortcut_shuffle_all_short">随机全部</string>
+    <string name="shortcut_shuffle_all_long">随机全部</string>
     <string name="shortcut_playlists_removed">已移除</string>
 
     <string name="common_back">返回</string>
@@ -628,8 +634,8 @@
     <string name="settings_lyric_timing_editor">歌词打轴软件</string>
     <string name="settings_desktop_shortcuts">桌面快捷方式</string>
     <string name="settings_shortcut_library">音乐库</string>
-    <string name="settings_shortcut_playlists">歌单</string>
-    <string name="settings_shortcut_folder">文件夹</string>
+    <string name="settings_shortcut_playlists">搜索</string>
+    <string name="settings_shortcut_folder">随机全部</string>
     <string name="settings_shortcut_summary">长按桌面图标时显示的快捷方式名称</string>
     <string name="settings_scan">扫描</string>
     <string name="settings_auto_scan">自动扫描</string>
@@ -651,6 +657,8 @@
     <string name="settings_mini_player_lyrics_summary">播放时在迷你播放条显示当前歌词；关闭后显示歌曲标题和歌手</string>
     <string name="settings_smooth_lyric_view">启用更流畅的歌词</string>
     <string name="settings_smooth_lyric_view_summary">歌词页使用 Lyricon 的流畅歌词视图渲染</string>
+    <string name="settings_lyric_page_mode_standard">标准歌词页</string>
+    <string name="settings_lyric_page_mode_smooth">流畅歌词页</string>
     <string name="settings_lyric_source_priority">歌词来源优先级</string>
     <string name="settings_lyric_source_priority_summary">打开后长按条目拖动调整读取顺序</string>
     <string name="settings_lyric_source_embedded_ttml">TTML Lyrics 内嵌</string>
@@ -882,6 +890,8 @@
     <string name="song_more_lyric_timing">歌词打轴</string>
     <string name="song_more_ai_title">AI 解读歌曲</string>
     <string name="song_more_add_to_playlist">添加到歌单</string>
+    <string name="song_more_add_position_start">加到开头</string>
+    <string name="song_more_add_position_end">加到末尾</string>
     <string name="song_more_play_next">下一首播放</string>
     <string name="song_more_view_spectrum">查看频谱</string>
     <string name="song_more_view_song_info">查看歌曲信息</string>

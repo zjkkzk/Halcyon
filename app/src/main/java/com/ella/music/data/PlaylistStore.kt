@@ -119,14 +119,15 @@ class PlaylistStore private constructor(context: Context) {
         }
     }
 
-    suspend fun addSongToPlaylist(playlistId: String, song: Song) = withContext(Dispatchers.IO) {
+    suspend fun addSongToPlaylist(playlistId: String, song: Song, appendToEnd: Boolean = false) = withContext(Dispatchers.IO) {
         val key = song.playlistIdentityKey()
         synchronized(lock) {
             val now = System.currentTimeMillis()
             val next = playlists.value.withPlaylist(playlistId) { playlist ->
                 if (playlist.songs.any { it.key == key }) return@withPlaylist playlist
+                val newSong = song.toPlaylistSong(now)
                 playlist.copy(
-                    songs = listOf(song.toPlaylistSong(now)) + playlist.songs,
+                    songs = if (appendToEnd) playlist.songs + newSong else listOf(newSong) + playlist.songs,
                     updatedAt = now
                 )
             }
@@ -135,7 +136,7 @@ class PlaylistStore private constructor(context: Context) {
         }
     }
 
-    suspend fun addSongsToPlaylist(playlistId: String, songs: Collection<Song>) = withContext(Dispatchers.IO) {
+    suspend fun addSongsToPlaylist(playlistId: String, songs: Collection<Song>, appendToEnd: Boolean = false) = withContext(Dispatchers.IO) {
         if (songs.isEmpty()) return@withContext
         synchronized(lock) {
             val now = System.currentTimeMillis()
@@ -146,7 +147,7 @@ class PlaylistStore private constructor(context: Context) {
                     .map { it.toPlaylistSong(now) }
                 if (newSongs.isEmpty()) return@withPlaylist playlist
                 playlist.copy(
-                    songs = newSongs + playlist.songs,
+                    songs = if (appendToEnd) playlist.songs + newSongs else newSongs + playlist.songs,
                     updatedAt = now
                 )
             }

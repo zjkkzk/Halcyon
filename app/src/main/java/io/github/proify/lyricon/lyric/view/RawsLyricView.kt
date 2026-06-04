@@ -323,7 +323,6 @@ class RawsLyricView @JvmOverloads constructor(
         lastPositionWallTime = SystemClock.elapsedRealtime()
         val newIndex = findCurrentLine(positionMs + lineOffsetMs)
         if (newIndex != currentIndex) {
-            if (isUserScrolling && !isDragging) isUserScrolling = false
             onLineChanged(currentIndex, newIndex)
             currentIndex = newIndex
             if (!isUserScrolling) {
@@ -1075,7 +1074,7 @@ class RawsLyricView @JvmOverloads constructor(
         val viewH = height.toFloat()
         val ds = dotSizePx
         val dg = dotSpacingPx
-        val startX = paddingLeft.toFloat()
+        val startX = paddingLeft.toFloat() + ds * 0.45f
         val expandOffset = getInterludeExpandOffset()
         if (expandOffset < ds) return
         val prevBottom = prevEntry.yTop + prevEntry.totalH - scrollY
@@ -1161,6 +1160,10 @@ class RawsLyricView @JvmOverloads constructor(
         val elapsed = SystemClock.elapsedRealtime() - lastPositionWallTime
         val pos = if (playbackActive && lastPositionWallTime > 0 && elapsed in 0..2000) currentPosMs + elapsed else currentPosMs
         val karaokePos = pos + KARAOKE_WORD_OFFSET_MS
+        if (alignedRight) {
+            drawAlignedKaraokeWords(canvas, entry, words, startX, baseline, karaokePos, useSecondary)
+            return
+        }
         val availW = (width - paddingLeft - paddingRight).toFloat()
         val activePaint = if (useSecondary) hlTransPaint else hlPaint
         val inactivePaint = if (useSecondary) dimTransPaint else dimPaint
@@ -1234,26 +1237,49 @@ class RawsLyricView @JvmOverloads constructor(
                 if (sungWidth <= lineCumBefore) break
 
                 val effectiveSungInLine = (sungWidth - lineCumBefore).coerceIn(0f, lineW)
-                val sweepX = lineStartX + effectiveSungInLine
-                val effectiveFeatherPx = min(featherPx, lineEndX - sweepX)
+                val sweepX = if (alignedRight) lineEndX - effectiveSungInLine else lineStartX + effectiveSungInLine
+                val effectiveFeatherPx = if (alignedRight) {
+                    min(featherPx, sweepX - lineStartX)
+                } else {
+                    min(featherPx, lineEndX - sweepX)
+                }
                 val featherStart = (sweepX - effectiveFeatherPx).coerceAtLeast(lineStartX)
+                val featherEnd = (sweepX + effectiveFeatherPx).coerceAtMost(lineEndX)
 
                 val saveCount = canvas.saveLayer(lineStartX, mTop, lineEndX, mBottom, null)
                 for (info in lineWords) {
                     canvas.drawText(info.text, info.drawX(), info.y, activePaint)
                 }
-                val maskColors = intArrayOf(
-                    Color.argb(255, 0, 0, 0),
-                    Color.argb(255, 0, 0, 0),
-                    Color.argb(0, 0, 0, 0),
-                    Color.argb(0, 0, 0, 0),
-                )
-                val maskPositions = floatArrayOf(
-                    0f,
-                    ((featherStart - lineStartX) / lineW).coerceIn(0f, 1f),
-                    ((sweepX - lineStartX) / lineW).coerceIn(0f, 1f),
-                    1f,
-                )
+                val maskColors = if (alignedRight) {
+                    intArrayOf(
+                        Color.argb(0, 0, 0, 0),
+                        Color.argb(0, 0, 0, 0),
+                        Color.argb(255, 0, 0, 0),
+                        Color.argb(255, 0, 0, 0),
+                    )
+                } else {
+                    intArrayOf(
+                        Color.argb(255, 0, 0, 0),
+                        Color.argb(255, 0, 0, 0),
+                        Color.argb(0, 0, 0, 0),
+                        Color.argb(0, 0, 0, 0),
+                    )
+                }
+                val maskPositions = if (alignedRight) {
+                    floatArrayOf(
+                        0f,
+                        ((sweepX - lineStartX) / lineW).coerceIn(0f, 1f),
+                        ((featherEnd - lineStartX) / lineW).coerceIn(0f, 1f),
+                        1f,
+                    )
+                } else {
+                    floatArrayOf(
+                        0f,
+                        ((featherStart - lineStartX) / lineW).coerceIn(0f, 1f),
+                        ((sweepX - lineStartX) / lineW).coerceIn(0f, 1f),
+                        1f,
+                    )
+                }
                 maskPaint.shader = LinearGradient(
                     lineStartX, 0f, lineEndX, 0f,
                     maskColors, maskPositions, Shader.TileMode.CLAMP
@@ -1272,6 +1298,291 @@ class RawsLyricView @JvmOverloads constructor(
             }
 
         canvas.restore()
+    }
+
+    private data class KaraokeCharProgress(
+        val completedChars: Int,
+        val activeWord: LyricWord? = null,
+        val activeWordText: String? = null,
+        val activeWordStartChar: Int = completedChars,
+        val activeWordProgress: Float = 0f,
+    )
+
+    private fun drawAlignedKaraokeWords(
+        canvas: Canvas,
+        entry: LineEntry,
+        words: List<LyricWord>,
+        startX: Float,
+        baseline: Float,
+        karaokePos: Long,
+        useSecondary: Boolean,
+    ) {
+        val activePaint = if (useSecondary) hlTransPaint else hlPaint
+        val inactivePaint = if (useSecondary) dimTransPaint else dimPaint
+        val text = buildKaraokeDisplayText(entry, words, useSecondary)
+        if (text.isBlank()) return
+        val availW = width - paddingLeft - paddingRight
+        if (availW <= 0) return
+
+        val activeLayout = buildLayout(text, activePaint, availW, alignedRight = true)
+        val inactiveLayout = buildLayout(text, inactivePaint, availW, alignedRight = true)
+        val progress = calculateKaraokeCharProgress(entry, words, karaokePos)
+        val translateY = baseline - activeLayout.getLineBaseline(0).toFloat()
+
+        canvas.save()
+        canvas.translate(startX, translateY)
+        inactiveLayout.draw(canvas)
+
+        val activeWordText = progress.activeWordText
+        val activeWord = progress.activeWord
+        drawAlignedCompletedText(
+            canvas = canvas,
+            layout = activeLayout,
+            text = text,
+            completedChars = progress.completedChars.coerceIn(0, text.length),
+            featherLastLine = activeWord == null || progress.activeWordProgress <= 0f
+        )
+
+        if (activeWord != null && !activeWordText.isNullOrEmpty()) {
+            val wordStart = progress.activeWordStartChar.coerceIn(0, text.length)
+            val wordEnd = (wordStart + activeWordText.length).coerceIn(wordStart, text.length)
+            if (wordStart < wordEnd && progress.activeWordProgress > 0f) {
+                val startLine = activeLayout.getLineForOffset(wordStart)
+                val endLine = activeLayout.getLineForOffset((wordEnd - 1).coerceAtLeast(wordStart))
+                var remainingProgress = progress.activeWordProgress.coerceIn(0f, 1f)
+                val totalWordWidth = activePaint.measureText(activeWordText).coerceAtLeast(1f)
+
+                for (line in startLine..endLine) {
+                    val lineStartOffset = max(wordStart, activeLayout.getLineStart(line))
+                    val lineEndOffset = min(wordEnd, activeLayout.getLineEnd(line))
+                    if (lineStartOffset >= lineEndOffset) continue
+
+                    val lineText = text.substring(lineStartOffset, lineEndOffset)
+                    val lineWordWidth = activePaint.measureText(lineText)
+                    if (lineWordWidth <= 0f) continue
+
+                    val lineProgress = min(remainingProgress * totalWordWidth, lineWordWidth) / lineWordWidth
+                    if (lineProgress <= 0f) break
+
+                    val left = min(
+                        layoutHorizontalForOffset(activeLayout, line, lineStartOffset),
+                        layoutHorizontalForOffset(activeLayout, line, lineEndOffset)
+                    )
+                    val right = max(
+                        layoutHorizontalForOffset(activeLayout, line, lineStartOffset),
+                        layoutHorizontalForOffset(activeLayout, line, lineEndOffset)
+                    )
+                    val partialRight = left + (right - left) * lineProgress.coerceIn(0f, 1f)
+                    val lineTop = activeLayout.getLineTop(line).toFloat()
+                    val lineBottom = activeLayout.getLineBottom(line).toFloat()
+                    if (lineProgress >= 0.999f || partialRight >= right) {
+                        canvas.save()
+                        canvas.clipRect(left, lineTop, right, lineBottom)
+                        activeLayout.draw(canvas)
+                        canvas.restore()
+                    } else {
+                        drawFeatheredLayoutSegment(
+                            canvas = canvas,
+                            layout = activeLayout,
+                            segmentLeft = left,
+                            segmentRight = right,
+                            visibleRight = partialRight,
+                            top = lineTop,
+                            bottom = lineBottom
+                        )
+                    }
+
+                    remainingProgress -= lineWordWidth / totalWordWidth
+                    if (remainingProgress <= 0f) break
+                }
+            }
+
+            val glowLine = activeLayout.getLineForOffset(progress.activeWordStartChar.coerceIn(0, (text.length - 1).coerceAtLeast(0)))
+            val glowStart = progress.activeWordStartChar.coerceIn(0, text.length)
+            val glowEnd = (glowStart + activeWordText.length).coerceIn(glowStart, text.length)
+            if (glowStart < glowEnd) {
+                val glowX = min(
+                    layoutHorizontalForOffset(activeLayout, glowLine, glowStart),
+                    layoutHorizontalForOffset(activeLayout, glowLine, glowEnd)
+                )
+                val glowWidth = max(
+                    layoutHorizontalForOffset(activeLayout, glowLine, glowStart),
+                    layoutHorizontalForOffset(activeLayout, glowLine, glowEnd)
+                ) - glowX
+                val glowBaseline = activeLayout.getLineBaseline(glowLine).toFloat()
+                drawSustainGlowIfNeeded(
+                    canvas = canvas,
+                    text = activeWordText,
+                    x = glowX,
+                    baseline = glowBaseline,
+                    width = glowWidth,
+                    sourcePaint = activePaint,
+                    word = activeWord,
+                    position = karaokePos
+                )
+            }
+        }
+
+        canvas.restore()
+    }
+
+    private fun drawAlignedCompletedText(
+        canvas: Canvas,
+        layout: StaticLayout,
+        text: String,
+        completedChars: Int,
+        featherLastLine: Boolean,
+    ) {
+        if (completedChars <= 0 || text.isEmpty()) return
+        val clampedEnd = completedChars.coerceIn(0, text.length)
+        if (clampedEnd <= 0) return
+
+        val lastOffset = (clampedEnd - 1).coerceAtLeast(0)
+        val lastLine = layout.getLineForOffset(lastOffset)
+        for (line in 0..lastLine) {
+            val lineLeft = layout.getLineLeft(line)
+            val lineRight = layout.getLineRight(line)
+            if (lineRight <= lineLeft) continue
+
+            val clipRight = if (line < lastLine) {
+                lineRight
+            } else {
+                val offsetOnLine = clampedEnd
+                    .coerceAtMost(layout.getLineEnd(line))
+                    .coerceAtLeast(layout.getLineStart(line))
+                max(lineLeft, min(lineRight, layoutHorizontalForOffset(layout, line, offsetOnLine)))
+            }
+
+            if (clipRight <= lineLeft) continue
+
+            val top = layout.getLineTop(line).toFloat()
+            val bottom = layout.getLineBottom(line).toFloat()
+            if (line == lastLine && featherLastLine && clipRight < lineRight) {
+                drawFeatheredLayoutSegment(
+                    canvas = canvas,
+                    layout = layout,
+                    segmentLeft = lineLeft,
+                    segmentRight = lineRight,
+                    visibleRight = clipRight,
+                    top = top,
+                    bottom = bottom
+                )
+            } else {
+                canvas.save()
+                canvas.clipRect(lineLeft, top, clipRight, bottom)
+                layout.draw(canvas)
+                canvas.restore()
+            }
+        }
+    }
+
+    private fun drawFeatheredLayoutSegment(
+        canvas: Canvas,
+        layout: StaticLayout,
+        segmentLeft: Float,
+        segmentRight: Float,
+        visibleRight: Float,
+        top: Float,
+        bottom: Float,
+    ) {
+        if (segmentRight <= segmentLeft || visibleRight <= segmentLeft) return
+        val clampedVisibleRight = visibleRight.coerceIn(segmentLeft, segmentRight)
+        val effectiveFeatherPx = min(featherWidthPx, clampedVisibleRight - segmentLeft)
+        if (effectiveFeatherPx <= 0f || clampedVisibleRight >= segmentRight) {
+            canvas.save()
+            canvas.clipRect(segmentLeft, top, clampedVisibleRight, bottom)
+            layout.draw(canvas)
+            canvas.restore()
+            return
+        }
+
+        val featherStart = (clampedVisibleRight - effectiveFeatherPx).coerceAtLeast(segmentLeft)
+        val segmentWidth = (segmentRight - segmentLeft).coerceAtLeast(1f)
+        val saveCount = canvas.saveLayer(segmentLeft, top, segmentRight, bottom, null)
+        layout.draw(canvas)
+        maskPaint.shader = LinearGradient(
+            segmentLeft,
+            0f,
+            segmentRight,
+            0f,
+            intArrayOf(
+                Color.argb(255, 0, 0, 0),
+                Color.argb(255, 0, 0, 0),
+                Color.argb(0, 0, 0, 0),
+                Color.argb(0, 0, 0, 0),
+            ),
+            floatArrayOf(
+                0f,
+                ((featherStart - segmentLeft) / segmentWidth).coerceIn(0f, 1f),
+                ((clampedVisibleRight - segmentLeft) / segmentWidth).coerceIn(0f, 1f),
+                1f,
+            ),
+            Shader.TileMode.CLAMP
+        )
+        maskPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        canvas.drawRect(segmentLeft, top, segmentRight, bottom, maskPaint)
+        maskPaint.xfermode = null
+        maskPaint.shader = null
+        canvas.restoreToCount(saveCount)
+    }
+
+    private fun layoutHorizontalForOffset(
+        layout: StaticLayout,
+        line: Int,
+        offset: Int,
+    ): Float {
+        val lineStart = layout.getLineStart(line)
+        val lineEnd = layout.getLineEnd(line)
+        val visibleEnd = layout.getLineVisibleEnd(line)
+        val clampedOffset = offset.coerceIn(lineStart, lineEnd)
+        return when {
+            clampedOffset <= lineStart -> layout.getLineLeft(line)
+            clampedOffset >= visibleEnd -> layout.getLineRight(line)
+            else -> layout.getPrimaryHorizontal(clampedOffset)
+        }
+    }
+
+    private fun buildKaraokeDisplayText(
+        entry: LineEntry,
+        words: List<LyricWord>,
+        useSecondary: Boolean,
+    ): String {
+        val primaryText = if (useSecondary) entry.secondaryText else entry.mainText
+        if (!primaryText.isNullOrBlank()) return primaryText
+        return words.joinToString(separator = "") { it.text.orEmpty() }
+    }
+
+    private fun calculateKaraokeCharProgress(
+        entry: LineEntry,
+        words: List<LyricWord>,
+        pos: Long,
+    ): KaraokeCharProgress {
+        if (words.isEmpty() || pos < entry.begin) return KaraokeCharProgress(completedChars = 0)
+
+        var charCursor = 0
+        for (word in words) {
+            val wordText = word.text.orEmpty()
+            if (wordText.isEmpty()) continue
+            if (pos < word.begin) {
+                return KaraokeCharProgress(completedChars = charCursor)
+            }
+            if (pos < word.end) {
+                val progress = if (word.duration > 0L) {
+                    ((pos - word.begin).toFloat() / word.duration).coerceIn(0f, 1f)
+                } else {
+                    1f
+                }
+                return KaraokeCharProgress(
+                    completedChars = charCursor,
+                    activeWord = word,
+                    activeWordText = wordText,
+                    activeWordStartChar = charCursor,
+                    activeWordProgress = progress
+                )
+            }
+            charCursor += wordText.length
+        }
+        return KaraokeCharProgress(completedChars = charCursor)
     }
 
     private fun drawSustainGlowIfNeeded(

@@ -106,6 +106,9 @@ import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
 import com.ella.music.ui.navigation.Screen
+import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION
+import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
+import com.ella.music.ui.navigation.SHORTCUT_ACTION_SHUFFLE_ALL
 import com.ella.music.ui.player.PlayerScreen
 import com.ella.music.ui.theme.EllaTheme
 import com.ella.music.ui.theme.THEME_DARK
@@ -299,7 +302,45 @@ fun EllaApp(
     var showInitialScanPrompt by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val activity = context as? Activity
-        val shortcutRoute = activity?.intent?.getStringExtra(EXTRA_SHORTCUT_ROUTE).orEmpty()
+        val shortcutAction = activity?.intent?.getStringExtra(EXTRA_SHORTCUT_ACTION).orEmpty()
+        when (shortcutAction) {
+            SHORTCUT_ACTION_PLAY -> {
+                when {
+                    playerViewModel.currentSong.value != null || playerViewModel.hasSavedPlaybackQueue() -> {
+                        playerViewModel.playRestoredQueue()
+                    }
+                    else -> {
+                        val songs = mainViewModel.songs.first { it.isNotEmpty() }
+                        playerViewModel.setPlaylist(songs, 0)
+                    }
+                }
+                runCatching {
+                    navController.navigate(Screen.Player.route) {
+                        launchSingleTop = true
+                    }
+                }
+            }
+            SHORTCUT_ACTION_SHUFFLE_ALL -> {
+                val songs = mainViewModel.songs.first { it.isNotEmpty() }
+                playerViewModel.setPlaylist(songs.shuffled(), 0)
+                runCatching {
+                    navController.navigate(Screen.Player.route) {
+                        launchSingleTop = true
+                    }
+                }
+            }
+        }
+
+        val shortcutRoute = when {
+            activity?.intent?.data?.scheme == "ella" &&
+                activity.intent?.data?.host == "search" -> {
+                Screen.LibrarySearch.createRoute(
+                    type = activity.intent?.data?.getQueryParameter("type"),
+                    keyword = activity.intent?.data?.getQueryParameter("keyword")
+                )
+            }
+            else -> activity?.intent?.getStringExtra(EXTRA_SHORTCUT_ROUTE).orEmpty()
+        }
         if (shortcutRoute.isNotBlank()) {
             runCatching {
                 navController.navigate(shortcutRoute) {
@@ -307,16 +348,18 @@ fun EllaApp(
                     restoreState = true
                 }
             }
-            activity?.intent?.removeExtra(EXTRA_SHORTCUT_ROUTE)
         }
+        activity?.intent?.removeExtra(EXTRA_SHORTCUT_ACTION)
+        activity?.intent?.removeExtra(EXTRA_SHORTCUT_ROUTE)
+        activity?.intent?.setData(null)
     }
 
     LaunchedEffect(shortcutLibraryLabel, shortcutPlaylistsLabel, shortcutFolderLabel) {
         updateEllaDynamicShortcuts(
             context = context,
             libraryLabel = shortcutLibraryLabel,
-            playlistsLabel = shortcutPlaylistsLabel,
-            folderLabel = shortcutFolderLabel
+            searchLabel = shortcutPlaylistsLabel,
+            shuffleLabel = shortcutFolderLabel
         )
     }
 

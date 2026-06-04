@@ -17,11 +17,15 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -90,6 +94,7 @@ fun SongMoreActionHost(
     deleteFromLibrary: Boolean = true,
     showDelete: Boolean = true,
     showLocalFileActions: Boolean = true,
+    showAddToQueue: Boolean = true,
     resolveSongForAction: (suspend (Song) -> Song)? = null,
     onDeleteSong: ((Song) -> Unit)? = null,
     extraTopContent: (@Composable ColumnScope.() -> Unit)? = null
@@ -186,29 +191,29 @@ fun SongMoreActionHost(
                 extraTopContent = extraTopContent,
                 onDismiss = ::closeAction,
                 onAddToPlaylist = {
-                    closeAction()
                     runResolvedSongAction(song, addToPlaylistFailed) { resolvedSong ->
                         playlistSong = resolvedSong
+                        closeAction()
                     }
                 },
                 onAddToQueue = {
-                    closeAction()
                     runResolvedSongAction(song, addToQueueFailed) { resolvedSong ->
                         playerViewModel.addToPlaylist(resolvedSong)
                         Toast.makeText(context, addedToQueue, Toast.LENGTH_SHORT).show()
+                        closeAction()
                     }
                 },
                 onPlayNext = {
-                    closeAction()
                     runResolvedSongAction(song, playNextFailed) { resolvedSong ->
                         playerViewModel.playNext(resolvedSong)
                         Toast.makeText(context, addedToPlayNext, Toast.LENGTH_SHORT).show()
+                        closeAction()
                     }
                 },
                 onShare = {
-                    closeAction()
                     runResolvedSongAction(song, shareFailed) { resolvedSong ->
                         shareLocalSong(context, resolvedSong)
+                        closeAction()
                     }
                 },
                 onSpectrum = {
@@ -330,7 +335,8 @@ fun SongMoreActionHost(
                         }
                     }
                 } else null,
-                showSpectrum = showLocalFileActions
+                showSpectrum = showLocalFileActions,
+                showAddToQueue = showAddToQueue
             )
         }
     }
@@ -381,9 +387,9 @@ fun SongMoreActionHost(
                     createPlaylistSong = song
                     playlistSong = null
                 },
-                onPlaylistsConfirm = { selectedPlaylists ->
+                onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                     selectedPlaylists.forEach { playlist ->
-                        mainViewModel.addSongsToPlaylist(playlist.id, listOf(song))
+                        mainViewModel.addSongsToPlaylist(playlist.id, listOf(song), appendToEnd)
                     }
                     Toast.makeText(
                         context,
@@ -605,12 +611,15 @@ private fun SongMoreActionSheet(
     onLyricTiming: (() -> Unit)?,
     onRemoveFromPlaylist: (() -> Unit)?,
     onDelete: (() -> Unit)?,
-    showSpectrum: Boolean
+    showSpectrum: Boolean,
+    showAddToQueue: Boolean
 ) {
     SongSheetColumn {
         extraTopContent?.invoke(this)
         SongMenuItem(stringResource(R.string.song_more_add_to_playlist), onAddToPlaylist)
-        SongMenuItem(stringResource(R.string.common_add_to_queue), onAddToQueue)
+        if (showAddToQueue) {
+            SongMenuItem(stringResource(R.string.common_add_to_queue), onAddToQueue)
+        }
         SongMenuItem(stringResource(R.string.song_more_play_next), onPlayNext)
         SongMenuItem(stringResource(R.string.common_share), onShare)
         if (showSpectrum) {
@@ -655,17 +664,69 @@ fun AddToPlaylistSheet(
     songCount: Int? = null,
     onDismiss: () -> Unit,
     onCreatePlaylist: () -> Unit,
-    onPlaylistsConfirm: (List<UserPlaylist>) -> Unit
+    onPlaylistsConfirm: (List<UserPlaylist>, Boolean) -> Unit
 ) {
     var selectedIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
+    var query by remember { mutableStateOf("") }
+    var multiSelect by remember { mutableStateOf(songCount != null && songCount > 1) }
+    var appendToEnd by remember { mutableStateOf(false) }
+    var sortMode by remember { mutableStateOf(AddPlaylistSortMode.Custom) }
+    val sortedPlaylists = remember(playlists, sortMode) {
+        when (sortMode) {
+            AddPlaylistSortMode.Custom -> playlists
+            AddPlaylistSortMode.UpdatedAt -> playlists.sortedByDescending { it.updatedAt }
+            AddPlaylistSortMode.Name -> playlists.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            AddPlaylistSortMode.SongCount -> playlists.sortedByDescending { it.songs.size }
+        }
+    }
+    val visiblePlaylists = remember(sortedPlaylists, query) {
+        query.trim().takeIf { it.isNotBlank() }?.let { q ->
+            sortedPlaylists.filter { it.name.contains(q, ignoreCase = true) }
+        } ?: sortedPlaylists
+    }
     val selectedPlaylists = playlists.filter { it.id in selectedIds }
-    SongSheetColumn {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(MiuixTheme.colorScheme.background)
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .heightIn(max = 560.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         songCount?.let { count ->
             Text(
                 text = stringResource(R.string.library_selected_count, count),
                 fontSize = 13.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+            )
+        }
+        EllaMiuixTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = stringResource(R.string.common_search),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            AddPlaylistChip(
+                text = stringResource(R.string.common_sort) + ": " + stringResource(sortMode.labelRes),
+                onClick = { sortMode = sortMode.next() },
+                modifier = Modifier.weight(1f)
+            )
+            AddPlaylistChip(
+                text = if (appendToEnd) stringResource(R.string.song_more_add_position_end) else stringResource(R.string.song_more_add_position_start),
+                onClick = { appendToEnd = !appendToEnd },
+                modifier = Modifier.weight(1f)
+            )
+            AddPlaylistChip(
+                text = stringResource(R.string.common_multi_select),
+                selected = multiSelect,
+                onClick = {
+                    multiSelect = !multiSelect
+                    if (!multiSelect) selectedIds = emptySet()
+                },
+                modifier = Modifier.weight(1f)
             )
         }
         SongMenuItem(stringResource(R.string.song_more_create_playlist), onCreatePlaylist)
@@ -677,36 +738,89 @@ fun AddToPlaylistSheet(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 18.dp)
             )
         } else {
-            playlists.forEach { playlist ->
-                val selected = playlist.id in selectedIds
-                SongMenuItem(
-                    stringResource(
-                        R.string.song_more_playlist_item_summary,
-                        if (selected) "\u2713 " else "",
-                        playlist.name,
-                        playlist.songs.size
-                    ),
-                    onClick = {
-                        selectedIds = if (selected) {
-                            selectedIds - playlist.id
-                        } else {
-                            selectedIds + playlist.id
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            ) {
+                items(visiblePlaylists, key = { it.id }) { playlist ->
+                    val selected = playlist.id in selectedIds
+                    SongMenuItem(
+                        stringResource(
+                            R.string.song_more_playlist_item_summary,
+                            if (selected) "\u2713 " else "",
+                            playlist.name,
+                            playlist.songs.size
+                        ),
+                        onClick = {
+                            if (multiSelect) {
+                                selectedIds = if (selected) {
+                                    selectedIds - playlist.id
+                                } else {
+                                    selectedIds + playlist.id
+                                }
+                            } else {
+                                onPlaylistsConfirm(listOf(playlist), appendToEnd)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
-        if (playlists.isNotEmpty()) {
-            SongMenuItem(
-                stringResource(R.string.song_more_done_selected, selectedIds.size),
-                onClick = {
-                    if (selectedPlaylists.isNotEmpty()) {
-                        onPlaylistsConfirm(selectedPlaylists)
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+            if (multiSelect) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (selectedPlaylists.isNotEmpty()) {
+                            onPlaylistsConfirm(selectedPlaylists, appendToEnd)
+                        }
                     }
+                ) {
+                    Text(stringResource(R.string.song_more_done_selected, selectedIds.size))
                 }
-            )
+            }
         }
-        SongMenuItem(stringResource(R.string.common_cancel), onDismiss)
+    }
+}
+
+private enum class AddPlaylistSortMode(val labelRes: Int) {
+    Custom(R.string.playlist_sort_custom),
+    UpdatedAt(R.string.playlist_sort_updated_at),
+    Name(R.string.playlist_sort_name),
+    SongCount(R.string.playlist_sort_song_count);
+
+    fun next(): AddPlaylistSortMode = entries[(ordinal + 1) % entries.size]
+}
+
+@Composable
+private fun AddPlaylistChip(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+                else MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

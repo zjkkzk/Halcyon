@@ -86,6 +86,7 @@ import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.openSongSpectrumWithAspectPro
 import com.ella.music.ui.components.shareLocalSong
 import com.ella.music.ui.components.SongItem
+import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -124,7 +125,7 @@ fun ArtistScreen(
     val currentSong by playerViewModel.currentSong.collectAsState()
     val favoriteSongKeys by playerViewModel.favoriteSongKeys.collectAsState()
     val locateCurrentSongRequest by playerViewModel.locateCurrentSongRequest.collectAsState()
-    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val showAlbumArtists by mainViewModel.settingsManager.showAlbumArtists.collectAsState(initial = false)
     var sortExpanded by remember { mutableStateOf(false) }
     val sortIndex by mainViewModel.settingsManager.artistDetailSongSortIndex.collectAsState(initial = LibrarySortUiState.artistDetailSongSortIndex)
@@ -463,7 +464,7 @@ fun ArtistScreen(
                 title = "添加到歌单",
                 onDismissRequest = { playlistPickerSong = null }
             ) {
-                ArtistAddToPlaylistMenu(
+                AddToPlaylistSheet(
                     playlists = playlists
                         .sortedWith(compareByDescending<com.ella.music.data.model.UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
                     onDismiss = { playlistPickerSong = null },
@@ -471,9 +472,9 @@ fun ArtistScreen(
                         createPlaylistSong = song
                         playlistPickerSong = null
                     },
-                    onPlaylistsConfirm = { selectedPlaylists ->
+                    onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                         selectedPlaylists.forEach { playlist ->
-                            mainViewModel.addSongsToPlaylist(playlist.id, listOf(song))
+                            mainViewModel.addSongsToPlaylist(playlist.id, listOf(song), appendToEnd)
                         }
                         Toast.makeText(context, "已添加到 ${selectedPlaylists.size} 个歌单", Toast.LENGTH_SHORT).show()
                         playlistPickerSong = null
@@ -648,7 +649,7 @@ private fun ArtistAddToPlaylistMenu(
     playlists: List<UserPlaylist>,
     onDismiss: () -> Unit,
     onCreatePlaylist: () -> Unit,
-    onPlaylistsConfirm: (List<UserPlaylist>) -> Unit
+    onPlaylistsConfirm: (List<UserPlaylist>, Boolean) -> Unit
 ) {
     var selectedPlaylistIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
     val selectedPlaylists = playlists.filter { it.id in selectedPlaylistIds }
@@ -684,7 +685,7 @@ private fun ArtistAddToPlaylistMenu(
         if (playlists.isNotEmpty()) {
             ArtistMenuItem("完成（${selectedPlaylistIds.size}）", onClick = {
                 if (selectedPlaylists.isNotEmpty()) {
-                    onPlaylistsConfirm(selectedPlaylists)
+                    onPlaylistsConfirm(selectedPlaylists, false)
                 }
             })
         }

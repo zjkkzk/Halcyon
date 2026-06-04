@@ -701,6 +701,8 @@ fun PlayerScreen(
             flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
             currentPositionMs = currentPosition,
             isPlaying = isPlaying,
+            playerBackgroundEnabled = playerBackgroundEnabled,
+            playerBackgroundUri = playerBackgroundUri,
             isFavorite = isCurrentSongFavorite,
             audioSessionId = audioSessionId,
             visualizerEnabled = effectiveAudioVisualizerEnabled,
@@ -1067,9 +1069,9 @@ fun PlayerScreen(
                             createPlaylistSong = currentSong
                             playlistPickerSong = null
                         },
-                        onPlaylistsConfirm = { selectedPlaylists ->
+                        onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                             selectedPlaylists.forEach { playlist ->
-                                mainViewModel.addSongsToPlaylist(playlist.id, listOf(currentSong))
+                                mainViewModel.addSongsToPlaylist(playlist.id, listOf(currentSong), appendToEnd)
                             }
                             Toast.makeText(
                                 context,
@@ -1538,25 +1540,25 @@ private fun CoverPlayerPage(
             }
         }
 
-        if (menuExpanded && actionMenuInitialPage == PlayerActionSheetPage.Main) {
-            SongMoreActionHost(
-                actionSong = song,
-                mainViewModel = mainViewModel,
-                playerViewModel = playerViewModel,
-                onDismissAction = onDismissMenu,
-                onNavigateToAlbum = { albumId ->
-                    onDismissMenu()
-                    onNavigateToAlbumId(albumId)
-                },
-                onNavigateToArtist = { artist ->
-                    onDismissMenu()
-                    onNavigateToArtistName(artist)
-                },
-                extraTopContent = {
-                    PlayerActionMenuItem(stringResource(R.string.player_landscape_lyrics), onLandscape)
-                }
-            )
-        } else if (menuExpanded) {
+        SongMoreActionHost(
+            actionSong = if (menuExpanded && actionMenuInitialPage == PlayerActionSheetPage.Main) song else null,
+            mainViewModel = mainViewModel,
+            playerViewModel = playerViewModel,
+            onDismissAction = onDismissMenu,
+            onNavigateToAlbum = { albumId ->
+                onDismissMenu()
+                onNavigateToAlbumId(albumId)
+            },
+            onNavigateToArtist = { artist ->
+                onDismissMenu()
+                onNavigateToArtistName(artist)
+            },
+            showAddToQueue = false,
+            extraTopContent = {
+                PlayerActionMenuItem(stringResource(R.string.player_landscape_lyrics), onLandscape)
+            }
+        )
+        if (menuExpanded && actionMenuInitialPage != PlayerActionSheetPage.Main) {
             WindowBottomSheet(
                 show = true,
                 enableNestedScroll = false,
@@ -2085,6 +2087,8 @@ private fun LyricsPlayerPage(
     flowEffectMode: Int,
     currentPositionMs: Long,
     isPlaying: Boolean,
+    playerBackgroundEnabled: Boolean,
+    playerBackgroundUri: String,
     isFavorite: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
@@ -2133,7 +2137,13 @@ private fun LyricsPlayerPage(
     }
 
     Box(modifier = modifier.then(swipeDismissModifier)) {
-        if (useBlurBackground) {
+        val useCustomPlayerBackground = playerBackgroundEnabled && playerBackgroundUri.isNotBlank() && !useBlurBackground
+        if (useCustomPlayerBackground) {
+            PlayerCustomBackground(
+                uri = playerBackgroundUri,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (useBlurBackground) {
             PlayerBlurBackground(
                 song = song,
                 embeddedCover = embeddedCover,
@@ -5714,7 +5724,7 @@ internal fun AlbumArtView(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
-            .background(MiuixTheme.colorScheme.surfaceContainer),
+            .background(if (coverModel == null) MiuixTheme.colorScheme.surfaceContainer else Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
         if (coverModel != null) {
@@ -5882,11 +5892,6 @@ private fun GlowSeekBar(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        onSeek(progressAt(size.width.toFloat(), offset.x))
-                    }
-                }
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->

@@ -80,7 +80,7 @@ fun HomeScreen(
     val currentSong by playerViewModel.currentSong.collectAsState()
     val context = LocalContext.current
     val settingsManager = remember(context) { SettingsManager(context) }
-    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
     val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val homeDailyMixVisible by settingsManager.homeDailyMixVisible.collectAsState(initial = true)

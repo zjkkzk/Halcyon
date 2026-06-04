@@ -443,9 +443,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { playlistStore.removeSongsFromPlaylist(playlistId, songKeys) }
     }
 
-    fun addSongsToPlaylist(playlistId: String, songs: Collection<Song>) {
+    fun addSongsToPlaylist(playlistId: String, songs: Collection<Song>, appendToEnd: Boolean = false) {
         if (songs.isEmpty()) return
-        viewModelScope.launch { playlistStore.addSongsToPlaylist(playlistId, songs) }
+        viewModelScope.launch { playlistStore.addSongsToPlaylist(playlistId, songs, appendToEnd) }
     }
 
     fun reorderPlaylistSongs(playlistId: String, orderedKeys: List<String>) {

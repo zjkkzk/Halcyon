@@ -70,7 +70,9 @@ import com.ella.music.data.model.playlistIdentityKey
 import com.ella.music.data.PlaylistExportFormat
 import com.ella.music.data.PlaylistImportMode
 import com.ella.music.ui.components.AppleStylePlayButton
+import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.ConfirmDangerDialog
+import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
@@ -101,6 +103,7 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.FavoritesFill
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Playlist
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Share
@@ -163,6 +166,9 @@ fun PlaylistScreen(
     }
     val fiveStarSongs by produceState(initialValue = emptyList(), librarySongs, ratingRevision) {
         value = mainViewModel.getFiveStarSongs()
+    }
+    val fiveStarCoverModel = remember(fiveStarSongs) {
+        fiveStarSongs.firstOrNull().playlistCoverModel()
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
@@ -378,6 +384,7 @@ fun PlaylistScreen(
                         createdAt = 0L,
                         updatedAt = 0L
                     ),
+                    coverModel = fiveStarCoverModel,
                     countOverride = fiveStarSongs.size,
                     durationOverride = fiveStarSongs.sumOf { it.duration },
                     accent = true,
@@ -492,7 +499,7 @@ fun PlaylistDetailScreen(
     val librarySongs by mainViewModel.songs.collectAsState()
     val ratingRevision by mainViewModel.ratingRevision.collectAsState()
     val playbackStats by mainViewModel.playbackStats.collectAsState()
-    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by mainViewModel.settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val isFiveStarPlaylist = playlistId == FIVE_STAR_PLAYLIST_ID
     val storedPlaylist = playlists.firstOrNull { it.id == playlistId }
     val fiveStarSongs by produceState(initialValue = emptyList(), isFiveStarPlaylist, librarySongs, ratingRevision) {
@@ -521,12 +528,16 @@ fun PlaylistDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var removeFromPlaylistSong by remember { mutableStateOf<Song?>(null) }
     var removeSelectedPlaylistSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var manualOrder by remember(playlist?.id) { mutableStateOf(songs) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedSongKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForPlaylistDetail(sortMode) }
     LaunchedEffect(playlist?.id, songs) {
         manualOrder = songs
+    }
+    LaunchedEffect(playlist?.id) {
         selectionMode = false
         selectedSongKeys = emptySet()
     }
@@ -571,8 +582,13 @@ fun PlaylistDetailScreen(
         if (next.isEmpty()) selectionMode = false
     }
     fun selectAllDisplayedSongs() {
-        selectedSongKeys = displayedSongs.mapTo(mutableSetOf()) { it.playlistIdentityKey() }
-        selectionMode = selectedSongKeys.isNotEmpty()
+        val displayedKeys = displayedSongs.mapTo(mutableSetOf()) { it.playlistIdentityKey() }
+        selectedSongKeys = if (displayedKeys.isNotEmpty() && displayedKeys.all { it in selectedSongKeys }) {
+            emptySet()
+        } else {
+            displayedKeys
+        }
+        selectionMode = true
     }
     fun selectedDisplayedSongs(): List<Song> =
         displayedSongs.filter { it.playlistIdentityKey() in selectedSongKeys }
@@ -653,6 +669,21 @@ fun PlaylistDetailScreen(
                 },
                 actions = {
                     if (selectionMode) {
+                        IconButton(onClick = {
+                            val selected = selectedDisplayedSongs()
+                            if (selected.isEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                            } else {
+                                playlistPickerSongs = selected
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Add,
+                                contentDescription = stringResource(R.string.player_add_to_playlist),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         if (!isFiveStarPlaylist) {
                             IconButton(onClick = {
                                 val selected = selectedDisplayedSongs()
@@ -866,6 +897,7 @@ fun PlaylistDetailScreen(
                                 {
                                     Box(
                                         modifier = Modifier
+                                            .then(dragHandleModifier)
                                             .size(32.dp)
                                             .clip(RoundedCornerShape(16.dp))
                                             .background(
@@ -890,7 +922,7 @@ fun PlaylistDetailScreen(
                                 }
                             } else null,
                             showTrailingContentInSelectionMode = reorderHandlesVisible,
-                            modifier = if (reorderHandlesVisible) dragHandleModifier else Modifier
+                            modifier = Modifier
                         )
                     }
                 }
@@ -967,6 +999,58 @@ fun PlaylistDetailScreen(
                         )
                         removeSelectedPlaylistSongs = emptyList()
                         finishSelectionMode()
+                    }
+                )
+            }
+
+            playlistPickerSongs?.let { songsToAdd ->
+                WindowBottomSheet(
+                    show = true,
+                    enableNestedScroll = false,
+                    title = stringResource(R.string.song_more_add_to_playlist_title),
+                    onDismissRequest = { playlistPickerSongs = null }
+                ) {
+                    AddToPlaylistSheet(
+                        playlists = playlists
+                            .sortedWith(compareByDescending<UserPlaylist> { it.id == FAVORITES_PLAYLIST_ID }.thenByDescending { it.createdAt }),
+                        songCount = songsToAdd.size,
+                        onDismiss = { playlistPickerSongs = null },
+                        onCreatePlaylist = {
+                            createPlaylistSongs = songsToAdd
+                            playlistPickerSongs = null
+                        },
+                        onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
+                            selectedPlaylists.forEach { targetPlaylist ->
+                                mainViewModel.addSongsToPlaylist(targetPlaylist.id, songsToAdd, appendToEnd)
+                            }
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.player_added_to_playlists, selectedPlaylists.size),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            playlistPickerSongs = null
+                            finishSelectionMode()
+                        }
+                    )
+                }
+            }
+
+            createPlaylistSongs?.let { songsToAdd ->
+                CreatePlaylistAndAddSheet(
+                    onDismiss = { createPlaylistSongs = null },
+                    onCreate = { name ->
+                        mainViewModel.createPlaylist(name) { targetPlaylist ->
+                            if (targetPlaylist != null) {
+                                mainViewModel.addSongsToPlaylist(targetPlaylist.id, songsToAdd)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.player_added_to_playlist_named, targetPlaylist.name),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                finishSelectionMode()
+                            }
+                        }
+                        createPlaylistSongs = null
                     }
                 )
             }
@@ -1109,7 +1193,7 @@ private fun PlaylistPlayAllBar(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = MiuixIcons.Regular.Playlist,
+                imageVector = MiuixIcons.Regular.Play,
                 contentDescription = stringResource(R.string.playlist_play_all),
                 tint = Color.White,
                 modifier = Modifier.size(20.dp)
@@ -1282,7 +1366,7 @@ private fun PlaylistRow(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (coverModel != null && !playlist.isFavorites && !playlist.isFiveStarRating) {
+                if (coverModel != null) {
                     SafeCoverImage(
                         model = coverModel,
                         contentDescription = null,
@@ -1290,7 +1374,8 @@ private fun PlaylistRow(
                         contentScale = ContentScale.Crop,
                         sizePx = 160
                     )
-                } else {
+                }
+                if (coverModel == null) {
                     Icon(
                         imageVector = when {
                             playlist.isFavorites -> MiuixIcons.Regular.FavoritesFill
@@ -1301,6 +1386,23 @@ private fun PlaylistRow(
                         tint = if (accent) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
                         modifier = Modifier.size(25.dp)
                     )
+                } else if (playlist.isFavorites || playlist.isFiveStarRating) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(5.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color.Black.copy(alpha = 0.42f))
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (playlist.isFavorites) MiuixIcons.Regular.FavoritesFill else FiveStarPlaylistIcon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(14.dp))

@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -234,13 +235,28 @@ fun AlbumScreen(
                 )
             }
         } else {
-            val gridState = rememberLazyGridState()
+            val gridState = rememberLazyGridState(
+                initialFirstVisibleItemIndex = LibrarySortUiState.albumListFirstVisibleItemIndex,
+                initialFirstVisibleItemScrollOffset = LibrarySortUiState.albumListFirstVisibleItemScrollOffset
+            )
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
+            var skipInitialReset by remember { mutableStateOf(true) }
             LaunchedEffect(sortMode, searchQuery, safeGridColumns) {
-                gridState.scrollToItem(0)
+                if (skipInitialReset) {
+                    skipInitialReset = false
+                } else {
+                    gridState.scrollToItem(0)
+                }
             }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) gridState.animateScrollToItem(0)
+            }
+            LaunchedEffect(gridState) {
+                snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+                    .collect { (index, offset) ->
+                        LibrarySortUiState.albumListFirstVisibleItemIndex = index
+                        LibrarySortUiState.albumListFirstVisibleItemScrollOffset = offset
+                    }
             }
             val fastIndexTargets = remember(sortedAlbums) {
                 sortedAlbums

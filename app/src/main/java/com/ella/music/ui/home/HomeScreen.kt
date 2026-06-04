@@ -92,6 +92,7 @@ import com.ella.music.ui.components.EllaMiuixSheetActions
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.ArtistPickerSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.EllaSmallTopAppBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SongItem
@@ -113,7 +114,6 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
@@ -147,7 +147,7 @@ fun LibraryScreen(
     val ratingRevision by mainViewModel.ratingRevision.collectAsState()
     val context = LocalContext.current
     val settingsManager = remember(context) { SettingsManager(context) }
-    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = true)
+    val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
 
     var searchQuery by remember { mutableStateOf("") }
     var searchExpanded by remember { mutableStateOf(false) }
@@ -286,9 +286,11 @@ fun LibraryScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Box {
-            SmallTopAppBar(
+            EllaSmallTopAppBar(
                 title = stringResource(R.string.tab_library),
                 color = ellaPageBackground(),
+                titleStartPadding = if (!selectionMode && songs.isNotEmpty()) 156.dp else 20.dp,
+                titleEndPadding = if (selectionMode) 170.dp else 152.dp,
                 navigationIcon = {
                     if (!selectionMode) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -714,9 +716,9 @@ fun LibraryScreen(
                         createPlaylistSongs = songsToAdd
                         playlistPickerSongs = null
                     },
-                    onPlaylistsConfirm = { selectedPlaylists ->
+                    onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
                         selectedPlaylists.forEach { playlist ->
-                            mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
+                            mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd, appendToEnd)
                         }
                         Toast.makeText(
                             context,
