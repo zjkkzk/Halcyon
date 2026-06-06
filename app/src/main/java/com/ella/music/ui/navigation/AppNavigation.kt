@@ -150,7 +150,8 @@ fun AppNavigation(
                 onNavigateToWebDav = { navController.navigate(Screen.WebDav.route) },
                 onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) },
                 onNavigateToMetadataCategory = { type -> navController.navigate(Screen.MetadataCategory.createRoute(type)) },
-                onNavigateToPlayer = onNavigateToPlayer
+                onNavigateToPlayer = onNavigateToPlayer,
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )
         }
 
@@ -408,6 +409,7 @@ fun AppNavigation(
                 onNavigateToAudioSettings = { navController.navigate(Screen.AudioSettings.route) },
                 onNavigateToBackupSettings = { navController.navigate(Screen.BackupSettings.route) },
                 onNavigateToLogs = { navController.navigate(Screen.Logs.route) },
+                onBack = { navController.popBackStack() },
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel
             )

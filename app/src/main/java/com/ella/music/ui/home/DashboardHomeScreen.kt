@@ -48,13 +48,14 @@ import com.ella.music.ui.components.requestPinnedEllaShortcut
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
+import com.ella.music.ui.components.EllaSmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.Locale
 
@@ -71,7 +72,8 @@ fun HomeScreen(
     onNavigateToWebDav: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToMetadataCategory: (String) -> Unit,
-    onNavigateToPlayer: () -> Unit
+    onNavigateToPlayer: () -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val songs by mainViewModel.songs.collectAsState()
     val albums by mainViewModel.albums.collectAsState()
@@ -126,9 +128,19 @@ fun HomeScreen(
             .background(pageBackground)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        SmallTopAppBar(
+        EllaSmallTopAppBar(
             title = stringResource(R.string.home_title),
-            color = pageBackground
+            color = pageBackground,
+            centeredTitle = true,
+            actions = {
+                IconButton(onClick = onNavigateToSettings) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Settings,
+                        contentDescription = stringResource(R.string.tab_settings),
+                        tint = MiuixTheme.colorScheme.onSurface
+                    )
+                }
+            }
         )
 
         Column(

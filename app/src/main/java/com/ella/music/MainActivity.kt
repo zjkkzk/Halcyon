@@ -546,7 +546,6 @@ fun EllaApp(
     val tabs = listOf(
         BottomDockTab(Screen.Home.route, stringResource(R.string.tab_home), MiuixIcons.Regular.Music),
         BottomDockTab(Screen.Library.route, stringResource(R.string.tab_library), MiuixIcons.Regular.Playlist),
-        BottomDockTab(Screen.Settings.route, stringResource(R.string.tab_settings), MiuixIcons.Regular.Settings),
     )
     val currentTabRoute = currentRoute.toCurrentTabRoute()
 
@@ -900,12 +899,12 @@ private fun FloatingBottomControls(
                 loadCoverArt = mainViewModel::getCoverArtBitmap,
                 backdrop = if (useGlass) backdrop else null,
                 glassEffect = glassEffect,
-                isHomeSelected = currentTabRoute == Screen.Home.route,
+                currentTabRoute = currentTabRoute,
                 isSearchSelected = currentRoute.isSearchRoute(),
                 onOpenPlayer = onNavigatePlayer,
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onSkipNext = { playerViewModel.skipToNext() },
-                onNavigateHome = { onNavigate(Screen.Home.route) },
+                onNavigateTab = { onNavigate(it) },
                 onNavigateSearch = onNavigateSearch,
                 onExpand = onExpand
             )
@@ -950,17 +949,26 @@ private fun FloatingBottomControls(
                     ) {
                         if (useGlass) {
                             Box(modifier = Modifier.weight(1f)) {
+                                val selectedBottomTabIndex = tabs
+                                    .indexOfFirst { currentTabRoute == it.route }
+                                    .takeIf { it >= 0 }
                                 LiquidGlassBottomBar(
                                     backdrop = backdrop,
                                     isBlurEnabled = true,
-                                    glassEffect = glassEffect
+                                    glassEffect = glassEffect,
+                                    selectedIndex = selectedBottomTabIndex,
+                                    itemCount = tabs.size,
+                                    onSelected = { index ->
+                                        tabs.getOrNull(index)?.let { onNavigate(it.route) }
+                                    }
                                 ) {
                                     tabs.forEach { tab ->
                                         LiquidGlassBottomBarItem(
                                             selected = currentTabRoute == tab.route,
-                                            onClick = { onNavigate(tab.route) },
+                                            onClick = {},
                                             backdrop = backdrop,
                                             isBlurEnabled = true,
+                                            showSelectedIndicator = glassEffect == BottomBarGlassEffect.LiquidGlass,
                                             icon = {
                                                 Icon(
                                                     imageVector = tab.icon,
@@ -989,7 +997,7 @@ private fun FloatingBottomControls(
                                 onClick = onNavigateSearch,
                                 backdrop = backdrop,
                                 glassEffect = glassEffect,
-                                modifier = Modifier.width(60.dp)
+                                modifier = Modifier.size(64.dp)
                             )
                         }
                     }
@@ -1037,15 +1045,18 @@ private fun CompactBottomDock(
     loadCoverArt: ((Song) -> android.graphics.Bitmap?)?,
     backdrop: com.kyant.backdrop.Backdrop?,
     glassEffect: BottomBarGlassEffect,
-    isHomeSelected: Boolean,
+    currentTabRoute: String?,
     isSearchSelected: Boolean,
     onOpenPlayer: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
-    onNavigateHome: () -> Unit,
+    onNavigateTab: (String) -> Unit,
     onNavigateSearch: () -> Unit,
     onExpand: () -> Unit
 ) {
+    val isHomeSelected = currentTabRoute == Screen.Home.route
+    val leftIcon = if (isHomeSelected) MiuixIcons.Regular.Music else MiuixIcons.Regular.Playlist
+    val leftLabel = if (isHomeSelected) stringResource(R.string.tab_home) else stringResource(R.string.tab_library)
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
@@ -1061,13 +1072,13 @@ private fun CompactBottomDock(
         verticalAlignment = Alignment.CenterVertically
     ) {
         BottomDockActionPill(
-            icon = MiuixIcons.Regular.Music,
-            label = stringResource(R.string.tab_home),
-            selected = isHomeSelected,
-            onClick = onNavigateHome,
+            icon = leftIcon,
+            label = leftLabel,
+            selected = true,
+            onClick = onExpand,
             backdrop = backdrop,
             glassEffect = glassEffect,
-            modifier = Modifier.width(60.dp)
+            modifier = Modifier.size(64.dp)
         )
         CompactMiniPlayer(
             song = song,
@@ -1084,6 +1095,7 @@ private fun CompactBottomDock(
             onClick = onOpenPlayer,
             onPlayPause = onPlayPause,
             onSkipNext = onSkipNext,
+            showSkipButton = false,
             modifier = Modifier.weight(1f)
         )
         BottomDockActionPill(
@@ -1093,7 +1105,7 @@ private fun CompactBottomDock(
             onClick = onNavigateSearch,
             backdrop = backdrop,
             glassEffect = glassEffect,
-            modifier = Modifier.width(60.dp)
+            modifier = Modifier.size(64.dp)
         )
     }
 }
@@ -1126,9 +1138,9 @@ private fun BottomDockActionPill(
     )
     val isLight = MiuixTheme.colorScheme.background.simpleLuminance() > 0.5f
     val overlayColor = when {
-        selected -> MiuixTheme.colorScheme.primary.copy(alpha = if (isLight) 0.14f else 0.22f)
-        isLight -> ComposeColor.White.copy(alpha = 0.26f)
-        else -> ComposeColor.White.copy(alpha = 0.12f)
+        selected -> if (isLight) ComposeColor.Black.copy(alpha = 0.08f) else ComposeColor.White.copy(alpha = 0.13f)
+        isLight -> ComposeColor.White.copy(alpha = 0.32f)
+        else -> ComposeColor.White.copy(alpha = 0.16f)
     }
 
     GlassPill(
@@ -1171,16 +1183,6 @@ private fun String?.toCurrentTabRoute(): String? {
         null,
         Screen.Home.route -> Screen.Home.route
 
-        Screen.Settings.route,
-        Screen.SettingsDetail.route,
-        Screen.LyricSettings.route,
-        Screen.AudioSettings.route,
-        Screen.BackupSettings.route,
-        Screen.LyricFont.route,
-        Screen.Logs.route,
-        Screen.About.route,
-        Screen.Update.route -> Screen.Settings.route
-
         Screen.Library.route -> Screen.Library.route
         else -> null
     }
@@ -1197,7 +1199,6 @@ private fun String?.isBottomDockRoute(): Boolean {
         this.isSearchRoute() -> true
         this == Screen.Home.route -> true
         this == Screen.Library.route -> true
-        this == Screen.Settings.route -> true
         else -> false
     }
 }

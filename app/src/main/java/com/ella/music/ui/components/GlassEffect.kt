@@ -12,6 +12,7 @@ import com.ella.music.data.BottomBarGlassEffect
 import com.kyant.backdrop.BackdropEffectScope
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import kotlin.math.max
 
 internal fun BackdropEffectScope.applyBottomBarGlassEffect(
     glassEffect: BottomBarGlassEffect,
@@ -26,9 +27,10 @@ internal fun BackdropEffectScope.applyBottomBarGlassEffect(
         BottomBarGlassEffect.LiquidGlass -> {
             blur(6f.dp.toPx())
             runCatching {
+                val refraction = max(24f, liquidBlurRadius).dp.toPx()
                 lens(
-                    refractionHeight = 24f.dp.toPx(),
-                    refractionAmount = 24f.dp.toPx()
+                    refractionHeight = refraction,
+                    refractionAmount = refraction
                 )
             }
         }

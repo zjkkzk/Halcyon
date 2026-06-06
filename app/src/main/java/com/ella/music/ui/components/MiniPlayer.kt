@@ -291,6 +291,7 @@ fun CompactMiniPlayer(
     onClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit = {},
+    showSkipButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val coverState = rememberMiniPlayerCoverModel(song, albumArtUri, loadCoverArt)
@@ -350,19 +351,21 @@ fun CompactMiniPlayer(
                     modifier = Modifier.size(22.dp)
                 )
             }
-            IconButton(
-                onClick = {
-                    transitionDirection = 1
-                    onSkipNext()
-                },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_skip_next),
-                    contentDescription = stringResource(R.string.common_next),
-                    tint = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
-                )
+            if (showSkipButton) {
+                IconButton(
+                    onClick = {
+                        transitionDirection = 1
+                        onSkipNext()
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_skip_next),
+                        contentDescription = stringResource(R.string.common_next),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

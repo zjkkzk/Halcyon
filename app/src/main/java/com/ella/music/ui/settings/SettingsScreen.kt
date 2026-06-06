@@ -104,6 +104,7 @@ fun SettingsScreen(
     onNavigateToAudioSettings: () -> Unit,
     onNavigateToBackupSettings: () -> Unit,
     onNavigateToLogs: () -> Unit,
+    onBack: () -> Unit = {},
     mainViewModel: MainViewModel? = null,
     playerViewModel: PlayerViewModel? = null
 ) {
@@ -121,7 +122,15 @@ fun SettingsScreen(
         EllaSmallTopAppBar(
             title = stringResource(R.string.settings),
             color = pageBackground,
-            centeredTitle = true
+            centeredTitle = true,
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Back,
+                        contentDescription = stringResource(R.string.common_back)
+                    )
+                }
+            }
         )
 
         Column(
@@ -700,7 +709,6 @@ fun SettingsDetailScreen(
     val miniPlayerCoverRotation by settingsManager.miniPlayerCoverRotation.collectAsState(initial = true)
     val miniPlayerRightButton by settingsManager.miniPlayerRightButton.collectAsState(initial = 0)
     val miniPlayerLyricsEnabled by settingsManager.miniPlayerLyricsEnabled.collectAsState(initial = true)
-    val smoothLyricView by settingsManager.smoothLyricView.collectAsState(initial = false)
     val lyricSourcePriority by settingsManager.lyricSourcePriority.collectAsState(initial = SettingsManager.DEFAULT_LYRIC_SOURCE_PRIORITY)
     val minDurationSec by settingsManager.minDurationSec.collectAsState(initial = 15)
     val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
@@ -759,13 +767,6 @@ fun SettingsDetailScreen(
             DropdownItem(title = bottomBarGlassBlurLabel),
             DropdownItem(title = bottomBarGlassLiquidLabel)
         )
-    }
-    val lyricPageModeLabels = listOf(
-        stringResource(R.string.settings_lyric_page_mode_standard),
-        stringResource(R.string.settings_lyric_page_mode_smooth)
-    )
-    val lyricPageModeEntries = remember(lyricPageModeLabels) {
-        lyricPageModeLabels.map { DropdownItem(title = it) }
     }
     val selectedBottomBarGlassEffectIndex =
         bottomBarGlassEffects.indexOf(bottomBarGlassEffect).takeIf { it >= 0 } ?: 0
@@ -1533,19 +1534,6 @@ fun SettingsDetailScreen(
                         selectedIndex = miniPlayerRightButton.coerceIn(0, 1),
                         onSelectedIndexChange = { index ->
                             scope.launch { settingsManager.setMiniPlayerRightButton(index) }
-                        }
-                    )
-
-                    WindowSpinnerPreference(
-                        title = stringResource(R.string.settings_smooth_lyric_view),
-                        summary = stringResource(
-                            R.string.settings_current_value,
-                            lyricPageModeLabels[if (smoothLyricView) 1 else 0]
-                        ),
-                        items = lyricPageModeEntries,
-                        selectedIndex = if (smoothLyricView) 1 else 0,
-                        onSelectedIndexChange = { index ->
-                            scope.launch { settingsManager.setSmoothLyricView(index == 1) }
                         }
                     )
 
