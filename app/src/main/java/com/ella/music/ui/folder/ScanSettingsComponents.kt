@@ -1,0 +1,394 @@
+package com.ella.music.ui.folder
+
+import android.provider.DocumentsContract
+import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ella.music.R
+import com.ella.music.ui.components.EllaMiuixDialog
+import com.ella.music.ui.components.FolderOutlineIcon
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.basic.Check
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.util.Locale
+
+@Composable
+internal fun ScanStatusCard(scanProgress: Int) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = if (scanProgress > 0) {
+                stringResource(R.string.library_scanning_count, scanProgress)
+            } else {
+                stringResource(R.string.folder_scanning_library)
+            },
+            fontSize = 14.sp,
+            color = MiuixTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+    }
+}
+
+@Composable
+internal fun MediaSourceModeCard(
+    useAndroidMediaLibrary: Boolean,
+    customFolderCount: Int,
+    onUseAndroidMediaLibraryChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            SwitchPreference(
+                title = stringResource(R.string.folder_use_android_media_library),
+                summary = if (useAndroidMediaLibrary) {
+                    stringResource(R.string.folder_scan_android_media_summary)
+                } else {
+                    stringResource(R.string.folder_scan_custom_folders_summary, customFolderCount)
+                },
+                checked = useAndroidMediaLibrary,
+                onCheckedChange = onUseAndroidMediaLibraryChange
+            )
+        }
+    }
+}
+
+@Composable
+internal fun UsbFoldersCard(
+    usbFolderUris: List<String>,
+    onRemove: (String) -> Unit,
+    onScan: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.folder_usb_directories),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MiuixTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.folder_usb_directories_summary, usbFolderUris.size),
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+                IconButton(onClick = onScan) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Refresh,
+                        contentDescription = stringResource(R.string.folder_full_scan),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            usbFolderUris.forEach { uri ->
+                val displayName = runCatching {
+                    val docUri = Uri.parse(uri)
+                    val docId = DocumentsContract.getTreeDocumentId(docUri)
+                    docId.substringAfterLast('/').ifBlank { docId.substringBeforeLast('/') }
+                }.getOrDefault(uri.substringAfterLast('/').ifBlank { uri })
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FolderOutlineIcon(
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = displayName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MiuixTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = uri,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = { onRemove(uri) }) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Close,
+                            contentDescription = stringResource(R.string.common_remove),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SavedScanFoldersCard(
+    folders: List<String>,
+    hiddenFolders: Set<String>,
+    onVisibilityChange: (String, Boolean) -> Unit,
+    onRemove: (String) -> Unit,
+    onScan: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.folder_local_scan_directories),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MiuixTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.folder_local_scan_directories_summary, folders.size),
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
+                IconButton(onClick = onScan) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Refresh,
+                        contentDescription = stringResource(R.string.folder_full_scan),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            folders.forEach { folder ->
+                val isVisible = folder.normalizeFolderPath().lowercase(Locale.ROOT) !in hiddenFolders
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FolderVisibilityCheckbox(
+                        checked = isVisible,
+                        onCheckedChange = { onVisibilityChange(folder, it) }
+                    )
+                    FolderOutlineIcon(
+                        tint = if (isVisible) {
+                            MiuixTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        },
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = folder.substringAfterLast('/').ifBlank { folder },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isVisible) {
+                                MiuixTheme.colorScheme.onSurface
+                            } else {
+                                MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            }
+                        )
+                        Text(
+                            text = folder,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = { onRemove(folder) }) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Close,
+                            contentDescription = stringResource(R.string.common_remove),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+internal fun FolderVisibilityCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(26.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(
+                if (checked) {
+                    MiuixTheme.colorScheme.primary
+                } else {
+                    MiuixTheme.colorScheme.surfaceContainer
+                }
+            )
+            .combinedClickable(onClick = { onCheckedChange(!checked) }),
+        contentAlignment = Alignment.Center
+    ) {
+        if (checked) {
+            Icon(
+                imageVector = MiuixIcons.Basic.Check,
+                contentDescription = stringResource(R.string.folder_show_folder),
+                tint = MiuixTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun BlockedFoldersEntryCard(
+    count: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Regular.Folder,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.folder_blocked_folders),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.folder_blocked_folders_summary, count),
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+            }
+
+            Icon(
+                imageVector = MiuixIcons.Basic.ArrowRight,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun FolderBlockDialog(
+    folderPath: String,
+    onDismiss: () -> Unit,
+    onBlock: () -> Unit
+) {
+    EllaMiuixDialog(
+        show = true,
+        title = stringResource(R.string.folder_block_folder),
+        onDismissRequest = onDismiss
+    ) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(text = folderPath, fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = onBlock) { Text(stringResource(R.string.folder_block)) }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun BlockedFoldersDialog(
+    folders: List<String>,
+    onDismiss: () -> Unit,
+    onRemove: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    EllaMiuixDialog(
+        show = true,
+        title = stringResource(R.string.folder_blocked_folders),
+        onDismissRequest = onDismiss
+    ) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            folders.forEach { folder ->
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = folder,
+                        fontSize = 13.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(onClick = { onRemove(folder) }) { Text(stringResource(R.string.common_remove)) }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Button(onClick = onClear) { Text(stringResource(R.string.common_clear)) }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = onDismiss) { Text(stringResource(R.string.common_done)) }
+            }
+        }
+    }
+}

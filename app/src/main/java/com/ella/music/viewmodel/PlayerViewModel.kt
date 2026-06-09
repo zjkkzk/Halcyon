@@ -54,7 +54,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val lyricGetterBridge = LyricGetterBridge(application)
     private val playlistStore = PlaylistStore.getInstance(application)
     private val playbackStatsStore = PlaybackStatsStore.getInstance(application)
-    private val minPlaybackStatsListenMs = 20_000L
+    private val playbackStatsTracker = PlayerPlaybackStatsTracker(playbackStatsStore)
 
     val currentSong: StateFlow<Song?> = playerManager.currentSong
     val isPlaying: StateFlow<Boolean> = playerManager.isPlaying
@@ -101,21 +101,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val _locateCurrentSongRequest = MutableStateFlow(0)
     val locateCurrentSongRequest: StateFlow<Int> = _locateCurrentSongRequest.asStateFlow()
 
-    private val _sleepTimerEndRealtimeMs = MutableStateFlow<Long?>(null)
-    val sleepTimerEndRealtimeMs: StateFlow<Long?> = _sleepTimerEndRealtimeMs.asStateFlow()
-
-    private val _stopAfterCurrentEnabled = MutableStateFlow(false)
-    val stopAfterCurrentEnabled: StateFlow<Boolean> = _stopAfterCurrentEnabled.asStateFlow()
+    private val sleepTimerController = PlayerSleepTimerController(
+        scope = viewModelScope,
+        currentSong = { currentSong.value },
+        duration = { duration.value },
+        currentPosition = { currentPosition.value },
+        onPause = { playerManager.pause() }
+    )
+    val sleepTimerEndRealtimeMs: StateFlow<Long?> = sleepTimerController.sleepTimerEndRealtimeMs
+    val stopAfterCurrentEnabled: StateFlow<Boolean> = sleepTimerController.stopAfterCurrentEnabled
 
     private var positionUpdateJob: Job? = null
     private var lastSentPlayingState: Boolean? = null
     private var lastTickerPayload: Pair<String, String?>? = null
-    private var statsSongId: Long? = null
-    private var statsSong: Song? = null
-    private var playCountedSongId: Long? = null
-    private var pendingListenMs = 0L
-    private var lastStatsTickMs = 0L
-
     private var bluetoothLyricEnabled = false
     private var bluetoothLyricTranslationEnabled = true
     private var bluetoothLyricPronunciationEnabled = false
@@ -134,9 +132,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var previousButtonAction = SettingsManager.PREVIOUS_BUTTON_PREVIOUS
     private var manualSeekAfterPreviousButton = false
     private var lastBluetoothLyricPayload: Pair<String, String?>? = null
-    private var sleepTimerJob: Job? = null
     private var externalLyricResendJob: Job? = null
-    private var stopAfterCurrentSongId: Long? = null
     private var lazyOnlineQueue: LazyOnlineQueue? = null
     private var resolvingLazyQueue = false
     private var loadedLyricSongKey: String? = null
@@ -626,43 +622,11 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun updatePlaybackStats() {
-        val now = SystemClock.elapsedRealtime()
-        val song = currentSong.value
-        val songId = song?.id
-
-        if (songId != statsSongId) {
-            flushPlaybackStats()
-            statsSongId = songId
-            statsSong = song
-            playCountedSongId = null
-            lastStatsTickMs = now
-            return
-        }
-
-        if (song != null && isPlaying.value) {
-            if (lastStatsTickMs > 0L) {
-                pendingListenMs += (now - lastStatsTickMs).coerceIn(0L, 1500L)
-            }
-            if (playCountedSongId != song.id && pendingListenMs >= minPlaybackStatsListenMs) {
-                playbackStatsStore.recordPlay(song)
-                playCountedSongId = song.id
-            }
-            if (playCountedSongId == song.id && pendingListenMs >= 5000L) {
-                playbackStatsStore.addListenTime(song, pendingListenMs)
-                pendingListenMs = 0L
-            }
-        } else {
-            flushPlaybackStats()
-        }
-        lastStatsTickMs = now
-    }
-
-    private suspend fun flushPlaybackStats() {
-        val song = statsSong
-        if (song != null && playCountedSongId == song.id && pendingListenMs > 0L) {
-            playbackStatsStore.addListenTime(song, pendingListenMs)
-        }
-        pendingListenMs = 0L
+        playbackStatsTracker.update(
+            nowMs = SystemClock.elapsedRealtime(),
+            song = currentSong.value,
+            isPlaying = isPlaying.value
+        )
     }
 
     private suspend fun resendExternalLyrics(force: Boolean = false) {
@@ -1043,49 +1007,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         minutes: Int,
         stopAfterCurrentWhenExpired: Boolean = false
     ) {
-        sleepTimerJob?.cancel()
-        if (minutes <= 0) {
-            _sleepTimerEndRealtimeMs.value = null
-            return
-        }
-        _sleepTimerEndRealtimeMs.value = SystemClock.elapsedRealtime() + minutes * 60_000L
-        sleepTimerJob = viewModelScope.launch {
-            delay(minutes * 60_000L)
-            _sleepTimerEndRealtimeMs.value = null
-            sleepTimerJob = null
-            if (stopAfterCurrentWhenExpired) {
-                val current = currentSong.value
-                if (current != null) {
-                    _stopAfterCurrentEnabled.value = true
-                    stopAfterCurrentSongId = current.id
-                    return@launch
-                }
-            }
-            playerManager.pause()
-        }
+        sleepTimerController.start(minutes, stopAfterCurrentWhenExpired)
     }
 
     fun setStopAfterCurrentEnabled(enabled: Boolean) {
-        _stopAfterCurrentEnabled.value = enabled
-        stopAfterCurrentSongId = if (enabled) currentSong.value?.id else null
+        sleepTimerController.setStopAfterCurrentEnabled(enabled)
     }
 
     fun cancelSleepTimer() {
-        sleepTimerJob?.cancel()
-        sleepTimerJob = null
-        _sleepTimerEndRealtimeMs.value = null
+        sleepTimerController.cancel()
     }
 
     private fun updateSleepTimer() {
-        val targetId = stopAfterCurrentSongId ?: return
-        val song = currentSong.value ?: return
-        val total = duration.value
-        val position = currentPosition.value
-        if (song.id != targetId || (total > 0L && total - position <= 850L)) {
-            stopAfterCurrentSongId = null
-            _stopAfterCurrentEnabled.value = false
-            playerManager.pause()
-        }
+        sleepTimerController.update()
     }
 
     fun setLyricPageTranslation(enabled: Boolean) {
@@ -1326,18 +1260,16 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
-        val songToFlush = statsSong
-        val listenedMsToFlush = pendingListenMs
-        pendingListenMs = 0L
-        if (songToFlush != null && playCountedSongId == songToFlush.id && listenedMsToFlush > 0L) {
+        val pendingStatsFlush = playbackStatsTracker.takePendingFlush()
+        if (pendingStatsFlush != null) {
             cleanupScope.launch {
-                playbackStatsStore.addListenTime(songToFlush, listenedMsToFlush)
+                playbackStatsStore.addListenTime(pendingStatsFlush.song, pendingStatsFlush.listenedMs)
             }
         }
         super.onCleared()
         externalLyricResendJob?.cancel()
         positionUpdateJob?.cancel()
-        sleepTimerJob?.cancel()
+        sleepTimerController.dispose()
         tickerBridge.clearLyric()
         lyricGetterBridge.clearLyric()
         superLyricBridge.destroy()

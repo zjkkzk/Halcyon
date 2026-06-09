@@ -3,34 +3,21 @@ package com.ella.music.ui.playlist
 import android.widget.Toast
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,66 +27,21 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.model.FIVE_STAR_PLAYLIST_ID
 import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
-import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
-import com.ella.music.data.model.playlistIdentityKey
 import com.ella.music.data.PlaylistExportFormat
 import com.ella.music.data.PlaylistImportMode
 import com.ella.music.ui.LibrarySortUiState
-import com.ella.music.ui.components.AppleStylePlayButton
-import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.ConfirmDangerDialog
-import com.ella.music.ui.components.CreatePlaylistAndAddSheet
-import com.ella.music.ui.components.DefaultAlbumCover
-import com.ella.music.ui.components.DoubleTapScrollOverlay
-import com.ella.music.ui.components.EllaSearchBar
-import com.ella.music.ui.components.LocateCurrentSongFloatingButton
-import com.ella.music.ui.components.SafeCoverImage
-import com.ella.music.ui.components.SongItem
-import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ellaPageBackground
-import com.ella.music.ui.components.requestPinnedEllaShortcut
-import com.ella.music.ui.navigation.Screen
 import com.ella.music.viewmodel.MainViewModel
-import com.ella.music.viewmodel.PlayerViewModel
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import com.ella.music.ui.components.EllaSmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.Search
-import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.Delete
-import top.yukonga.miuix.kmp.icon.extended.Download
-import top.yukonga.miuix.kmp.icon.extended.Play
-import top.yukonga.miuix.kmp.icon.extended.Playlist
-import top.yukonga.miuix.kmp.icon.extended.SelectAll
-import top.yukonga.miuix.kmp.icon.extended.Share
-import top.yukonga.miuix.kmp.icon.extended.Sort
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -309,140 +251,51 @@ fun PlaylistScreen(
             .background(ellaPageBackground())
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        Box {
-            EllaSmallTopAppBar(
-                title = if (selectionMode) {
-                    stringResource(R.string.playlist_selected_count, selectedPlaylistIds.size)
-                } else {
-                    stringResource(R.string.playlist_title)
-                },
-                color = ellaPageBackground(),
-                navigationIcon = {
-                    IconButton(onClick = { if (selectionMode) finishSelectionMode() else onBack() }) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Back,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = MiuixTheme.colorScheme.onSurface
-                        )
-                    }
-                },
-                actions = {
-                    if (selectionMode) {
-                        IconButton(onClick = {
-                            val targets = storedCustomPlaylists.filter { it.id in selectedPlaylistIds }
-                            if (targets.isNotEmpty()) playlistsPendingDelete = targets
-                        }) {
-                            Icon(
-                                imageVector = MiuixIcons.Regular.Delete,
-                                contentDescription = stringResource(R.string.common_delete),
-                                tint = Color(0xFFE5484D),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = { sortExpanded = !sortExpanded }) {
-                            Icon(
-                                imageVector = MiuixIcons.Regular.Sort,
-                                contentDescription = stringResource(R.string.common_sort),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = {
-                            searchExpanded = !searchExpanded
-                            if (!searchExpanded) searchQuery = ""
-                        }) {
-                            Icon(
-                                imageVector = MiuixIcons.Basic.Search,
-                                contentDescription = stringResource(R.string.common_search),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = {
-                            importLauncher.launch(
-                                arrayOf(
-                                    "audio/x-mpegurl",
-                                    "audio/mpegurl",
-                                    "application/vnd.apple.mpegurl",
-                                    "text/plain",
-                                    "application/octet-stream",
-                                    "*/*"
-                                )
-                            )
-                        }) {
-                            Icon(
-                                imageVector = MiuixIcons.Regular.Download,
-                                contentDescription = stringResource(R.string.playlist_import_title),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(onClick = { showExportAllFormatSheet = true }) {
-                            Icon(
-                                imageVector = MiuixIcons.Regular.Share,
-                                contentDescription = stringResource(R.string.playlist_export_all_title),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-            )
-            DoubleTapScrollOverlay(
-                onDoubleTap = { scope.launch { listState.animateScrollToItem(0) } },
-                onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                endPadding = 216.dp
-            )
-        }
-
-        AnimatedVisibility(
-            visible = searchExpanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            EllaSearchBar(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                onSearch = { searchExpanded = false },
-                placeholder = stringResource(R.string.playlist_search_placeholder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
-        }
-
-        AnimatedVisibility(
-            visible = sortExpanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                PlaylistSortMode.entries.forEach { mode ->
-                    Text(
-                        text = stringResource(mode.labelRes),
-                        fontSize = 14.sp,
-                        fontWeight = if (playlistSortMode == mode) FontWeight.Bold else FontWeight.Normal,
-                        color = if (playlistSortMode == mode) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                sortExpanded = false
-                                scope.launch { mainViewModel.settingsManager.setPlaylistListSortIndex(mode.ordinal) }
-                                scope.launch { listState.animateScrollToItem(0) }
-                            }
-                            .padding(vertical = 10.dp)
+        PlaylistScreenTopBar(
+            selectionMode = selectionMode,
+            selectedCount = selectedPlaylistIds.size,
+            onBackClick = { if (selectionMode) finishSelectionMode() else onBack() },
+            onDeleteSelectedClick = {
+                val targets = storedCustomPlaylists.filter { it.id in selectedPlaylistIds }
+                if (targets.isNotEmpty()) playlistsPendingDelete = targets
+            },
+            onSortClick = { sortExpanded = !sortExpanded },
+            onSearchClick = {
+                searchExpanded = !searchExpanded
+                if (!searchExpanded) searchQuery = ""
+            },
+            onImportClick = {
+                importLauncher.launch(
+                    arrayOf(
+                        "audio/x-mpegurl",
+                        "audio/mpegurl",
+                        "application/vnd.apple.mpegurl",
+                        "text/plain",
+                        "application/octet-stream",
+                        "*/*"
                     )
-                }
+                )
+            },
+            onExportAllClick = { showExportAllFormatSheet = true },
+            onScrollToTop = { scope.launch { listState.animateScrollToItem(0) } }
+        )
+
+        PlaylistSearchSection(
+            visible = searchExpanded,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            onSearch = { searchExpanded = false }
+        )
+
+        PlaylistSortSection(
+            visible = sortExpanded,
+            selectedMode = playlistSortMode,
+            onModeSelected = { mode ->
+                sortExpanded = false
+                scope.launch { mainViewModel.settingsManager.setPlaylistListSortIndex(mode.ordinal) }
+                scope.launch { listState.animateScrollToItem(0) }
             }
-        }
+        )
 
         LazyColumn(
             state = listState,
@@ -477,46 +330,18 @@ fun PlaylistScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(
-                            R.string.playlist_list_summary,
-                            displayedCustomPlaylists.size,
-                            stringResource(playlistSortMode.labelRes)
-                        ),
-                        fontSize = 13.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (!selectionMode) {
-                        PlaylistToolbarChip(
-                            icon = MiuixIcons.Regular.Add,
-                            label = stringResource(R.string.playlist_create_title),
-                            onClick = { showCreateDialog = true }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        PlaylistToolbarChip(
-                            icon = MiuixIcons.Regular.SelectAll,
-                            label = stringResource(R.string.common_multi_select),
-                            onClick = { selectionMode = true }
-                        )
-                    }
-                }
+                PlaylistListSummaryRow(
+                    playlistCount = displayedCustomPlaylists.size,
+                    sortMode = playlistSortMode,
+                    selectionMode = selectionMode,
+                    onCreateClick = { showCreateDialog = true },
+                    onSelectAllClick = { selectionMode = true }
+                )
             }
 
             if (displayedCustomPlaylists.isEmpty()) {
                 item {
-                    Text(
-                        text = if (searchQuery.isBlank()) stringResource(R.string.playlist_empty_custom) else stringResource(R.string.playlist_empty_search),
-                        fontSize = 14.sp,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
-                    )
+                    PlaylistEmptyMessage(searchQuery = searchQuery)
                 }
             } else {
                 itemsIndexed(displayedCustomPlaylists, key = { _, playlist -> playlist.id }) { _, playlist ->
@@ -554,30 +379,11 @@ fun PlaylistScreen(
                             onDelete = if (selectionMode) null else { { playlistPendingDelete = playlist } },
                             trailingContent = if (reorderEnabled) {
                                 {
-                                    Box(
+                                    PlaylistDragHandle(
+                                        isDragging = isDragging,
                                         modifier = Modifier
                                             .then(dragHandleModifier)
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                if (isDragging) {
-                                                    MiuixTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                                } else {
-                                                    Color.Transparent
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "\u2630",
-                                            fontSize = 16.sp,
-                                            color = if (isDragging) {
-                                                MiuixTheme.colorScheme.primary
-                                            } else {
-                                                MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                            }
-                                        )
-                                    }
+                                    )
                                 }
                             } else null
                         )

@@ -1,4 +1,4 @@
-# ProGuard rules for Ella Music
+# ProGuard rules for Halcyon
 
 # JNI entry points are resolved by class and method names.
 -keepclasseswithmembernames,includedescriptorclasses class * {

@@ -1,22 +1,11 @@
 package com.ella.music.ui.player
 
-import android.content.Context
-import android.content.Intent
-import android.graphics.Color as AndroidColor
-import android.media.MediaRouter2
-import android.os.Build
-import android.provider.Settings
-import android.widget.Toast
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,29 +21,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.Player
 import com.ella.music.R
-import com.ella.music.data.AudioQualitySummary
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
-import com.ella.music.data.model.formatPlaybackDuration
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
-import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 internal fun LandscapeProgressRow(
@@ -299,25 +280,17 @@ internal fun PlayerTransportControls(
                     modifier = Modifier.size(28.dp)
                 )
             }
-            if (queueExpanded) {
-                WindowBottomSheet(
-                    show = true,
-                    enableNestedScroll = false,
-                    title = stringResource(R.string.player_queue_title),
-                    onDismissRequest = onDismissQueue
-                ) {
-                    PlayerQueueMenu(
-                        playlist = playlist,
-                        currentSongId = currentSongId,
-                        onSongClick = onQueueSongClick,
-                        onRemoveSong = onRemoveQueueSong,
-                        onMoveSong = onMoveQueueSong,
-                        onAddQueueToPlaylist = onAddQueueToPlaylist,
-                        onClearQueue = onClearQueue,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+            PlayerQueueSheet(
+                show = queueExpanded,
+                playlist = playlist,
+                currentSongId = currentSongId,
+                onDismiss = onDismissQueue,
+                onSongClick = onQueueSongClick,
+                onRemoveSong = onRemoveQueueSong,
+                onMoveSong = onMoveQueueSong,
+                onAddQueueToPlaylist = onAddQueueToPlaylist,
+                onClearQueue = onClearQueue
+            )
         }
     }
 }

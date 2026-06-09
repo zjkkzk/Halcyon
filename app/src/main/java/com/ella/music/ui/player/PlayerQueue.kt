@@ -47,6 +47,24 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+private data class QueueEntry(
+    val stableKey: String,
+    val song: Song
+)
+
+private fun buildQueueEntries(items: List<Song>): List<QueueEntry> {
+    val occurrenceByIdentity = linkedMapOf<String, Int>()
+    return items.map { song ->
+        val identity = song.playlistIdentityKey()
+        val occurrence = (occurrenceByIdentity[identity] ?: 0) + 1
+        occurrenceByIdentity[identity] = occurrence
+        QueueEntry(
+            stableKey = "$identity|queue#$occurrence",
+            song = song
+        )
+    }
+}
+
 @Composable
 internal fun PlayerQueueMenu(
     playlist: List<Song>,
@@ -58,24 +76,6 @@ internal fun PlayerQueueMenu(
     onClearQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    data class QueueEntry(
-        val stableKey: String,
-        val song: Song
-    )
-
-    fun buildQueueEntries(items: List<Song>): List<QueueEntry> {
-        val occurrenceByIdentity = linkedMapOf<String, Int>()
-        return items.map { song ->
-            val identity = song.playlistIdentityKey()
-            val occurrence = (occurrenceByIdentity[identity] ?: 0) + 1
-            occurrenceByIdentity[identity] = occurrence
-            QueueEntry(
-                stableKey = "$identity|queue#$occurrence",
-                song = song
-            )
-        }
-    }
-
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var manualPlaylist by remember(playlist) { mutableStateOf(buildQueueEntries(playlist)) }

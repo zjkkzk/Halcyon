@@ -2,7 +2,6 @@ package com.ella.music.viewmodel
 
 import android.app.Application
 import android.net.Uri
-import com.ella.music.R
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ella.music.data.PlaylistBatchImportResult
@@ -16,19 +15,7 @@ import com.ella.music.data.SettingsManager
 import com.ella.music.data.PlaybackHistoryEntry
 import com.ella.music.data.PlaybackStatsStore
 import com.ella.music.data.SongPlaybackStats
-import com.ella.music.data.NameSplitConfigStore
-import com.ella.music.data.decodeNeteaseKey
 import com.ella.music.data.matchesArtistName
-import com.ella.music.data.neteaseAlbumUrl
-import com.ella.music.data.neteaseArtistUrl
-import com.ella.music.data.ai.OpenAiSongInterpretationConfig
-import com.ella.music.data.ai.OpenAiLibraryChatAssistant
-import com.ella.music.data.ai.OpenAiLibraryChatInput
-import com.ella.music.data.ai.OpenAiSongInterpretationInput
-import com.ella.music.data.ai.OpenAiSongInterpreter
-import com.ella.music.data.ai.OpenAiPlaylistRecommendationInput
-import com.ella.music.data.ai.OpenAiPlaylistRecommender
-import com.ella.music.data.detailedAudioInfo
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Artist
 import com.ella.music.data.model.AudioInfo
@@ -36,14 +23,9 @@ import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.metadata.AudioTagInfo
 import com.ella.music.data.model.UserPlaylist
-import com.ella.music.data.model.playlistIdentityKey
-import com.ella.music.data.model.toSong
 import com.ella.music.data.model.albumIdentityId
-import com.ella.music.data.parseNameSplitSetting
 import com.ella.music.data.repository.CoverUsage
 import com.ella.music.data.repository.MusicRepository
-import com.ella.music.data.splitGenreNames
-import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -63,9 +45,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val playlistStore = PlaylistStore.getInstance(application)
     private val playbackStatsStore = PlaybackStatsStore.getInstance(application)
     private val aiCoordinator = MainViewModelAiCoordinator(getApplication(), settingsManager, repository)
+    private val neteaseLinkResolver = MainNeteaseLinkResolver(
+        repository = repository,
+        songsForArtist = ::getSongsForArtist,
+        songsForAlbum = ::getSongsForAlbum
+    )
 
     val songs: StateFlow<List<Song>> = repository.songs
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    private val playlistCoordinator = MainViewModelPlaylistCoordinator(
+        playlistStore = playlistStore,
+        settingsManager = settingsManager,
+        scope = viewModelScope,
+        currentSongs = { songs.value }
+    )
 
     val albums: StateFlow<List<Album>> = repository.albums
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -87,31 +81,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var autoScanRequested = false
 
     init {
-        viewModelScope.launch {
-            settingsManager.artistSeparators.collect {
-                NameSplitConfigStore.artistCustomSeparators = parseNameSplitSetting(it)
-            }
-        }
-        viewModelScope.launch {
-            settingsManager.artistProtectedNames.collect {
-                NameSplitConfigStore.artistProtectedNames = parseNameSplitSetting(it)
-            }
-        }
-        viewModelScope.launch {
-            settingsManager.genreSeparators.collect {
-                NameSplitConfigStore.genreCustomSeparators = parseNameSplitSetting(it)
-            }
-        }
-        viewModelScope.launch {
-            settingsManager.genreProtectedNames.collect {
-                NameSplitConfigStore.genreProtectedNames = parseNameSplitSetting(it)
-            }
-        }
-        viewModelScope.launch {
-            settingsManager.tagIgnoreCase.collect {
-                NameSplitConfigStore.tagIgnoreCase = it
-            }
-        }
+        viewModelScope.launchNameSplitConfigObservers(settingsManager)
     }
 
     fun selectTab(index: Int) {
@@ -242,40 +212,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return containsMetadataCategory(songs.value, type, name)
     }
 
-    suspend fun getNeteaseArtistUrlForArtist(artistName: String): String? = withContext(Dispatchers.IO) {
-        val targetNames = splitArtistNames(artistName)
-            .ifEmpty { listOf(artistName.trim()) }
-            .filter { it.isNotBlank() }
-        val targetKeys = targetNames.map { it.tagIdentityKey() }.toSet()
-        val matchedArtist = getSongsForArtist(artistName).asSequence()
-            .take(80)
-            .mapNotNull { song -> decodeNeteaseKey(repository.getSongTagInfo(song).neteaseKey) }
-            .flatMap { it.artists.asSequence() }
-            .firstOrNull { artist ->
-                artist.id.isNotBlank() && artist.name.tagIdentityKey() in targetKeys
-            }
-            ?: getSongsForArtist(artistName).asSequence()
-                .take(80)
-                .mapNotNull { song -> decodeNeteaseKey(repository.getSongTagInfo(song).neteaseKey) }
-                .flatMap { it.artists.asSequence() }
-                .firstOrNull { artist ->
-                    artist.id.isNotBlank() && targetNames.any { target ->
-                        artist.name.equals(target, ignoreCase = true) ||
-                            (artist.name.length >= 3 && target.contains(artist.name, ignoreCase = true)) ||
-                            (target.length >= 3 && artist.name.contains(target, ignoreCase = true))
-                    }
-            }
-        matchedArtist?.id?.let(::neteaseArtistUrl)
-    }
+    suspend fun getNeteaseArtistUrlForArtist(artistName: String): String? =
+        neteaseLinkResolver.artistUrlForArtist(artistName)
 
-    suspend fun getNeteaseAlbumUrlForAlbum(albumId: Long): String? = withContext(Dispatchers.IO) {
-        getSongsForAlbum(albumId).asSequence()
-            .take(40)
-            .mapNotNull { song -> decodeNeteaseKey(repository.getSongTagInfo(song).neteaseKey) }
-            .firstOrNull { it.albumId.isNotBlank() }
-            ?.albumId
-            ?.let(::neteaseAlbumUrl)
-    }
+    suspend fun getNeteaseAlbumUrlForAlbum(albumId: Long): String? =
+        neteaseLinkResolver.albumUrlForAlbum(albumId)
 
     fun getAlbumArtUri(albumId: Long) = repository.getAlbumArtUri(albumId)
 
@@ -377,68 +318,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playlistSongs(playlist: UserPlaylist): List<Song> {
-        val libraryByKey = songs.value.associateBy { it.playlistIdentityKey() }
-        return playlist.songs.map { item -> libraryByKey[item.key] ?: item.toSong() }
+        return playlistCoordinator.playlistSongs(playlist)
     }
 
     fun createPlaylist(name: String, onCreated: (UserPlaylist?) -> Unit = {}) {
-        viewModelScope.launch {
-            val playlist = playlistStore.createPlaylist(name)
-            if (playlist != null) {
-                syncPlaylistCustomOrder(newPlaylistIds = listOf(playlist.id))
-            }
-            onCreated(playlist)
-        }
+        playlistCoordinator.createPlaylist(name, onCreated)
     }
 
     fun deletePlaylist(id: String) {
-        viewModelScope.launch {
-            playlistStore.deletePlaylist(id)
-            syncPlaylistCustomOrder()
-        }
+        playlistCoordinator.deletePlaylist(id)
     }
 
     fun deletePlaylists(ids: Set<String>) {
-        if (ids.isEmpty()) return
-        viewModelScope.launch {
-            playlistStore.deletePlaylists(ids)
-            syncPlaylistCustomOrder()
-        }
+        playlistCoordinator.deletePlaylists(ids)
     }
 
     fun removeSongFromPlaylist(playlistId: String, songKey: String) {
-        viewModelScope.launch { playlistStore.removeSongFromPlaylist(playlistId, songKey) }
+        playlistCoordinator.removeSongFromPlaylist(playlistId, songKey)
     }
 
     fun removeSongsFromPlaylist(playlistId: String, songKeys: Set<String>) {
-        if (songKeys.isEmpty()) return
-        viewModelScope.launch { playlistStore.removeSongsFromPlaylist(playlistId, songKeys) }
+        playlistCoordinator.removeSongsFromPlaylist(playlistId, songKeys)
     }
 
     fun addSongsToPlaylist(playlistId: String, songs: Collection<Song>, appendToEnd: Boolean = false) {
-        if (songs.isEmpty()) return
-        viewModelScope.launch { playlistStore.addSongsToPlaylist(playlistId, songs, appendToEnd) }
+        playlistCoordinator.addSongsToPlaylist(playlistId, songs, appendToEnd)
     }
 
     fun reorderPlaylistSongs(playlistId: String, orderedKeys: List<String>) {
-        if (orderedKeys.isEmpty()) return
-        viewModelScope.launch { playlistStore.reorderPlaylistSongs(playlistId, orderedKeys) }
+        playlistCoordinator.reorderPlaylistSongs(playlistId, orderedKeys)
     }
 
     fun reorderPlaylists(orderedIds: List<String>) {
-        if (orderedIds.isEmpty()) return
-        viewModelScope.launch { playlistStore.reorderPlaylists(orderedIds) }
+        playlistCoordinator.reorderPlaylists(orderedIds)
     }
 
     fun importLocalPlaylist(uri: Uri, onResult: (Result<PlaylistImportResult>) -> Unit) {
-        viewModelScope.launch {
-            val beforeIds = playlistStore.playlists.value.mapTo(mutableSetOf()) { it.id }
-            val result = runCatching { playlistStore.importLocalPlaylist(uri, songs.value) }
-            result.getOrNull()?.playlist?.id?.let { id ->
-                if (id !in beforeIds) syncPlaylistCustomOrder(newPlaylistIds = listOf(id)) else syncPlaylistCustomOrder()
-            }
-            onResult(result)
-        }
+        playlistCoordinator.importLocalPlaylist(uri, onResult)
     }
 
     fun importLocalPlaylists(
@@ -446,45 +362,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mode: PlaylistImportMode = PlaylistImportMode.MergeKeepExisting,
         onResult: (Result<PlaylistBatchImportResult>) -> Unit
     ) {
-        viewModelScope.launch {
-            val beforeIds = playlistStore.playlists.value.mapTo(mutableSetOf()) { it.id }
-            val result = runCatching { playlistStore.importLocalPlaylists(uris, songs.value, mode) }
-            result.onSuccess {
-                val newIds = playlistStore.playlists.value
-                    .map { it.id }
-                    .filter { it !in beforeIds }
-                syncPlaylistCustomOrder(newPlaylistIds = newIds)
-            }
-            onResult(result)
-        }
+        playlistCoordinator.importLocalPlaylists(uris, mode, onResult)
     }
 
     fun scanLocalPlaylistFiles(
         onResult: (Result<PlaylistBatchImportResult>) -> Unit = {}
     ) {
-        viewModelScope.launch {
-            val beforeIds = playlistStore.playlists.value.mapTo(mutableSetOf()) { it.id }
-            val result = runCatching { playlistStore.importLocalPlaylistFiles(songs.value) }
-            result.onSuccess {
-                val newIds = playlistStore.playlists.value
-                    .map { it.id }
-                    .filter { it !in beforeIds }
-                syncPlaylistCustomOrder(newPlaylistIds = newIds)
-            }
-            onResult(result)
-        }
-    }
-
-    private suspend fun syncPlaylistCustomOrder(newPlaylistIds: List<String> = emptyList()) {
-        val customPlaylists = playlistStore.playlists.value
-            .filterNot { it.isFavorites || it.isFiveStarRating }
-        settingsManager.setPlaylistCustomOrder(
-            buildPlaylistCustomOrder(
-                customPlaylists = customPlaylists,
-                currentOrder = settingsManager.playlistCustomOrder.first(),
-                newPlaylistIds = newPlaylistIds
-            )
-        )
+        playlistCoordinator.scanLocalPlaylistFiles(onResult)
     }
 
     fun exportLocalPlaylist(
@@ -493,10 +377,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         format: PlaylistExportFormat = PlaylistExportFormat.PlainText,
         onResult: (Result<PlaylistExportResult>) -> Unit
     ) {
-        viewModelScope.launch {
-            val result = runCatching { playlistStore.exportLocalPlaylist(playlist, uri, format) }
-            onResult(result)
-        }
+        playlistCoordinator.exportLocalPlaylist(playlist, uri, format, onResult)
     }
 
     fun exportLocalPlaylists(
@@ -505,10 +386,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         format: PlaylistExportFormat = PlaylistExportFormat.PlainText,
         onResult: (Result<PlaylistBatchExportResult>) -> Unit
     ) {
-        viewModelScope.launch {
-            val result = runCatching { playlistStore.exportLocalPlaylists(playlists, treeUri, format) }
-            onResult(result)
-        }
+        playlistCoordinator.exportLocalPlaylists(playlists, treeUri, format, onResult)
     }
 
     fun deleteSongs(songs: Collection<Song>) {

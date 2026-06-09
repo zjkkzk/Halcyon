@@ -2,6 +2,9 @@ package com.ella.music.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +21,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
+import com.ella.music.data.NeteaseArtist
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -101,4 +106,40 @@ internal fun PlayerDetailArtistPickerRow(
             .background(MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f))
             .padding(horizontal = 16.dp, vertical = 14.dp)
     )
+}
+
+@Composable
+internal fun PlayerDetailNeteaseArtistPickerSheet(
+    artists: List<NeteaseArtist>,
+    onDismiss: () -> Unit,
+    onArtistSelected: (String) -> Unit
+) {
+    if (artists.isEmpty()) return
+
+    WindowBottomSheet(
+        show = true,
+        onDismissRequest = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.player_choose_netease_artist),
+                color = MiuixTheme.colorScheme.onSurface,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+            )
+            artists.forEach { artist ->
+                PlayerDetailArtistPickerRow(
+                    title = artist.name.ifBlank { "ID ${artist.id}" },
+                    onClick = { onArtistSelected(artist.id) }
+                )
+            }
+        }
+    }
 }
