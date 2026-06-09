@@ -28,10 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.ui.components.EllaMiuixAction
+import com.ella.music.ui.components.EllaMiuixActionRow
+import com.ella.music.ui.components.EllaMiuixBottomSheet
 import kotlinx.coroutines.flow.Flow
 import sh.calvin.reorderable.ReorderableColumn
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -40,7 +42,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import java.util.Locale
 
 internal data class HomePreferenceItem(
@@ -246,7 +247,7 @@ internal fun LyricSourcePriorityBlock(
         modifier = Modifier.clickable { sheetVisible = true }
     )
 
-    WindowBottomSheet(
+    EllaMiuixBottomSheet(
         show = sheetVisible,
         title = stringResource(R.string.settings_lyric_source_priority),
         onDismissRequest = { sheetVisible = false }
@@ -296,14 +297,16 @@ internal fun LyricSourcePriorityBlock(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { sheetVisible = false },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-            ) {
-                Text(text = stringResource(R.string.common_done))
-            }
+            EllaMiuixActionRow(
+                actions = listOf(
+                    EllaMiuixAction(
+                        text = stringResource(R.string.common_done),
+                        onClick = { sheetVisible = false },
+                        primary = true
+                    )
+                ),
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

@@ -852,11 +852,12 @@ class DesktopLyricService : Service() {
         }
 
         private fun updateSong(force: Boolean) {
-            val key = "${currentLine.timeMs}|${currentLine.endMs}|${currentLine.text}|${currentLine.translation}|${currentLine.pronunciation}|${currentLine.backgroundText}|$statusBarMode|$statusBarSecondaryMode"
+            val key = "${currentLine.timeMs}|${currentLine.endMs}|${currentLine.text}|${currentLine.translation}|${currentLine.pronunciation}|${currentLine.backgroundText}|${currentLine.agent}|${currentLine.isTtml}|$statusBarMode|$statusBarSecondaryMode"
             if (!force && key == songKey) {
                 lyricView.setPosition(currentPositionMs)
                 return
             }
+            lyricView.setCenterUnalignedLinesEnabled(!currentLine.isTtml)
             val currentSong = listOf(currentLine).toLyriconSong(
                 songId = -1L,
                 songTitle = "Halcyon",

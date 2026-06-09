@@ -1609,7 +1609,7 @@ class MusicRepository(private val context: Context) {
         val names = if (preferTtml) {
             listOf("TTML LYRICS", "TTML LYRIC", "TTMLLYRICS", "TTMLLYRIC", "TTML")
         } else {
-            listOf("SYNCEDLYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS", "LYRICS", "USLT", "SYLT", "LYRIC")
+            listOf("SPL LYRICS", "SPLLYRICS", "SYNCEDLYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS", "LYRICS", "USLT", "SYLT", "LYRIC")
         }
         names.forEach { target ->
             customTags.firstMatchingTagValue(target)?.let { return it }
@@ -1628,7 +1628,7 @@ class MusicRepository(private val context: Context) {
         uppercase().filter { it.isLetterOrDigit() }
 
     private fun findExternalLyricContentByFormat(songPath: String, preferTtml: Boolean): String? {
-        val extensions = if (preferTtml) listOf("ttml") else listOf("lrc", "elrc")
+        val extensions = if (preferTtml) listOf("ttml") else listOf("lrc", "elrc", "spl")
         val baseName = songPath.substringBeforeLast('.')
         extensions.forEach { ext ->
             readTextIfExists("$baseName.$ext")?.let { return it }

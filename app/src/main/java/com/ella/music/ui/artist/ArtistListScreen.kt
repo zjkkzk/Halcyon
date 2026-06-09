@@ -1,19 +1,16 @@
 package com.ella.music.ui.artist
 
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -36,21 +32,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
-import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Artist
+import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
-import com.ella.music.data.model.formatPlaybackDuration
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import com.ella.music.ui.LibrarySortUiState
@@ -60,10 +51,7 @@ import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyListScrollIndicator
-import com.ella.music.ui.components.SafeCoverImage
-import com.ella.music.ui.components.ArtworkUsage
 import com.ella.music.ui.components.ellaPageBackground
-import com.ella.music.ui.components.rememberSongArtworkState
 import com.ella.music.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -76,14 +64,11 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 fun ArtistListScreen(
     mainViewModel: MainViewModel,
     onBack: () -> Unit,
@@ -411,7 +396,7 @@ fun ArtistListScreen(
     }
 
     playlistPickerSongs?.let { songsToAdd ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.player_add_to_playlist),
@@ -451,134 +436,4 @@ fun ArtistListScreen(
             }
         )
     }
-}
-
-private fun Artist.indexLetter(): String {
-    val first = name.trim().firstOrNull()?.uppercaseChar()
-    return if (first != null && first in 'A'..'Z') first.toString() else "#"
-}
-
-@Composable
-@OptIn(ExperimentalFoundationApi::class)
-private fun ArtistRow(
-    artist: Artist,
-    representativeSong: Song?,
-    mainViewModel: MainViewModel,
-    coversEnabled: Boolean,
-    selectionMode: Boolean,
-    selected: Boolean,
-    summary: String,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-    val albumArtUri = remember(coversEnabled, representativeSong?.albumId) {
-        representativeSong
-            ?.albumId
-            ?.takeIf { coversEnabled && it > 0L }
-            ?.let(mainViewModel::getAlbumArtUri)
-    }
-    val coverState = rememberSongArtworkState(
-        song = representativeSong,
-        albumArtUri = albumArtUri,
-        loadCoverArt = mainViewModel::getAlbumCoverArtBitmap,
-        usage = ArtworkUsage.ArtistImage,
-        showDefaultWhenMissing = false
-    )
-    val coverModel: Any? = coverState.model
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.10f) else androidx.compose.ui.graphics.Color.Transparent)
-            .height(76.dp)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (selectionMode) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.surfaceContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                if (selected) Text(text = "✓", fontSize = 14.sp, color = androidx.compose.ui.graphics.Color.White)
-            }
-            Spacer(modifier = Modifier.size(12.dp))
-        }
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(MiuixTheme.colorScheme.surfaceContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            if (coverModel != null) {
-                SafeCoverImage(
-                    model = coverModel,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                    sizePx = 128,
-                    showDefaultPlaceholder = false
-                )
-            } else {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Music,
-                    contentDescription = null,
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.size(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = artist.name.ifBlank { stringResource(R.string.player_unknown_artist) },
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MiuixTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = summary,
-                fontSize = 12.sp,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-private enum class ArtistSortMode(@StringRes val labelRes: Int) {
-    Name(R.string.artist_list_sort_name),
-    SongCount(R.string.artist_list_sort_song_count),
-    AlbumCount(R.string.artist_list_sort_album_count),
-    ReleaseAlbumCount(R.string.artist_list_sort_release_album_count),
-    Duration(R.string.artist_list_sort_duration)
-}
-
-private fun Artist.summaryForSort(
-    sortMode: ArtistSortMode,
-    duration: Long,
-    releaseAlbumCount: Int,
-    stringResolver: (Int, Array<Any>) -> String
-): String {
-    return when (sortMode) {
-        ArtistSortMode.Duration -> stringResolver(R.string.artist_list_summary_duration, arrayOf(duration.formatArtistDuration(), albumCount))
-        ArtistSortMode.ReleaseAlbumCount -> stringResolver(R.string.artist_list_summary_release_album, arrayOf(songCount, releaseAlbumCount))
-        else -> stringResolver(R.string.artist_list_summary_default, arrayOf(songCount, albumCount))
-    }
-}
-
-private fun Long.formatArtistDuration(): String {
-    return formatPlaybackDuration()
 }

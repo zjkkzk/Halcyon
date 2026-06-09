@@ -296,7 +296,7 @@
     <string name="update_empty_changelog">此版本沒有填寫更新日誌。</string>
     <string name="update_unavailable">暫時無法取得更新</string>
     <string name="update_found_version">發現 %1$s</string>
-    <string name="update_connecting_github">正在連線 GitHub，取得 Halcyon（formerly Ella Music）最新發佈版本。</string>
+    <string name="update_connecting_github">正在連線 GitHub，取得 Halcyon 最新發佈版本。</string>
     <string name="update_has_update_summary">目前版本 v%1$s，點擊檢視最新安裝包和更新日誌。</string>
     <string name="update_no_update_summary">目前版本 v%1$s，暫時沒有比它更新的發佈版本。</string>
     <string name="update_view_github">檢視 GitHub</string>
@@ -455,6 +455,7 @@
     <string name="settings_replay_gain">ReplayGain 音量均衡</string>
     <string name="settings_replay_gain_summary">根據音訊標籤自動調整播放音量</string>
     <string name="settings_shuffle_mode">隨機播放模式</string>
+    <string name="settings_play_next_mode">下一首播放模式</string>
     <string name="settings_previous_button">上一曲按鈕</string>
     <string name="settings_disable_audio_focus">關閉音訊焦點</string>
     <string name="settings_disable_audio_focus_summary">開啟後播放時不再搶占其他應用音訊焦點</string>
@@ -475,6 +476,10 @@
     <string name="settings_shuffle_mode_true_random">真隨機</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">洗牌佇列播放，一輪內盡量不重複</string>
     <string name="settings_shuffle_mode_true_random_summary">每次隨機抽取，可能連續隨機到同一首</string>
+    <string name="settings_play_next_mode_reverse_stack">反向堆疊</string>
+    <string name="settings_play_next_mode_forward_stack">正向堆疊</string>
+    <string name="settings_play_next_mode_reverse_stack_summary">連續加入時，新歌曲一律插到目前歌曲後面</string>
+    <string name="settings_play_next_mode_forward_stack_summary">連續加入時，依點選順序排在目前歌曲後面</string>
     <string name="settings_previous_button_previous">上一曲</string>
     <string name="settings_previous_button_replay_current">重放目前歌曲</string>
     <string name="settings_previous_button_previous_summary">始終切換到播放佇列裡的上一曲</string>
@@ -678,6 +683,8 @@
     <string name="library_search_no_results">沒有符合結果</string>
     <string name="library_search_no_duplicates">沒有找到同歌曲名、同專輯的重複歌曲</string>
     <string name="library_search_song_unit">首</string>
+    <string name="library_search_song_count_unit">首歌曲</string>
+    <string name="library_search_artist_summary">%1$d 首歌曲 · %2$d 張參與專輯</string>
     <string name="library_search_lyric_prefix">歌詞：</string>
     <string name="rating_filter_all">全部星級</string>
     <string name="rating_filter_star">%1$d 星</string>

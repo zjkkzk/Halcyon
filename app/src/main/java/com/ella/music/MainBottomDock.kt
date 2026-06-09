@@ -1,5 +1,7 @@
 package com.ella.music
 
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -64,7 +66,6 @@ import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.icon.extended.Playlist
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 internal enum class BottomDockMode {
     Expanded,
@@ -260,7 +261,7 @@ internal fun FloatingBottomControls(
     }
 
     if (queueSheetExpanded) {
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.player_queue_title),
@@ -289,7 +290,7 @@ internal fun FloatingBottomControls(
     }
 
     queueSongsToAdd?.let { songsToAdd ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.player_add_to_playlist),

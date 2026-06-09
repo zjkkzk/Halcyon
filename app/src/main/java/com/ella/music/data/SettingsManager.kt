@@ -109,6 +109,7 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE = booleanPreferencesKey("playlist_special_entries_visible")
         val KEY_PLAYLIST_CUSTOM_ORDER = stringPreferencesKey("playlist_custom_order")
         val KEY_SHOW_PLAY_NEXT_IN_LISTS = booleanPreferencesKey("show_play_next_in_lists")
+        val KEY_PLAY_NEXT_MODE = intPreferencesKey("play_next_mode")
         val KEY_LYRIC_SHARE_CUSTOM_INFO = stringPreferencesKey("lyric_share_custom_info")
         val KEY_LYRIC_SHARE_USE_LYRIC_FONT = booleanPreferencesKey("lyric_share_use_lyric_font")
         val KEY_SHOW_ALBUM_ARTISTS = booleanPreferencesKey("show_album_artists")
@@ -185,6 +186,9 @@ class SettingsManager(private val context: Context) {
         const val PREVIOUS_BUTTON_PREVIOUS = 0
         const val PREVIOUS_BUTTON_REPLAY_CURRENT = 1
         const val PREVIOUS_REPLAY_THRESHOLD_MS = 20_000L
+
+        const val PLAY_NEXT_MODE_REVERSE_STACK = 0
+        const val PLAY_NEXT_MODE_FORWARD_STACK = 1
 
         const val STARTUP_PLAY_OFF = 0
         const val STARTUP_PLAY_RANDOM = 1
@@ -392,6 +396,11 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE] ?: false }
     val showPlayNextInLists: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_SHOW_PLAY_NEXT_IN_LISTS] ?: false }
+    val playNextMode: Flow<Int> =
+        context.dataStore.data.map {
+            it[KEY_PLAY_NEXT_MODE]?.coerceIn(PLAY_NEXT_MODE_REVERSE_STACK, PLAY_NEXT_MODE_FORWARD_STACK)
+                ?: PLAY_NEXT_MODE_REVERSE_STACK
+        }
     val lyricShareCustomInfo: Flow<String> =
         context.dataStore.data.map { it[KEY_LYRIC_SHARE_CUSTOM_INFO] ?: "" }
     val showAlbumArtists: Flow<Boolean> =
@@ -817,6 +826,12 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setShowPlayNextInLists(enabled: Boolean) {
         context.dataStore.edit { it[KEY_SHOW_PLAY_NEXT_IN_LISTS] = enabled }
+    }
+
+    suspend fun setPlayNextMode(mode: Int) {
+        context.dataStore.edit {
+            it[KEY_PLAY_NEXT_MODE] = mode.coerceIn(PLAY_NEXT_MODE_REVERSE_STACK, PLAY_NEXT_MODE_FORWARD_STACK)
+        }
     }
 
     suspend fun setLyricShareCustomInfo(info: String) {
@@ -1275,6 +1290,7 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_MIN_DURATION)
             setInt(KEY_SHUFFLE_MODE)
             setInt(KEY_PREVIOUS_BUTTON_ACTION)
+            setInt(KEY_PLAY_NEXT_MODE)
             setInt(KEY_STARTUP_PLAY_MODE)
             setInt(KEY_LYRIC_SOURCE_MODE)
             setInt(KEY_DESKTOP_LYRIC_FONT_SCALE)

@@ -26,6 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,7 +42,6 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -54,7 +57,7 @@ fun SongItem(
     selected: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
-    onAddToQueue: (() -> Unit)? = null,
+    onPlayNext: (() -> Unit)? = null,
     onDownload: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
     onMore: (() -> Unit)? = null,
@@ -223,23 +226,9 @@ fun SongItem(
             fontSize = 12.sp,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
-        if (!selectionMode && showPlayNextInLists && onAddToQueue != null) {
+        if (!selectionMode && showPlayNextInLists && onPlayNext != null) {
             Spacer(modifier = Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    .clickable(onClick = onAddToQueue),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Add,
-                    contentDescription = stringResource(R.string.common_add_to_queue),
-                    tint = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            PlayNextQuickButton(onClick = onPlayNext)
         }
         if (!selectionMode && onDownload != null) {
             Spacer(modifier = Modifier.width(8.dp))
@@ -297,6 +286,27 @@ fun SongItem(
             trailingContent()
         }
     }
+}
+
+@Composable
+fun PlayNextQuickButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val playNextDescription = stringResource(R.string.song_more_play_next)
+    Text(
+        text = "+",
+        fontSize = 18.sp,
+        color = MiuixTheme.colorScheme.primary,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .semantics {
+                contentDescription = playNextDescription
+                role = Role.Button
+            }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
 }
 
 @Composable

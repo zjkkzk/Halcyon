@@ -4,7 +4,6 @@ import android.app.Application
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.Player
 import com.ella.music.data.AppLogStore
 import com.ella.music.data.PlaylistStore
 import com.ella.music.data.PlaybackStatsStore
@@ -55,6 +54,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val playlistStore = PlaylistStore.getInstance(application)
     private val playbackStatsStore = PlaybackStatsStore.getInstance(application)
     private val playbackStatsTracker = PlayerPlaybackStatsTracker(playbackStatsStore)
+    private val lazyOnlineQueueController = PlayerLazyOnlineQueueController(viewModelScope, playerManager)
 
     val currentSong: StateFlow<Song?> = playerManager.currentSong
     val isPlaying: StateFlow<Boolean> = playerManager.isPlaying
@@ -133,8 +133,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var manualSeekAfterPreviousButton = false
     private var lastBluetoothLyricPayload: Pair<String, String?>? = null
     private var externalLyricResendJob: Job? = null
-    private var lazyOnlineQueue: LazyOnlineQueue? = null
-    private var resolvingLazyQueue = false
     private var loadedLyricSongKey: String? = null
 
     init {
@@ -150,12 +148,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         initLyricPageTranslation()
         initBluetoothLyric()
         initShuffleMode()
+        initPlayNextMode()
         initPreviousButtonAction()
         initDecoderMode()
         initAudioFocusMode()
         initLyricSourceMode()
         initBluetoothAutoPlay()
-        observeLazyOnlineQueue()
+        lazyOnlineQueueController.observePlaybackEnd()
     }
 
     private fun initLyricon() {
@@ -383,6 +382,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             settingsManager.shuffleMode.distinctUntilChanged().collect { mode ->
                 playerManager.setShuffleMode(mode)
+            }
+        }
+    }
+
+    private fun initPlayNextMode() {
+        viewModelScope.launch {
+            settingsManager.playNextMode.distinctUntilChanged().collect { mode ->
+                playerManager.setPlayNextMode(mode)
             }
         }
     }
@@ -737,7 +744,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setPlaylist(songs: List<Song>, startIndex: Int = 0) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.setPlaylist(songs, startIndex)
     }
 
@@ -747,13 +754,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         resolvedStartSong: Song,
         resolver: suspend (Song) -> Song
     ) {
-        if (songs.isEmpty()) return
-        lazyOnlineQueue = LazyOnlineQueue(
+        lazyOnlineQueueController.setQueue(
             songs = songs,
-            index = startIndex.coerceIn(songs.indices),
+            startIndex = startIndex,
+            resolvedStartSong = resolvedStartSong,
             resolver = resolver
         )
-        playerManager.playResolvedFromVirtualQueue(songs, startIndex, resolvedStartSong)
     }
 
     fun playSong(song: Song) {
@@ -768,7 +774,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun togglePlayPause() = playerManager.togglePlayPause()
     fun skipToNext() {
-        if (!playLazyOnlineOffset(1)) playerManager.skipToNext()
+        if (!lazyOnlineQueueController.playOffset(1)) playerManager.skipToNext()
     }
 
     fun skipToPrevious() {
@@ -777,7 +783,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         manualSeekAfterPreviousButton = false
-        if (!playLazyOnlineOffset(-1)) playerManager.skipToPrevious()
+        if (!lazyOnlineQueueController.playOffset(-1)) playerManager.skipToPrevious()
     }
 
     private fun shouldReplayCurrentFromPreviousButton(): Boolean {
@@ -817,6 +823,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setPlayNextMode(mode: Int) {
+        viewModelScope.launch {
+            settingsManager.setPlayNextMode(mode)
+            playerManager.setPlayNextMode(mode)
+        }
+    }
+
     fun setPreviousButtonAction(action: Int) {
         previousButtonAction = action.coerceIn(
             SettingsManager.PREVIOUS_BUTTON_PREVIOUS,
@@ -839,64 +852,41 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
     fun addToPlaylist(song: Song) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.addToPlaylist(song)
     }
     fun addToPlaylist(songs: List<Song>) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.addToPlaylist(songs)
     }
 
     fun playNext(song: Song) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.playNext(song)
     }
 
+    fun playNext(songs: List<Song>) {
+        lazyOnlineQueueController.clear()
+        playerManager.playNext(songs)
+    }
+
     fun playQueueIndex(index: Int) {
-        if (!playLazyOnlineIndex(index)) playerManager.playQueueIndex(index)
+        if (!lazyOnlineQueueController.playIndex(index)) playerManager.playQueueIndex(index)
     }
 
     fun removeFromPlaylist(index: Int) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.removeFromPlaylist(index)
     }
 
     fun movePlaylistItem(fromIndex: Int, toIndex: Int) {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.movePlaylistItem(fromIndex, toIndex)
     }
 
     fun clearPlaylist() {
-        lazyOnlineQueue = null
+        lazyOnlineQueueController.clear()
         playerManager.clearPlaylist()
-    }
-
-    private fun observeLazyOnlineQueue() {
-        viewModelScope.launch {
-            playerManager.playbackState.collect { state ->
-                if (state == Player.STATE_ENDED) playLazyOnlineOffset(1)
-            }
-        }
-    }
-
-    private fun playLazyOnlineOffset(offset: Int): Boolean {
-        val queue = lazyOnlineQueue ?: return false
-        return playLazyOnlineIndex(queue.index + offset)
-    }
-
-    private fun playLazyOnlineIndex(index: Int): Boolean {
-        val queue = lazyOnlineQueue ?: return false
-        if (index !in queue.songs.indices || resolvingLazyQueue) return false
-        resolvingLazyQueue = true
-        viewModelScope.launch {
-            runCatching {
-                val resolved = queue.resolver(queue.songs[index])
-                queue.index = index
-                playerManager.playResolvedFromVirtualQueue(queue.songs, index, resolved)
-            }
-            resolvingLazyQueue = false
-        }
-        return true
     }
 
     fun requestLocateCurrentSong() {

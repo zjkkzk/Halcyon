@@ -44,12 +44,13 @@ import com.ella.music.data.PlaylistExportFormat
 import com.ella.music.data.PlaylistImportMode
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.UserPlaylist
+import com.ella.music.ui.components.EllaMiuixAction
+import com.ella.music.ui.components.EllaMiuixActionRow
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixSheetActions
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.SafeCoverImage
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
@@ -60,7 +61,6 @@ import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.FavoritesFill
 import top.yukonga.miuix.kmp.icon.extended.Playlist
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 internal fun PlaylistToolbarChip(
@@ -299,7 +299,7 @@ internal fun ImportPlaylistModeSheet(
     onDismiss: () -> Unit,
     onModeSelected: (PlaylistImportMode) -> Unit
 ) {
-    WindowBottomSheet(
+    EllaMiuixBottomSheet(
         show = true,
         title = stringResource(R.string.playlist_import_title),
         onDismissRequest = onDismiss
@@ -329,9 +329,11 @@ internal fun ImportPlaylistModeSheet(
                 summary = stringResource(R.string.playlist_import_merge_keep_summary),
                 onClick = { onModeSelected(PlaylistImportMode.MergeKeepExisting) }
             )
-            Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text(stringResource(R.string.common_cancel))
-            }
+            EllaMiuixActionRow(
+                actions = listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_cancel), onClick = onDismiss)
+                )
+            )
         }
     }
 }
@@ -341,7 +343,7 @@ internal fun ExportPlaylistFormatSheet(
     onDismiss: () -> Unit,
     onFormatSelected: (PlaylistExportFormat) -> Unit
 ) {
-    WindowBottomSheet(
+    EllaMiuixBottomSheet(
         show = true,
         title = stringResource(R.string.playlist_export_title),
         onDismissRequest = onDismiss
@@ -365,9 +367,11 @@ internal fun ExportPlaylistFormatSheet(
                 summary = stringResource(R.string.playlist_export_m3u_summary),
                 onClick = { onFormatSelected(PlaylistExportFormat.M3u) }
             )
-            Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text(stringResource(R.string.common_cancel))
-            }
+            EllaMiuixActionRow(
+                actions = listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_cancel), onClick = onDismiss)
+                )
+            )
         }
     }
 }

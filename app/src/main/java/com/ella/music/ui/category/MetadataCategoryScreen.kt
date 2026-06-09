@@ -103,7 +103,6 @@ import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -335,7 +334,7 @@ fun MetadataCategoryScreen(
     }
 
     categoryMenuItem?.let { item ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = item.name.substringAfterLast('/').ifBlank { item.name },
@@ -351,8 +350,8 @@ fun MetadataCategoryScreen(
             ) {
                 CategorySheetItem(stringResource(R.string.song_more_play_next)) {
                     val selectedSongs = mainViewModel.getSongsForMetadataCategory(type, item.name)
-                    selectedSongs.asReversed().forEach(playerViewModel::playNext)
-                    Toast.makeText(context, context.getString(R.string.song_more_added_to_queue), Toast.LENGTH_SHORT).show()
+                    playerViewModel.playNext(selectedSongs)
+                    Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
                     categoryMenuItem = null
                 }
                 CategorySheetItem(stringResource(R.string.common_add_desktop_shortcut)) {

@@ -115,7 +115,6 @@ import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -486,7 +485,7 @@ fun MetadataCategoryDetailScreen(
                                     if (openPlayerOnPlay) onNavigateToPlayer()
                                 }
                             },
-                            onAddToQueue = { playerViewModel.addToPlaylist(song) },
+                            onPlayNext = { playerViewModel.playNext(song) },
                             onMore = { actionSong = song }
                         )
                     }
@@ -513,7 +512,7 @@ fun MetadataCategoryDetailScreen(
             )
 
             playlistPickerSongs?.let { songsToAdd ->
-                WindowBottomSheet(
+                EllaMiuixBottomSheet(
                     show = true,
                     enableNestedScroll = false,
                     title = stringResource(R.string.song_more_add_to_playlist),

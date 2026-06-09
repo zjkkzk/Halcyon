@@ -10,7 +10,6 @@ import com.ella.music.data.model.Song
 import com.ella.music.viewmodel.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 internal fun SongMoreInfoActionSheets(
@@ -27,7 +26,7 @@ internal fun SongMoreInfoActionSheets(
     onWritePermissionRequired: (WritePermissionRequiredException, suspend () -> Unit) -> Unit
 ) {
     ratingSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.song_more_rating_title),
@@ -74,7 +73,7 @@ internal fun SongMoreInfoActionSheets(
     }
 
     infoSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.player_song_details),
@@ -90,7 +89,7 @@ internal fun SongMoreInfoActionSheets(
     }
 
     aiSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = aiInterpretTitle,

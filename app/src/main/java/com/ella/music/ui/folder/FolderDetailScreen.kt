@@ -96,7 +96,6 @@ import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import java.util.Locale
 
 @Composable
@@ -175,7 +174,11 @@ fun FolderDetailScreen(
         }
     }
 
-    val folderName = normalizedFolderPath.substringAfterLast('/')
+    val folderName = remember(normalizedFolderPath) {
+        normalizedFolderPath
+            .substringAfterLast('/')
+            .ifBlank { normalizedFolderPath.substringAfterLast('\\') }
+    }
     val deleteRequestLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -321,14 +324,6 @@ fun FolderDetailScreen(
                         )
                     }
                 } else {
-                    IconButton(onClick = { sortExpanded = !sortExpanded }) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Sort,
-                            contentDescription = stringResource(R.string.common_sort),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                     IconButton(onClick = {
                         selectionMode = true
                         selectedIds = emptySet()
@@ -336,6 +331,14 @@ fun FolderDetailScreen(
                         Icon(
                             imageVector = MiuixIcons.Regular.SelectAll,
                             contentDescription = stringResource(R.string.common_multi_select),
+                            tint = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = { sortExpanded = !sortExpanded }) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Sort,
+                            contentDescription = stringResource(R.string.common_sort),
                             tint = MiuixTheme.colorScheme.onSurface,
                             modifier = Modifier.size(24.dp)
                         )
@@ -493,7 +496,7 @@ fun FolderDetailScreen(
                                         if (openPlayerOnPlay) onNavigateToPlayer()
                                     }
                                 },
-                                onAddToQueue = { playerViewModel.addToPlaylist(song) },
+                                onPlayNext = { playerViewModel.playNext(song) },
                                 onMore = { actionSong = song }
                             )
                         }
@@ -559,7 +562,7 @@ fun FolderDetailScreen(
         )
 
         playlistPickerSongs?.let { songsToAdd ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_add_to_playlist_title),

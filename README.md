@@ -3,7 +3,7 @@
 <h1 align="center">Halcyon</h1>
 
 <p align="center">
-  <b>formerly Ella Music，一款贴近 MIUI / HyperOS 体验的 Android 音乐播放器</b>
+  <b>一款贴近 MIUI / HyperOS 体验的 Android 音乐播放器</b>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## ✨ 项目简介
 
-**Halcyon**（formerly **Ella Music**）是一款基于 **Jetpack Compose、Miuix 和 AndroidX Media3** 构建的 Android 本地音乐播放器。
+**Halcyon** 是一款基于 **Jetpack Compose、Miuix 和 AndroidX Media3** 构建的 Android 本地音乐播放器。
 
 它以本地音乐和歌词体验为核心，提供 MIUI / HyperOS 风格界面、逐字歌词、桌面歌词、状态栏歌词、动态封面、WebDAV 远程曲库、LX Music API 在线音源、音乐库统计和高度可定制的播放页体验。
 

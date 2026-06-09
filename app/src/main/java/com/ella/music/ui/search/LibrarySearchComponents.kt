@@ -106,9 +106,16 @@ internal fun HistoryRow(text: String, onClick: () -> Unit, onDelete: () -> Unit)
 
 @Composable
 internal fun AlbumResultRow(album: Album, coverModel: Any?, onClick: () -> Unit) {
+    val subtitle = buildList {
+        add("${album.songCount} ${stringResource(R.string.library_search_song_count_unit)}")
+        if (album.year.isNotBlank()) add(album.year)
+        album.albumArtist.ifBlank { album.artist }
+            .takeIf { it.isNotBlank() }
+            ?.let(::add)
+    }.joinToString(" · ")
     SearchResultRow(
         title = album.name,
-        subtitle = "${album.artist} · ${album.songCount} ${stringResource(R.string.library_search_song_unit)}",
+        subtitle = subtitle,
         coverModel = coverModel,
         onClick = onClick
     )
@@ -116,9 +123,14 @@ internal fun AlbumResultRow(album: Album, coverModel: Any?, onClick: () -> Unit)
 
 @Composable
 internal fun ArtistResultRow(result: ArtistSearchResult, coverModel: Any?, onClick: () -> Unit) {
+    val subtitle = stringResource(
+        R.string.library_search_artist_summary,
+        result.artist.songCount,
+        result.participatedAlbumCount
+    )
     SearchResultRow(
         title = result.artist.name,
-        subtitle = "${result.artist.songCount} ${stringResource(R.string.library_search_song_unit)}",
+        subtitle = subtitle,
         coverModel = coverModel,
         roundCover = true,
         onClick = onClick

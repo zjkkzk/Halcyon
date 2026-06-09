@@ -1,5 +1,7 @@
 package com.ella.music.ui.home
 
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,7 +31,6 @@ import com.ella.music.data.model.Song
 import com.ella.music.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 internal fun SongAiInterpretationMenu(
@@ -67,7 +68,7 @@ internal fun SongAiInterpretationMenu(
         isLoading = false
     }
 
-    WindowBottomSheet(
+    EllaMiuixBottomSheet(
         show = true,
         title = stringResource(R.string.song_more_ai_title),
         onDismissRequest = onDismiss

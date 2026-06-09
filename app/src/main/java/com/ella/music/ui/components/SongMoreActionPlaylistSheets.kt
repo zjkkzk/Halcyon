@@ -8,7 +8,6 @@ import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.viewmodel.MainViewModel
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 internal fun SongMorePlaylistActionSheets(
@@ -22,7 +21,7 @@ internal fun SongMorePlaylistActionSheets(
     addToPlaylistTitle: String
 ) {
     playlistSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = addToPlaylistTitle,

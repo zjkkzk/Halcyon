@@ -38,7 +38,6 @@ import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.tagIdentityKey
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -142,23 +141,26 @@ fun AddToPlaylistSheet(
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
+        EllaMiuixActionRow(
+            actions = if (multiSelect) {
+                listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_cancel), onClick = onDismiss),
+                    EllaMiuixAction(
+                        text = stringResource(R.string.song_more_done_selected, selectedIds.size),
+                        onClick = {
+                            if (selectedPlaylists.isNotEmpty()) {
+                                onPlaylistsConfirm(selectedPlaylists, appendToEnd)
+                            }
+                        },
+                        primary = true
+                    )
+                )
+            } else {
+                listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_cancel), onClick = onDismiss)
+                )
             }
-            if (multiSelect) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        if (selectedPlaylists.isNotEmpty()) {
-                            onPlaylistsConfirm(selectedPlaylists, appendToEnd)
-                        }
-                    }
-                ) {
-                    Text(stringResource(R.string.song_more_done_selected, selectedIds.size))
-                }
-            }
-        }
+        )
     }
 }
 

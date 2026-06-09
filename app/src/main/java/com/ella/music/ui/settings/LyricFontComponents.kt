@@ -1,0 +1,210 @@
+package com.ella.music.ui.settings
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ella.music.R
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.Check
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+
+@Composable
+internal fun SystemDefaultFontCard(
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.padding(vertical = 4.dp),
+        onClick = onClick
+    ) {
+        BasicComponent(
+            title = stringResource(R.string.settings_system_default),
+            summary = stringResource(R.string.settings_lyric_font_system_default_summary),
+            endActions = {
+                if (selected) {
+                    Icon(
+                        imageVector = MiuixIcons.Basic.Check,
+                        contentDescription = null,
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        )
+    }
+}
+
+@Composable
+internal fun LyricFontWeightCard(
+    selectedFontPath: String,
+    lyricFontWeight: Int,
+    onWeightChange: (Int) -> Unit
+) {
+    val safeWeight = lyricFontWeight.coerceIn(100, 900)
+    Card(
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_lyric_font_weight),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MiuixTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_lyric_font_weight_current, safeWeight),
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.settings_lyric_font_preview_sample),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight(safeWeight),
+                    fontFamily = previewFontFamily(selectedFontPath, safeWeight, false),
+                    color = MiuixTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Slider(
+                value = (safeWeight - 100) / 800f,
+                onValueChange = { fraction ->
+                    val weight = (100 + fraction.coerceIn(0f, 1f) * 800f).toInt()
+                    onWeightChange(weight)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.settings_lyric_font_weight_light),
+                    fontSize = 11.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(R.string.settings_lyric_font_weight_heavy),
+                    fontSize = 11.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun LyricFontListTitle() {
+    Text(
+        text = stringResource(R.string.settings_lyric_font_list),
+        fontSize = 14.sp,
+        color = MiuixTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+internal fun FontChoiceItem(
+    font: FontChoice,
+    currentWeight: Int,
+    italic: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    val fontFamily = remember(font.path, currentWeight, italic) {
+        font.path.toFontFamilyOrNull(currentWeight, italic)
+    }
+
+    Card(
+        modifier = Modifier.padding(vertical = 4.dp),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = font.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.settings_lyric_font_preview_sample),
+                    fontSize = 18.sp,
+                    fontFamily = fontFamily,
+                    fontWeight = FontWeight(currentWeight.coerceIn(100, 900)),
+                    color = MiuixTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                Text(
+                    text = font.source,
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            if (selected) {
+                Icon(
+                    imageVector = MiuixIcons.Basic.Check,
+                    contentDescription = null,
+                    tint = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            if (onDelete != null) {
+                Spacer(modifier = Modifier.width(12.dp))
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Delete,
+                        contentDescription = stringResource(R.string.common_delete),
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun previewFontFamily(path: String, weight: Int, italic: Boolean): FontFamily? {
+    return remember(path, weight, italic) { path.toFontFamilyOrNull(weight, italic) }
+}

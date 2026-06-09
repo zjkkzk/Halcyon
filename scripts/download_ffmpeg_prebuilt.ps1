@@ -5,7 +5,7 @@ $Tag = "1.1.7"
 $ArchiveUrl = "https://codeload.github.com/Kifranei/Halcyon/zip/refs/tags/$Tag"
 $ExpectedSha256 = "4D3491D429677C22DB9782AEC1C61BB82E7F2C68A99B4C14D956A3D058004A4C"
 $TempRoot = Join-Path $RepoRoot ".tmp\ffmpeg-prebuilt"
-$ArchivePath = Join-Path $TempRoot "Ella-$Tag.zip"
+$ArchivePath = Join-Path $TempRoot "Halcyon-$Tag.zip"
 $ExtractRoot = Join-Path $TempRoot "extract"
 $TargetRoot = Join-Path $RepoRoot "ffmpeg-decoder\src\main\jni\ffmpeg"
 
@@ -29,7 +29,20 @@ if (Test-Path $ExtractRoot) {
 }
 Expand-Archive -Path $ArchivePath -DestinationPath $ExtractRoot -Force
 
-$SnapshotRoot = Join-Path $ExtractRoot "Ella-$Tag\ffmpeg-decoder\src\main\jni\ffmpeg"
+$SnapshotRoot = $null
+$SnapshotRootCandidates = @(
+    (Join-Path $ExtractRoot "Halcyon-$Tag\ffmpeg-decoder\src\main\jni\ffmpeg"),
+    (Join-Path $ExtractRoot "Ella-$Tag\ffmpeg-decoder\src\main\jni\ffmpeg")
+)
+foreach ($Candidate in $SnapshotRootCandidates) {
+    if (Test-Path $Candidate) {
+        $SnapshotRoot = $Candidate
+        break
+    }
+}
+if ($null -eq $SnapshotRoot) {
+    throw "Downloaded archive does not contain a Halcyon/Ella ffmpeg snapshot directory."
+}
 $IncludeSource = Join-Path $SnapshotRoot "include"
 $StaticLibSource = Join-Path $SnapshotRoot "android-libs"
 

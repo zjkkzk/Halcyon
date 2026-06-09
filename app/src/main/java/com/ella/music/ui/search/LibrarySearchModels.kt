@@ -31,7 +31,8 @@ internal enum class SearchFilter {
 
 internal data class ArtistSearchResult(
     val artist: Artist,
-    val representativeSong: Song?
+    val representativeSong: Song?,
+    val participatedAlbumCount: Int = artist.albumCount
 )
 
 internal data class SongSearchResult(

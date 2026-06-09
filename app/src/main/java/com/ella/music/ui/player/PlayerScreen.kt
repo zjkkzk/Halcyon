@@ -59,14 +59,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -105,7 +101,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
-import androidx.media3.common.Player
 import androidx.core.view.WindowCompat
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
@@ -208,22 +203,8 @@ fun PlayerScreen(
     val miniLyricLine = currentLyricLine
         ?.takeIf { it.hasMiniLyric() }
         ?: lyrics.firstOrNull { it.hasMiniLyric() }
-    var menuExpanded by remember { mutableStateOf(false) }
-    var dynamicCoverSheetSong by remember { mutableStateOf<Song?>(null) }
-    var songInfoExpanded by remember { mutableStateOf(false) }
-    var queueExpanded by remember { mutableStateOf(false) }
-    var artistChoices by remember { mutableStateOf<List<String>>(emptyList()) }
-    var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
-    var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
-    var createPlaylistSong by remember { mutableStateOf<Song?>(null) }
-    var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
-    var ratingSheetSong by remember { mutableStateOf<Song?>(null) }
-    var aiSheetSong by remember { mutableStateOf<Song?>(null) }
-    var deleteConfirmSong by remember { mutableStateOf<Song?>(null) }
-    var pendingWriteRetry by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
-    var landscapeExpanded by rememberSaveable { mutableStateOf(false) }
-    var landscapeCoverMode by rememberSaveable { mutableStateOf(false) }
-    var dynamicCoverFailedPath by remember { mutableStateOf<String?>(null) }
+    val uiState = rememberPlayerScreenUiState()
+    val landscapeState = rememberPlayerLandscapeUiState()
     val visualizerPermissionState = rememberPlayerVisualizerPermissionState(
         context = context,
         scope = scope,
@@ -232,7 +213,7 @@ fun PlayerScreen(
         audioVisualizerEnabled = audioVisualizerEnabled,
         isPlaying = isPlaying,
         showLyrics = showLyrics,
-        landscapeExpanded = landscapeExpanded
+        landscapeExpanded = landscapeState.expanded
     )
     val effectiveAudioVisualizerEnabled = visualizerPermissionState.effectiveEnabled
     val setAudioVisualizerEnabled = visualizerPermissionState.setEnabled
@@ -240,18 +221,18 @@ fun PlayerScreen(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            pendingWriteRetry?.let { retry ->
+            uiState.pendingWriteRetry?.let { retry ->
                 scope.launch { retry() }
             }
-            pendingWriteRetry = null
+            uiState.pendingWriteRetry = null
         } else {
-            pendingWriteRetry = null
+            uiState.pendingWriteRetry = null
         }
     }
     PlayerSystemBarsEffect(
         context = context,
         view = view,
-        trigger = landscapeExpanded
+        trigger = landscapeState.expanded
     )
     PlayerLyricKeepScreenOnEffect(
         view = view,
@@ -262,7 +243,7 @@ fun PlayerScreen(
     val song = currentSong
     val isCurrentSongFavorite = song?.playlistIdentityKey()?.let { it in favoriteSongKeys } == true
     fun requestDeleteSong(targetSong: Song) {
-        deleteConfirmSong = targetSong
+        uiState.deleteConfirmSong = targetSong
     }
     val songPresentation = rememberPlayerSongPresentationState(
         context = context,
@@ -305,7 +286,7 @@ fun PlayerScreen(
         when (artists.size) {
             0 -> Toast.makeText(context, context.getString(R.string.player_no_artist_jump), Toast.LENGTH_SHORT).show()
             1 -> onNavigateToArtist(artists.first())
-            else -> artistChoices = artists
+            else -> uiState.artistChoices = artists
         }
     }
     fun openNetease(url: String?) {
@@ -400,7 +381,7 @@ fun PlayerScreen(
                         song = song,
                         embeddedCover = embeddedCover,
                         songAnnotation = songAnnotation,
-                        dynamicCoverFailedPath = dynamicCoverFailedPath,
+                        dynamicCoverFailedPath = uiState.dynamicCoverFailedPath,
                         dynamicCoverEnabled = dynamicCoverEnabled,
                         immersiveAlbumCover = immersiveAlbumCover,
                         playerBackgroundEnabled = playerBackgroundEnabled,
@@ -426,10 +407,10 @@ fun PlayerScreen(
                         lyricFontScale = lyricFontScale,
                         playerTapSeekEnabled = playerTapSeekEnabled,
                         playerShowTotalDuration = playerShowTotalDuration,
-                        menuExpanded = menuExpanded,
-                        onMenuExpandedChange = { menuExpanded = it },
-                        queueExpanded = queueExpanded,
-                        onQueueExpandedChange = { queueExpanded = it },
+                        menuExpanded = uiState.menuExpanded,
+                        onMenuExpandedChange = { uiState.menuExpanded = it },
+                        queueExpanded = uiState.queueExpanded,
+                        onQueueExpandedChange = { uiState.queueExpanded = it },
                         playlist = playlist,
                         sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
                         stopAfterCurrentEnabled = stopAfterCurrentEnabled,
@@ -443,15 +424,15 @@ fun PlayerScreen(
                         metadataEditorId = metadataEditorId,
                         lyricTimingEditorId = lyricTimingEditorId,
                         onVisualizerEnabled = setAudioVisualizerEnabled,
-                        onDynamicCoverFailedPathChange = { dynamicCoverFailedPath = it },
-                        onDynamicCoverSheetSongChange = { dynamicCoverSheetSong = it },
-                        onPlaylistPickerSongChange = { playlistPickerSong = it },
-                        onPlaylistPickerSongsChange = { playlistPickerSongs = it },
-                        onLandscapeCoverModeChange = { landscapeCoverMode = it },
-                        onLandscapeExpandedChange = { landscapeExpanded = it },
-                        onSongInfoExpandedChange = { songInfoExpanded = it },
-                        onRatingSheetSongChange = { ratingSheetSong = it },
-                        onAiSheetSongChange = { aiSheetSong = it },
+                        onDynamicCoverFailedPathChange = { uiState.dynamicCoverFailedPath = it },
+                        onDynamicCoverSheetSongChange = { uiState.dynamicCoverSheetSong = it },
+                        onPlaylistPickerSongChange = { uiState.playlistPickerSong = it },
+                        onPlaylistPickerSongsChange = { uiState.playlistPickerSongs = it },
+                        onLandscapeCoverModeChange = { landscapeState.coverMode = it },
+                        onLandscapeExpandedChange = { landscapeState.expanded = it },
+                        onSongInfoExpandedChange = { uiState.songInfoExpanded = it },
+                        onRatingSheetSongChange = { uiState.ratingSheetSong = it },
+                        onAiSheetSongChange = { uiState.aiSheetSong = it },
                         onRequestDeleteSong = ::requestDeleteSong,
                         onNavigateToAlbum = onNavigateToAlbum,
                         onNavigateToArtist = onNavigateToArtist,
@@ -519,13 +500,13 @@ fun PlayerScreen(
 
             PlayerLandscapeOverlayHost(
                 context = context,
-                expanded = landscapeExpanded,
-                coverMode = landscapeCoverMode,
+                expanded = landscapeState.expanded,
+                coverMode = landscapeState.coverMode,
                 dynamicCoverEnabled = dynamicCoverEnabled,
                 song = song,
                 embeddedCover = embeddedCover,
                 annotation = songAnnotation,
-                dynamicCoverFailedPath = dynamicCoverFailedPath,
+                dynamicCoverFailedPath = uiState.dynamicCoverFailedPath,
                 isPlaying = isPlaying,
                 currentPosition = currentPosition,
                 duration = duration,
@@ -542,18 +523,18 @@ fun PlayerScreen(
                 fontWeight = lyricFontWeight,
                 fontScale = lyricFontScale,
                 showTotalDuration = playerShowTotalDuration,
-                queueExpanded = queueExpanded,
+                queueExpanded = uiState.queueExpanded,
                 playlist = playlist,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = effectiveAudioVisualizerEnabled,
                 flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                 isFavorite = isCurrentSongFavorite,
-                onDynamicCoverFailed = { dynamicCoverFailedPath = it },
+                onDynamicCoverFailed = { uiState.dynamicCoverFailedPath = it },
                 onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
-                onToggleQueue = { queueExpanded = !queueExpanded },
-                onDismissQueue = { queueExpanded = false },
-                onShowLyrics = { landscapeCoverMode = false },
-                onShowCoverPlayer = { landscapeCoverMode = true },
+                onToggleQueue = { uiState.queueExpanded = !uiState.queueExpanded },
+                onDismissQueue = { uiState.queueExpanded = false },
+                onShowLyrics = { landscapeState.coverMode = false },
+                onShowCoverPlayer = { landscapeState.coverMode = true },
                 onLyricLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
                 onLyricLineLongClick = ::openLyricSharePicker,
                 onSeekProgress = { progress ->
@@ -564,7 +545,7 @@ fun PlayerScreen(
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onNext = { playerViewModel.skipToNext() },
                 onQueueSongClick = { index ->
-                    queueExpanded = false
+                    uiState.queueExpanded = false
                     playerViewModel.playQueueIndex(index)
                 },
                 onRemoveQueueSong = { index -> playerViewModel.removeFromPlaylist(index) },
@@ -572,19 +553,19 @@ fun PlayerScreen(
                     playerViewModel.movePlaylistItem(fromIndex, toIndex)
                 },
                 onAddQueueToPlaylist = {
-                    queueExpanded = false
-                    playlistPickerSongs = playlist
+                    uiState.queueExpanded = false
+                    uiState.playlistPickerSongs = playlist
                 },
                 onClearQueue = {
-                    queueExpanded = false
+                    uiState.queueExpanded = false
                     playerViewModel.clearPlaylist()
                 },
                 onArtist = {
                     navigateToArtistOrChoose(song?.artist.orEmpty())
                 },
                 onDismiss = {
-                    landscapeExpanded = false
-                    landscapeCoverMode = false
+                    landscapeState.expanded = false
+                    landscapeState.coverMode = false
                 }
             )
 
@@ -595,33 +576,33 @@ fun PlayerScreen(
                 playerViewModel = playerViewModel,
                 song = song,
                 playlists = playlists,
-                artistChoices = artistChoices,
-                onArtistChoicesChange = { artistChoices = it },
+                artistChoices = uiState.artistChoices,
+                onArtistChoicesChange = { uiState.artistChoices = it },
                 onNavigateToArtist = onNavigateToArtist,
-                songInfoExpanded = songInfoExpanded,
-                onSongInfoExpandedChange = { songInfoExpanded = it },
-                dynamicCoverSheetSong = dynamicCoverSheetSong,
-                onDynamicCoverSheetSongChange = { dynamicCoverSheetSong = it },
-                ratingSheetSong = ratingSheetSong,
-                onRatingSheetSongChange = { ratingSheetSong = it },
-                aiSheetSong = aiSheetSong,
-                onAiSheetSongChange = { aiSheetSong = it },
-                deleteConfirmSong = deleteConfirmSong,
-                onDeleteConfirmSongChange = { deleteConfirmSong = it },
+                songInfoExpanded = uiState.songInfoExpanded,
+                onSongInfoExpandedChange = { uiState.songInfoExpanded = it },
+                dynamicCoverSheetSong = uiState.dynamicCoverSheetSong,
+                onDynamicCoverSheetSongChange = { uiState.dynamicCoverSheetSong = it },
+                ratingSheetSong = uiState.ratingSheetSong,
+                onRatingSheetSongChange = { uiState.ratingSheetSong = it },
+                aiSheetSong = uiState.aiSheetSong,
+                onAiSheetSongChange = { uiState.aiSheetSong = it },
+                deleteConfirmSong = uiState.deleteConfirmSong,
+                onDeleteConfirmSongChange = { uiState.deleteConfirmSong = it },
                 onWritePermissionRequired = { error, retry ->
-                    pendingWriteRetry = retry
+                    uiState.pendingWriteRetry = retry
                     deletePermissionLauncher.launch(
                         IntentSenderRequest.Builder(error.intentSender).build()
                     )
                 },
-                playlistPickerSong = playlistPickerSong,
-                onPlaylistPickerSongChange = { playlistPickerSong = it },
-                playlistPickerSongs = playlistPickerSongs,
-                onPlaylistPickerSongsChange = { playlistPickerSongs = it },
-                createPlaylistSong = createPlaylistSong,
-                onCreatePlaylistSongChange = { createPlaylistSong = it },
-                createPlaylistSongs = createPlaylistSongs,
-                onCreatePlaylistSongsChange = { createPlaylistSongs = it }
+                playlistPickerSong = uiState.playlistPickerSong,
+                onPlaylistPickerSongChange = { uiState.playlistPickerSong = it },
+                playlistPickerSongs = uiState.playlistPickerSongs,
+                onPlaylistPickerSongsChange = { uiState.playlistPickerSongs = it },
+                createPlaylistSong = uiState.createPlaylistSong,
+                onCreatePlaylistSongChange = { uiState.createPlaylistSong = it },
+                createPlaylistSongs = uiState.createPlaylistSongs,
+                onCreatePlaylistSongsChange = { uiState.createPlaylistSongs = it }
             )
         }
     }

@@ -145,6 +145,7 @@ class RawsLyricView @JvmOverloads constructor(
     private var lineAlphaAnimationsEnabled = true
     private var pronunciationAboveMainEnabled = false
     private var autoScrollResumeEnabled = true
+    private var centerUnalignedLinesEnabled = false
     private var placeholderFormat = PlaceholderFormat.NAME_ARTIST
     private var currentStyleConfig: RichLyricLineConfig? = null
     private var songName: String? = null
@@ -213,6 +214,7 @@ class RawsLyricView @JvmOverloads constructor(
         val secondaryStart: Long?,
         val secondaryEnd: Long?,
         val alignedRight: Boolean,
+        val centered: Boolean,
         val begin: Long,
         val end: Long,
     )
@@ -270,6 +272,13 @@ class RawsLyricView @JvmOverloads constructor(
         fun onLineLongClick(beginMs: Long)
     }
     var onLineLongClickListener: OnLineLongClickListener? = null
+
+    fun setCenterUnalignedLinesEnabled(enabled: Boolean) {
+        if (centerUnalignedLinesEnabled == enabled) return
+        centerUnalignedLinesEnabled = enabled
+        rebuildEntries()
+        invalidate()
+    }
 
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean = true
@@ -564,9 +573,7 @@ class RawsLyricView @JvmOverloads constructor(
             val secondaryEnd = line.secondaryWords?.maxOfOrNull { it.end }
             val secondaryVisible = secondaryText != null && isSecondaryVisible(secondaryStart, secondaryEnd, line.end, currentPosMs)
             val secondaryH = if (secondaryVisible) {
-                secondaryText?.let {
-                    max(measureTransHeight(it), measureWordsHeight(line.secondaryWords, transPaint)) + transGapPx
-                } ?: 0f
+                max(measureTransHeight(secondaryText), measureWordsHeight(line.secondaryWords, transPaint)) + transGapPx
             } else {
                 0f
             }
@@ -606,6 +613,7 @@ class RawsLyricView @JvmOverloads constructor(
                     secondaryStart = secondaryStart,
                     secondaryEnd = secondaryEnd,
                     alignedRight = line.isAlignedRight,
+                    centered = centerUnalignedLinesEnabled && !line.isAlignedRight,
                     begin = line.begin,
                     end = line.end
                 )
@@ -685,9 +693,20 @@ class RawsLyricView @JvmOverloads constructor(
         return lines * paint.fontSpacing + linePadTopPx
     }
 
-    private fun buildLayout(text: String, paint: TextPaint, widthPx: Int, alignedRight: Boolean = false): StaticLayout {
+    private fun buildLayout(
+        text: String,
+        paint: TextPaint,
+        widthPx: Int,
+        alignedRight: Boolean = false,
+        centered: Boolean = false
+    ): StaticLayout {
+        val alignment = when {
+            alignedRight -> Layout.Alignment.ALIGN_OPPOSITE
+            centered -> Layout.Alignment.ALIGN_CENTER
+            else -> Layout.Alignment.ALIGN_NORMAL
+        }
         return StaticLayout.Builder.obtain(text, 0, text.length, paint, max(1, widthPx))
-            .setAlignment(if (alignedRight) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL)
+            .setAlignment(alignment)
             .setLineSpacing(0f, 1f)
             .setIncludePad(true)
             .build()
@@ -937,7 +956,6 @@ class RawsLyricView @JvmOverloads constructor(
         val text = when (placeholderFormat) {
             PlaceholderFormat.NAME_ARTIST -> "${songName ?: ""} - ${songArtist ?: ""}"
             PlaceholderFormat.NAME -> songName ?: ""
-            else -> return
         }
         if (text.isBlank()) return
         placeholderPaint.alpha = (dimColor ushr 24)
@@ -1010,7 +1028,7 @@ class RawsLyricView @JvmOverloads constructor(
         if (entry.preText != null) {
             val preBaseline = contentTop + transGapPx + (-transPaint.fontMetrics.ascent)
             val pPaint = if (isCurrent) hlTransPaint else dimTransPaint
-            drawTextAligned(canvas, entry.preText, pPaint, textStartX, preBaseline, entry.alignedRight, farBlur)
+            drawTextAligned(canvas, entry.preText, pPaint, textStartX, preBaseline, entry.alignedRight, entry.centered, farBlur)
         }
         val mainTopY = contentTop + entry.preH
         val mainBottomY = mainTopY + entry.mainH
@@ -1020,25 +1038,25 @@ class RawsLyricView @JvmOverloads constructor(
         val topPad = mainPaint.fontMetrics.let { it.top - it.ascent }.coerceAtLeast(0f)
         val mainBaseline = mainTopY + topPad + (-mainPaint.fontMetrics.ascent)
         if (!entry.words.isNullOrEmpty() && isCurrent) {
-            drawKaraokeWords(canvas, entry, index, textStartX, mainBaseline, entry.alignedRight)
+            drawKaraokeWords(canvas, entry, index, textStartX, mainBaseline, entry.alignedRight, entry.centered)
         } else {
             val paint = when {
                 isCurrent -> hlPaint
                 index == previousIndex -> dimPaint
                 else -> dimPaint
             }
-            drawTextAligned(canvas, entry.mainText ?: "", paint, textStartX, mainBaseline, entry.alignedRight, farBlur)
+            drawTextAligned(canvas, entry.mainText ?: "", paint, textStartX, mainBaseline, entry.alignedRight, entry.centered, farBlur)
         }
         var secondaryBaseY = mainBottomY
         if (entry.transText != null) {
             val transBaseline = secondaryBaseY + transGapPx + (-transPaint.fontMetrics.ascent)
             val tPaint = if (isCurrent) hlTransPaint else dimTransPaint
-            drawTextAligned(canvas, entry.transText, tPaint, textStartX, transBaseline, entry.alignedRight, farBlur)
+            drawTextAligned(canvas, entry.transText, tPaint, textStartX, transBaseline, entry.alignedRight, entry.centered, farBlur)
             secondaryBaseY += entry.transH
         } else if (entry.romaText != null) {
             val romaBaseline = secondaryBaseY + transGapPx + (-transPaint.fontMetrics.ascent)
             val tPaint = if (isCurrent) hlTransPaint else dimTransPaint
-            drawTextAligned(canvas, entry.romaText, tPaint, textStartX, romaBaseline, entry.alignedRight, farBlur)
+            drawTextAligned(canvas, entry.romaText, tPaint, textStartX, romaBaseline, entry.alignedRight, entry.centered, farBlur)
             secondaryBaseY += entry.transH
         }
         val shouldDrawSecondary = entry.secondaryText != null && entry.isSecondaryVisible(currentPosMs)
@@ -1046,16 +1064,16 @@ class RawsLyricView @JvmOverloads constructor(
             val secondaryBaseline = secondaryBaseY + transGapPx + (-transPaint.fontMetrics.ascent)
             val tPaint = if (isCurrent) hlTransPaint else dimTransPaint
             if (!entry.secondaryWords.isNullOrEmpty() && isCurrent) {
-                drawKaraokeWords(canvas, entry, index, textStartX, secondaryBaseline, entry.alignedRight, useSecondary = true)
+                drawKaraokeWords(canvas, entry, index, textStartX, secondaryBaseline, entry.alignedRight, entry.centered, useSecondary = true)
             } else {
-                drawTextAligned(canvas, entry.secondaryText, tPaint, textStartX, secondaryBaseline, entry.alignedRight, farBlur)
+                drawTextAligned(canvas, entry.secondaryText, tPaint, textStartX, secondaryBaseline, entry.alignedRight, entry.centered, farBlur)
             }
             secondaryBaseY += entry.secondaryH
         }
         if (entry.secondaryTranslationText != null && shouldDrawSecondary) {
             val secondaryTranslationBaseline = secondaryBaseY + transGapPx + (-transPaint.fontMetrics.ascent)
             val tPaint = if (isCurrent) hlTransPaint else dimTransPaint
-            drawTextAligned(canvas, entry.secondaryTranslationText, tPaint, textStartX, secondaryTranslationBaseline, entry.alignedRight, farBlur)
+            drawTextAligned(canvas, entry.secondaryTranslationText, tPaint, textStartX, secondaryTranslationBaseline, entry.alignedRight, entry.centered, farBlur)
             secondaryBaseY += entry.secondaryTranslationH
         }
     }
@@ -1071,14 +1089,27 @@ class RawsLyricView @JvmOverloads constructor(
     }
 
     private fun LineEntry.pivotX(): Float =
-        if (alignedRight) width - paddingRight.toFloat() else paddingLeft.toFloat()
+        when {
+            centered -> width / 2f
+            alignedRight -> width - paddingRight.toFloat()
+            else -> paddingLeft.toFloat()
+        }
 
-    private fun drawTextAligned(canvas: Canvas, text: String, paint: TextPaint, startX: Float, baseline: Float, alignedRight: Boolean, blur: Boolean = false) {
+    private fun drawTextAligned(
+        canvas: Canvas,
+        text: String,
+        paint: TextPaint,
+        startX: Float,
+        baseline: Float,
+        alignedRight: Boolean,
+        centered: Boolean,
+        blur: Boolean = false
+    ) {
         val w = width - paddingLeft - paddingRight
         if (w <= 0) return
         val oldMask = paint.maskFilter
         if (blur) paint.maskFilter = distantLineBlur
-        val layout = buildLayout(text, paint, w, alignedRight)
+        val layout = buildLayout(text, paint, w, alignedRight, centered)
         canvas.save()
         // StaticLayout line 0 baseline is at getLineTop(0) + getLineBaseline(0) - getLineTop(0)
         // = getLineBaseline(0). With includePad=true, getLineTop(0) includes top padding.
@@ -1233,6 +1264,7 @@ class RawsLyricView @JvmOverloads constructor(
         startX: Float,
         baseline: Float,
         alignedRight: Boolean,
+        centered: Boolean,
         useSecondary: Boolean = false
     ) {
         val words = (if (useSecondary) entry.secondaryWords else entry.words) ?: return
@@ -1268,11 +1300,16 @@ class RawsLyricView @JvmOverloads constructor(
 
         if (wordInfos.isEmpty()) return
 
-        val lineOffsets = if (alignedRight) {
+        val lineOffsets = if (alignedRight || centered) {
             wordInfos.groupBy { it.visualLine }.mapValues { (_, infos) ->
                 val lineStart = infos.minOf { it.x }
                 val lineEnd = infos.maxOf { it.x + it.w }
-                (availW - (lineEnd - lineStart)).coerceAtLeast(0f)
+                val lineW = lineEnd - lineStart
+                when {
+                    alignedRight -> startX + availW - lineW - lineStart
+                    centered -> startX + (availW - lineW) / 2f - lineStart
+                    else -> 0f
+                }
             }
         } else {
             emptyMap()

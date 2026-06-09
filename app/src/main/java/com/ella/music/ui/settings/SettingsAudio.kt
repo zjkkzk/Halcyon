@@ -52,6 +52,7 @@ fun AudioSettingsScreen(
     val replayGainEnabled by settingsManager.replayGainEnabled.collectAsState(initial = false)
     val audioFocusDisabled by settingsManager.audioFocusDisabled.collectAsState(initial = false)
     val shuffleMode by settingsManager.shuffleMode.collectAsState(initial = SettingsManager.SHUFFLE_MODE_PSEUDO)
+    val playNextMode by settingsManager.playNextMode.collectAsState(initial = SettingsManager.PLAY_NEXT_MODE_REVERSE_STACK)
     val previousButtonAction by settingsManager.previousButtonAction.collectAsState(initial = SettingsManager.PREVIOUS_BUTTON_PREVIOUS)
     val decoderMode by settingsManager.decoderMode.collectAsState(initial = 2)
     val startupPlayMode by settingsManager.startupPlayMode.collectAsState(initial = SettingsManager.STARTUP_PLAY_OFF)
@@ -67,6 +68,11 @@ fun AudioSettingsScreen(
         stringResource(R.string.settings_shuffle_mode_true_random)
     )
     val selectedShuffleMode = shuffleMode.coerceIn(shuffleModeLabels.indices)
+    val playNextModeLabels = listOf(
+        stringResource(R.string.settings_play_next_mode_reverse_stack),
+        stringResource(R.string.settings_play_next_mode_forward_stack)
+    )
+    val selectedPlayNextMode = playNextMode.coerceIn(playNextModeLabels.indices)
     val previousButtonLabels = listOf(
         stringResource(R.string.settings_previous_button_previous),
         stringResource(R.string.settings_previous_button_replay_current)
@@ -124,6 +130,16 @@ fun AudioSettingsScreen(
         DropdownItem(
             title = previousButtonLabels[SettingsManager.PREVIOUS_BUTTON_REPLAY_CURRENT],
             summary = stringResource(R.string.settings_previous_button_replay_current_summary)
+        )
+    )
+    val playNextModeEntries = listOf(
+        DropdownItem(
+            title = playNextModeLabels[SettingsManager.PLAY_NEXT_MODE_REVERSE_STACK],
+            summary = stringResource(R.string.settings_play_next_mode_reverse_stack_summary)
+        ),
+        DropdownItem(
+            title = playNextModeLabels[SettingsManager.PLAY_NEXT_MODE_FORWARD_STACK],
+            summary = stringResource(R.string.settings_play_next_mode_forward_stack_summary)
         )
     )
 
@@ -200,6 +216,16 @@ fun AudioSettingsScreen(
                         onSelectedIndexChange = { index ->
                             scope.launch { settingsManager.setShuffleMode(index) }
                             playerViewModel?.setShuffleMode(index)
+                        }
+                    )
+                    WindowSpinnerPreference(
+                        title = stringResource(R.string.settings_play_next_mode),
+                        summary = stringResource(R.string.settings_current_value, playNextModeLabels[selectedPlayNextMode]),
+                        items = playNextModeEntries,
+                        selectedIndex = selectedPlayNextMode,
+                        onSelectedIndexChange = { index ->
+                            scope.launch { settingsManager.setPlayNextMode(index) }
+                            playerViewModel?.setPlayNextMode(index)
                         }
                     )
                     WindowSpinnerPreference(

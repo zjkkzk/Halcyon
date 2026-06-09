@@ -258,13 +258,13 @@ fun LxOnlineScreen(
                                     state.isBusy = false
                                 }
                             },
-                            onAddToQueue = {
+                            onPlayNext = {
                                 scope.launch {
                                     state.isBusy = true
                                     runCatching {
                                         val playable = service.resolvePlayableSong(item, selectedSource?.script.orEmpty())
-                                        playerViewModel.addToPlaylist(playable)
-                                        showToast(context.getString(R.string.lx_online_added_to_queue))
+                                        playerViewModel.playNext(playable)
+                                        showToast(context.getString(R.string.song_more_added_to_play_next))
                                     }.onFailure {
                                         state.message = it.localizedMessage ?: context.getString(R.string.lx_online_add_to_queue_failed)
                                         showToast(state.message)

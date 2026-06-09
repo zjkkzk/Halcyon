@@ -79,11 +79,14 @@ class ExoPlayerManager(private val context: Context) {
     private var lastQueueSaveMs = 0L
     private var lastStateSaveMs = 0L
     private var shuffleMode = SettingsManager.SHUFFLE_MODE_PSEUDO
+    private var playNextMode = SettingsManager.PLAY_NEXT_MODE_REVERSE_STACK
     private var virtualPlaylistCurrentIndex: Int? = null
     private var playWhenConnected = false
     private var pendingPlaylist: PendingPlaylist? = null
     private var reorderingPlaylistForShuffle = false
     private var playlistBeforeShuffle: List<Song>? = null
+    private var playNextAnchorKey: String? = null
+    private var playNextForwardCount = 0
 
     private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val artworkRepository = MusicRepository.getInstance(context)
@@ -170,7 +173,11 @@ class ExoPlayerManager(private val context: Context) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 Log.d(TIMING_TAG, "controller media transition reason=$reason mediaId=${mediaItem?.mediaId}")
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && shouldUseTrueRandomShuffle()) {
+                if (
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
+                    shouldUseTrueRandomShuffle() &&
+                    mediaController?.playWhenReady == true
+                ) {
                     if (playTrueRandomItem()) return
                 }
                 updateCurrentSong()
@@ -231,6 +238,7 @@ class ExoPlayerManager(private val context: Context) {
         AppLogStore.debug(context, "PlayerQueue", "setPlaylist size=${songs.size} start=$startIndex")
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         notificationArtworkJob?.cancel()
         notificationArtworkJob = null
         sessionMetadataSongId = null
@@ -270,6 +278,7 @@ class ExoPlayerManager(private val context: Context) {
         AppLogStore.debug(context, "PlayerQueue", "playResolvedVirtual size=${songs.size} index=$currentIndex title=${resolvedSong.title}")
         val safeIndex = currentIndex.coerceIn(songs.indices)
         virtualPlaylistCurrentIndex = safeIndex
+        resetPlayNextForwardStack()
         notificationArtworkJob?.cancel()
         notificationArtworkJob = null
         sessionMetadataSongId = null
@@ -293,6 +302,7 @@ class ExoPlayerManager(private val context: Context) {
     fun addToPlaylist(song: Song) {
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         AppLogStore.debug(context, "PlayerQueue", "add title=${song.title}")
         val item = songToMediaItem(song)
         playlist.add(song)
@@ -308,6 +318,7 @@ class ExoPlayerManager(private val context: Context) {
         if (songs.isEmpty()) return
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         AppLogStore.debug(context, "PlayerQueue", "addMany size=${songs.size}")
         playlist.addAll(songs)
         _playlist.value = playlist.toList()
@@ -319,23 +330,70 @@ class ExoPlayerManager(private val context: Context) {
     }
 
     fun playNext(song: Song) {
+        playNext(listOf(song))
+    }
+
+    fun playNext(songs: List<Song>) {
+        if (songs.isEmpty()) return
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
         val controller = mediaController
-        val insertIndex = ((controller?.currentMediaItemIndex ?: playlist.indexOfFirst { it.id == _currentSong.value?.id }) + 1)
-            .coerceIn(0, playlist.size)
-        AppLogStore.debug(context, "PlayerQueue", "playNext title=${song.title} index=$insertIndex")
-        playlist.add(insertIndex, song)
+        val insertIndex = playNextInsertIndex(controller, songs.size)
+        AppLogStore.debug(context, "PlayerQueue", "playNextMany size=${songs.size} index=$insertIndex mode=$playNextMode")
+        playlist.addAll(insertIndex, songs)
         _playlist.value = playlist.toList()
-        controller?.addMediaItem(insertIndex, songToMediaItem(song))
-        if ((controller?.mediaItemCount ?: 0) == 1) {
+        controller?.addMediaItems(insertIndex, songs.map(::songToMediaItem))
+        if ((controller?.mediaItemCount ?: 0) == songs.size) {
             controller?.prepare()
         }
         savePlaybackQueue(force = true)
     }
 
+    private fun playNextInsertIndex(controller: MediaController?, insertCount: Int): Int {
+        val currentIndex = currentQueueIndex(controller)
+        val anchorKey = currentSongQueueKey(controller, currentIndex)
+        val baseIndex = (currentIndex + 1).coerceIn(0, playlist.size)
+        if (playNextMode == SettingsManager.PLAY_NEXT_MODE_FORWARD_STACK && anchorKey != null) {
+            if (playNextAnchorKey != anchorKey) {
+                playNextAnchorKey = anchorKey
+                playNextForwardCount = 0
+            }
+            val insertIndex = (baseIndex + playNextForwardCount).coerceIn(0, playlist.size)
+            playNextForwardCount += insertCount
+            return insertIndex
+        }
+        if (playNextMode != SettingsManager.PLAY_NEXT_MODE_FORWARD_STACK) {
+            resetPlayNextForwardStack()
+        }
+        return baseIndex
+    }
+
+    private fun currentQueueIndex(controller: MediaController?): Int {
+        val controllerIndex = controller?.currentMediaItemIndex ?: C.INDEX_UNSET
+        if (controllerIndex in playlist.indices) return controllerIndex
+        val currentSong = _currentSong.value
+        val currentSongIndex = playlist.indexOfFirst { it.isSamePlaybackIdentity(currentSong) }
+        return if (currentSongIndex >= 0) currentSongIndex else -1
+    }
+
+    private fun currentSongQueueKey(controller: MediaController?, currentIndex: Int): String? {
+        val song = when {
+            currentIndex in playlist.indices -> playlist[currentIndex]
+            else -> controller?.currentMediaItem?.toSongFromMediaItemExtras()
+                ?: controller?.currentMediaItem?.toSong()
+                ?: _currentSong.value
+        }
+        return song?.playbackStackKey()
+    }
+
+    private fun resetPlayNextForwardStack() {
+        playNextAnchorKey = null
+        playNextForwardCount = 0
+    }
+
     fun playQueueIndex(index: Int) {
         if (index !in playlist.indices) return
+        resetPlayNextForwardStack()
         mediaController?.seekToDefaultPosition(index)
         mediaController?.play()
         updateCurrentSong()
@@ -346,6 +404,7 @@ class ExoPlayerManager(private val context: Context) {
         if (index !in playlist.indices) return
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         AppLogStore.debug(context, "PlayerQueue", "remove index=$index title=${playlist[index].title}")
         if (playlist.size == 1) {
             clearPlaylist()
@@ -373,6 +432,7 @@ class ExoPlayerManager(private val context: Context) {
         if (fromIndex !in playlist.indices || toIndex !in playlist.indices || fromIndex == toIndex) return
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         val movedSong = playlist.removeAt(fromIndex)
         playlist.add(toIndex, movedSong)
         _playlist.value = playlist.toList()
@@ -391,6 +451,7 @@ class ExoPlayerManager(private val context: Context) {
     fun clearPlaylist() {
         virtualPlaylistCurrentIndex = null
         playlistBeforeShuffle = null
+        resetPlayNextForwardStack()
         playlist.clear()
         _playlist.value = emptyList()
         _currentSong.value = null
@@ -412,6 +473,7 @@ class ExoPlayerManager(private val context: Context) {
     fun playSong(song: Song) {
         val index = playlist.indexOfFirst { it.id == song.id }
         if (index >= 0) {
+            resetPlayNextForwardStack()
             mediaController?.seekToDefaultPosition(index)
             mediaController?.play()
             updateCurrentSong()
@@ -525,6 +587,14 @@ class ExoPlayerManager(private val context: Context) {
             SettingsManager.SHUFFLE_MODE_PSEUDO,
             SettingsManager.SHUFFLE_MODE_TRUE_RANDOM
         )
+    }
+
+    fun setPlayNextMode(mode: Int) {
+        playNextMode = mode.coerceIn(
+            SettingsManager.PLAY_NEXT_MODE_REVERSE_STACK,
+            SettingsManager.PLAY_NEXT_MODE_FORWARD_STACK
+        )
+        resetPlayNextForwardStack()
     }
 
     fun toggleRepeat() {
@@ -796,6 +866,7 @@ class ExoPlayerManager(private val context: Context) {
         _currentSong.value = restoredSong
         _duration.value = controller.duration.coerceAtLeast(0)
         if (!previousSong.isSamePlaybackIdentity(restoredSong)) {
+            resetPlayNextForwardStack()
             notificationArtworkJob?.cancel()
             notificationArtworkJob = null
             artworkAppliedSongId = null
@@ -1057,6 +1128,12 @@ class ExoPlayerManager(private val context: Context) {
         return path.isNotBlank() && path == other.path
     }
 
+    private fun Song.playbackStackKey(): String = when {
+        id > 0L -> "id:$id"
+        path.isNotBlank() -> "path:$path"
+        else -> "title:$title|artist:$artist|album:$album"
+    }
+
     private fun Song.notificationArtworkKey(): String =
         "${id}:${path}:${dateModified}:${fileSize}:${coverUrl}"
 
@@ -1068,6 +1145,7 @@ class ExoPlayerManager(private val context: Context) {
         if (virtualPlaylistCurrentIndex != null) return false
 
         val controller = mediaController ?: return false
+        val shouldKeepPlaying = controller.playWhenReady
         val itemCount = controller.mediaItemCount
         if (itemCount <= 0) return false
 
@@ -1080,7 +1158,7 @@ class ExoPlayerManager(private val context: Context) {
             Random.nextInt(itemCount)
         }
         controller.seekToDefaultPosition(randomIndex)
-        controller.play()
+        if (shouldKeepPlaying) controller.play()
         updateCurrentSong()
         return true
     }

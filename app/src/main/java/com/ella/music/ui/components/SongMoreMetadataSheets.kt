@@ -34,7 +34,6 @@ import com.lonx.audiotag.model.AudioTagKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -270,21 +269,22 @@ internal fun SongMetadataEditorSheet(
                 )
             }
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 4.dp)
-        ) {
-            Button(onClick = { showAddTag = !showAddTag }) {
-                Text(stringResource(R.string.song_more_metadata_add_custom_tag))
-            }
-        }
+        EllaMiuixActionRow(
+            actions = listOf(
+                EllaMiuixAction(
+                    text = stringResource(R.string.song_more_metadata_add_custom_tag),
+                    onClick = { showAddTag = !showAddTag }
+                )
+            ),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        )
 
         Spacer(modifier = Modifier.padding(vertical = 8.dp))
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalArrangement = Arrangement.End) {
-            Button(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = {
+        EllaMiuixSheetActions(
+            cancelText = stringResource(R.string.common_cancel),
+            confirmText = stringResource(R.string.common_save),
+            onCancel = onDismiss,
+            onConfirm = {
                 val ctMap: MutableMap<String, MutableList<String>> = mutableMapOf()
                 for (pair in customTags) {
                     if (pair.first.isNotBlank()) {
@@ -308,10 +308,9 @@ internal fun SongMetadataEditorSheet(
                     customTags = ctMap
                 )
                 onSave(tags)
-            }) {
-                Text(stringResource(R.string.common_save))
-            }
-        }
+            },
+            modifier = Modifier.padding(horizontal = 18.dp)
+        )
         Spacer(modifier = Modifier.padding(bottom = 16.dp))
     }
 }

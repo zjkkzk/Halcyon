@@ -122,7 +122,6 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import kotlinx.coroutines.Job
 
 @Composable
@@ -458,14 +457,6 @@ fun LibraryScreen(
                             )
                         }
                     } else {
-                        IconButton(onClick = { sortExpanded = !sortExpanded }) {
-                            Icon(
-                                imageVector = MiuixIcons.Regular.Sort,
-                                contentDescription = stringResource(R.string.common_sort),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
                         IconButton(onClick = {
                             selectionMode = true
                             selectedIds = emptySet()
@@ -473,6 +464,14 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = MiuixIcons.Regular.SelectAll,
                                 contentDescription = stringResource(R.string.common_select_all),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        IconButton(onClick = { sortExpanded = !sortExpanded }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Sort,
+                                contentDescription = stringResource(R.string.common_sort),
                                 tint = MiuixTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -694,9 +693,9 @@ fun LibraryScreen(
                                         if (openPlayerOnPlay) onNavigateToPlayer()
                                     }
                                 },
-                                onAddToQueue = {
-                                    playerViewModel.addToPlaylist(song)
-                                    Toast.makeText(context, context.getString(R.string.song_more_added_to_queue), Toast.LENGTH_SHORT).show()
+                                onPlayNext = {
+                                    playerViewModel.playNext(song)
+                                    Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
                                 },
                                 onMore = { actionSong = song }
                             )
@@ -764,7 +763,7 @@ fun LibraryScreen(
         )
 
         if (artistChoices.isNotEmpty()) {
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_select_artist),
@@ -782,7 +781,7 @@ fun LibraryScreen(
         }
 
         playlistPickerSongs?.let { songsToAdd ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_add_to_playlist_title),
@@ -848,7 +847,7 @@ fun LibraryScreen(
         )
 
         tagEditorSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_edit_tags_title),
@@ -867,7 +866,7 @@ fun LibraryScreen(
         }
 
         songInfoSheetSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.player_song_details),

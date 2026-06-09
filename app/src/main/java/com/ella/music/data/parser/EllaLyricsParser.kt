@@ -11,13 +11,13 @@ import org.xml.sax.InputSource
 import kotlin.math.abs
 
 internal object EllaLyricsParser {
-    private val lrcTimePattern = Regex("""\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?]""")
+    private val lrcTimePattern = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,6}))?]""")
     private val lrcMetaPattern = Regex("""\[(ti|ar|al|by|offset|re|ve):\s*(.*)]""", RegexOption.IGNORE_CASE)
     private val timedWordMarkerPattern = Regex("""<([^>]+)>|\[([^\]]+)]""")
     private val backgroundLinePattern = Regex("""^\[bg:\s*(.*)]$""", RegexOption.IGNORE_CASE)
     private val lyricifySyllablePattern = Regex("""(.*?)\((\d+),(\d+)\)""")
     private val lyricifyAttributePattern = Regex("""^\[(\d+)]""")
-    private val timestampOnlyPattern = Regex("""\d+(?::\d+){0,2}(?:[.:]\d+)?""")
+    private val timestampOnlyPattern = Regex("""\d+(?::\d{1,2}){1,2}(?:[.:]\d{1,6})?""")
 
     fun parse(content: String): LrcParser.LrcResult {
         parseTtml(content)?.let { return it }
@@ -33,10 +33,14 @@ internal object EllaLyricsParser {
         var artist: String? = null
         var album: String? = null
         var offset = 0L
+        var companionTargetIndexes = emptyList<Int>()
 
         content.lines().forEach { raw ->
             val line = raw.trim()
-            if (line.isBlank()) return@forEach
+            if (line.isBlank()) {
+                companionTargetIndexes = emptyList()
+                return@forEach
+            }
 
             lrcMetaPattern.matchEntire(line)?.let { match ->
                 when (match.groupValues[1].lowercase()) {
@@ -45,10 +49,24 @@ internal object EllaLyricsParser {
                     "al" -> album = match.groupValues[2].trim()
                     "offset" -> offset = match.groupValues[2].trim().toLongOrNull() ?: 0L
                 }
+                companionTargetIndexes = emptyList()
                 return@forEach
             }
 
-            lines += parseLrcLine(line)
+            parseTimestampOnlyLine(line)?.let { endMs ->
+                lines.applyLineEnd(companionTargetIndexes, endMs)
+                companionTargetIndexes = emptyList()
+                return@forEach
+            }
+
+            val parsed = parseLrcLine(line)
+            if (parsed.isNotEmpty()) {
+                val firstIndex = lines.size
+                lines += parsed
+                companionTargetIndexes = (firstIndex until lines.size).toList()
+            } else if (!lines.appendUntimedTranslation(companionTargetIndexes, line)) {
+                companionTargetIndexes = emptyList()
+            }
         }
 
         return LrcParser.LrcResult(
@@ -59,6 +77,47 @@ internal object EllaLyricsParser {
             offset = offset
         )
     }
+
+    private fun parseTimestampOnlyLine(line: String): Long? {
+        val times = lrcTimePattern.findAll(line).toList()
+        if (times.isEmpty()) return null
+        var cursor = 0
+        times.forEach { match ->
+            if (line.substring(cursor, match.range.first).isNotBlank()) return null
+            cursor = match.range.last + 1
+        }
+        if (line.substring(cursor).isNotBlank()) return null
+        return parseLrcTime(times.last().groupValues)
+    }
+
+    private fun MutableList<LyricLine>.applyLineEnd(indexes: List<Int>, endMs: Long) {
+        indexes.forEach { index ->
+            val line = getOrNull(index) ?: return@forEach
+            if (endMs > line.timeMs) {
+                this[index] = line.copy(endMs = line.endMs ?: endMs)
+            }
+        }
+    }
+
+    private fun MutableList<LyricLine>.appendUntimedTranslation(indexes: List<Int>, rawLine: String): Boolean {
+        if (indexes.isEmpty()) return false
+        val (_, content) = rawLine.extractLrcAgent()
+        val text = content.cleanLyricText()
+        if (text.isBlank() || text.isMusicSymbolOnly()) return false
+        indexes.forEach { index ->
+            val line = getOrNull(index) ?: return@forEach
+            this[index] = line.copy(
+                translation = line.translation.mergeLyricCompanionText(text)
+            )
+        }
+        return true
+    }
+
+    private fun String?.mergeLyricCompanionText(text: String?): String? =
+        listOfNotNull(this?.takeIf { it.isNotBlank() }, text?.takeIf { it.isNotBlank() })
+            .distinct()
+            .joinToString("\n")
+            .takeIf { it.isNotBlank() }
 
     private fun parseLrcLine(line: String): List<LyricLine> {
         backgroundLinePattern.matchEntire(line)?.let { match ->
@@ -77,7 +136,7 @@ internal object EllaLyricsParser {
             )
         }
 
-        val leadingTimes = lrcTimePattern.findAll(line).takeWhile { it.range.first == 0 || line.substring(0, it.range.first).isBlank() }.toList()
+        val leadingTimes = line.leadingLrcTimeMatches()
         if (leadingTimes.isEmpty()) return emptyList()
 
         val contentStart = leadingTimes.last().range.last + 1
@@ -144,6 +203,7 @@ internal object EllaLyricsParser {
         var textStart = 0
 
         markers.forEach { marker ->
+            if (marker.timeMs < activeStart) return@forEach
             val text = content.substring(textStart, marker.startIndex).cleanTimedLyricSegment()
             if (text.isNotBlank()) {
                 words += LyricWord(
@@ -401,6 +461,17 @@ internal object EllaLyricsParser {
         )
     }
 
+    private fun String.leadingLrcTimeMatches(): List<MatchResult> {
+        val result = mutableListOf<MatchResult>()
+        var cursor = 0
+        lrcTimePattern.findAll(this).forEach { match ->
+            if (substring(cursor, match.range.first).isNotBlank()) return result
+            result += match
+            cursor = match.range.last + 1
+        }
+        return result
+    }
+
     private fun mergeCompanionLines(lines: List<LyricLine>): List<LyricLine> {
         val merged = lines
             .sortedBy { it.timeMs }
@@ -424,11 +495,15 @@ internal object EllaLyricsParser {
                     .map { it.text.cleanLyricText() }
                     .filter { it.isUsefulMainText() && it != primaryText }
                     .toList()
-                val translation = translationCandidates
+                val preferredTranslation = translationCandidates
                     .firstOrNull { primaryText.hasCjk() && it.hasCjk() }
                     ?: translationCandidates.firstOrNull()
+                val translation = (listOfNotNull(preferredTranslation) + translationCandidates)
+                    .distinct()
+                    .joinToString("\n")
+                    .takeIf { it.isNotBlank() }
                 primary.copy(
-                    translation = primary.translation ?: translation,
+                    translation = primary.translation.mergeLyricCompanionText(translation),
                     pronunciation = primary.pronunciation ?: pronunciation?.text?.cleanLyricText(),
                     pronunciationWords = primary.pronunciationWords.ifEmpty { pronunciation?.words.orEmpty() },
                     endMs = primary.endMs ?: group.mapNotNull { it.endMs }.maxOrNull()

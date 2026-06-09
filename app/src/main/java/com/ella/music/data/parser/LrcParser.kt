@@ -18,9 +18,9 @@ import org.xml.sax.InputSource
 
 object LrcParser {
 
-    private val timePattern = Regex("""\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?]""")
+    private val timePattern = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,6}))?]""")
     private val retroLinePattern = Regex("""((?:\[.*?])+)(.*)""")
-    private val wordTimePattern = Regex("""<(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?>""")
+    private val wordTimePattern = Regex("""<(\d{1,3}):(\d{1,2})(?:[.:](\d{1,6}))?>""")
     private val metaDataPattern = Regex("""\[(ti|ar|al|by|offset|re|ve):\s*(.*)]""", RegexOption.IGNORE_CASE)
     private val ttmlParagraphPattern = Regex("""<p\b([^>]*)>(.*?)</p>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val ttmlSpanPattern = Regex("""<span\b([^>]*)>(.*?)</span>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
@@ -678,11 +678,11 @@ object LrcParser {
         }
     }
 
-    private val lyricExtensions = listOf("lrc", "ttml", "elrc")
+    private val lyricExtensions = listOf("lrc", "ttml", "elrc", "spl")
 
     fun findLrcFile(songPath: String): String? {
         val baseName = songPath.substringBeforeLast('.')
-        // Exact name match: try each extension (lrc first, then ttml, elrc)
+        // Exact name match: try each extension in playback preference order.
         for (ext in lyricExtensions) {
             readViaFd("$baseName.$ext")?.let { return it }
         }
@@ -695,7 +695,8 @@ object LrcParser {
                 parentDir.listFiles()?.filter {
                     it.extension.equals("lrc", ignoreCase = true) ||
                         it.extension.equals("ttml", ignoreCase = true) ||
-                        it.extension.equals("elrc", ignoreCase = true)
+                        it.extension.equals("elrc", ignoreCase = true) ||
+                        it.extension.equals("spl", ignoreCase = true)
                 }?.sortedWith(
                     compareBy<File> { lyricExtensions.indexOf(it.extension.lowercase()) }
                         .thenBy { it.name }

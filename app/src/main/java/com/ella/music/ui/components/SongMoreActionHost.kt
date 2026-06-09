@@ -25,7 +25,6 @@ import com.ella.music.data.tagIdentityKey
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 fun SongMoreActionHost(
@@ -124,7 +123,7 @@ fun SongMoreActionHost(
     }
 
     actionSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = song.title.ifBlank { actionSheetTitle },
@@ -298,7 +297,7 @@ fun SongMoreActionHost(
     )
 
     if (artistChoices.isNotEmpty()) {
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = selectArtistTitle,

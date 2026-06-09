@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,9 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
+import com.ella.music.ui.components.EllaMiuixAction
+import com.ella.music.ui.components.EllaMiuixActionRow
 import com.ella.music.ui.components.EllaMiuixDialog
+import com.ella.music.ui.components.EllaMiuixDialogActions
 import com.ella.music.ui.components.FolderOutlineIcon
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -347,16 +347,15 @@ internal fun FolderBlockDialog(
     EllaMiuixDialog(
         show = true,
         title = stringResource(R.string.folder_block_folder),
+        summary = folderPath,
         onDismissRequest = onDismiss
     ) {
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = folderPath, fontSize = 13.sp, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Button(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onBlock) { Text(stringResource(R.string.folder_block)) }
-            }
-        }
+        EllaMiuixDialogActions(
+            cancelText = stringResource(R.string.common_cancel),
+            confirmText = stringResource(R.string.folder_block),
+            onCancel = onDismiss,
+            onConfirm = onBlock
+        )
     }
 }
 
@@ -381,14 +380,23 @@ internal fun BlockedFoldersDialog(
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.weight(1f)
                     )
-                    Button(onClick = { onRemove(folder) }) { Text(stringResource(R.string.common_remove)) }
+                    EllaMiuixActionRow(
+                        actions = listOf(
+                            EllaMiuixAction(
+                                text = stringResource(R.string.common_remove),
+                                onClick = { onRemove(folder) }
+                            )
+                        ),
+                        modifier = Modifier.weight(0.58f)
+                    )
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Button(onClick = onClear) { Text(stringResource(R.string.common_clear)) }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onDismiss) { Text(stringResource(R.string.common_done)) }
-            }
+            EllaMiuixActionRow(
+                actions = listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_clear), onClick = onClear),
+                    EllaMiuixAction(text = stringResource(R.string.common_done), onClick = onDismiss, primary = true)
+                )
+            )
         }
     }
 }

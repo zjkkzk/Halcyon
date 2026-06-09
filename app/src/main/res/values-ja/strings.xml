@@ -296,7 +296,7 @@
     <string name="update_empty_changelog">このバージョンの更新履歴は記載されていません。</string>
     <string name="update_unavailable">更新を取得できません</string>
     <string name="update_found_version">%1$s が見つかりました</string>
-    <string name="update_connecting_github">GitHub に接続中、Halcyon（formerly Ella Music）の最新リリースを取得しています。</string>
+    <string name="update_connecting_github">GitHub に接続中、Halcyon の最新リリースを取得しています。</string>
     <string name="update_has_update_summary">現在のバージョン v%1$s、最新インストーラーと更新履歴を確認できます。</string>
     <string name="update_no_update_summary">現在のバージョン v%1$s、これより新しいリリースはまだありません。</string>
     <string name="update_view_github">GitHub を表示</string>
@@ -455,6 +455,7 @@
     <string name="settings_replay_gain">ReplayGain 音量均衡化</string>
     <string name="settings_replay_gain_summary">オーディオタグに基づいて再生音量を自動調整</string>
     <string name="settings_shuffle_mode">シャッフルモード</string>
+    <string name="settings_play_next_mode">次に再生モード</string>
     <string name="settings_previous_button">前の曲ボタン</string>
     <string name="settings_disable_audio_focus">オーディオフォーカスを無効化</string>
     <string name="settings_disable_audio_focus_summary">有効にすると再生時に他のアプリのオーディオフォーカスを奪いません</string>
@@ -475,6 +476,10 @@
     <string name="settings_shuffle_mode_true_random">真のランダム</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">キューをシャッフルして再生。1サイクル内で尽量重复を回避</string>
     <string name="settings_shuffle_mode_true_random_summary">毎回ランダムに選択。連続して同じ曲が選ばれる場合があります</string>
+    <string name="settings_play_next_mode_reverse_stack">逆順スタック</string>
+    <string name="settings_play_next_mode_forward_stack">順方向スタック</string>
+    <string name="settings_play_next_mode_reverse_stack_summary">連続追加時、新しい曲を常に現在の曲の直後へ挿入</string>
+    <string name="settings_play_next_mode_forward_stack_summary">連続追加時、タップした順番のまま現在の曲の後に並べる</string>
     <string name="settings_previous_button_previous">前の曲</string>
     <string name="settings_previous_button_replay_current">現在の曲を再生し直す</string>
     <string name="settings_previous_button_previous_summary">常に再生キューの前の曲に切り替え</string>
@@ -678,6 +683,8 @@
     <string name="library_search_no_results">一致する結果がありません</string>
     <string name="library_search_no_duplicates">同じ曲名・アルバムの重複曲は見つかりませんでした</string>
     <string name="library_search_song_unit">曲</string>
+    <string name="library_search_song_count_unit">曲</string>
+    <string name="library_search_artist_summary">%1$d 曲 · %2$d 枚の参加アルバム</string>
     <string name="library_search_lyric_prefix">歌詞：</string>
     <string name="rating_filter_all">全評価</string>
     <string name="rating_filter_star">%1$d スター</string>

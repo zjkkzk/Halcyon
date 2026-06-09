@@ -43,6 +43,7 @@ import com.ella.music.data.model.Song
 import com.ella.music.data.model.formatPlaybackDuration
 import com.ella.music.ui.components.AppleStylePlayButton
 import com.ella.music.ui.components.DefaultAlbumCover
+import com.ella.music.ui.components.PlayNextQuickButton
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -196,7 +197,7 @@ internal fun AlbumSongRow(
             if (openPlayerOnPlay) onNavigateToPlayer()
         },
         showPlayNextInLists = showPlayNextInLists,
-        onAddToQueue = { playerViewModel.addToPlaylist(song) },
+        onPlayNext = { playerViewModel.playNext(song) },
         onMore = onMore
     )
 }
@@ -216,7 +217,7 @@ private fun AlbumTrackRow(
     onLongClick: () -> Unit,
     onClick: () -> Unit,
     showPlayNextInLists: Boolean,
-    onAddToQueue: () -> Unit,
+    onPlayNext: () -> Unit,
     onMore: () -> Unit
 ) {
     val audioInfo by produceState<AudioInfo?>(initialValue = null, song.id, song.dateModified, loadAudioInfo) {
@@ -308,15 +309,8 @@ private fun AlbumTrackRow(
             modifier = Modifier.padding(end = 4.dp)
         )
         if (!selectionMode && showPlayNextInLists) {
-            Text(
-                text = "+",
-                fontSize = 18.sp,
-                color = MiuixTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = onAddToQueue)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            )
+            Spacer(modifier = Modifier.width(8.dp))
+            PlayNextQuickButton(onClick = onPlayNext)
         }
         Text(
             text = "⋮",

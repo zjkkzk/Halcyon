@@ -1,5 +1,7 @@
 package com.ella.music.ui.playlist
 
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,7 +51,6 @@ import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -373,7 +374,7 @@ fun PlaylistDetailScreen(
                                 selectionMode = true
                                 selectedSongKeys = selectedSongKeys + song.playlistIdentityKey()
                             },
-                            onAddToQueue = { playerViewModel.addToPlaylist(song) },
+                            onPlayNext = { playerViewModel.playNext(song) },
                             onRemove = if (playlist.isFiveStarRating) null else {
                                 {
                                     removeFromPlaylistSong = song
@@ -461,7 +462,7 @@ fun PlaylistDetailScreen(
             }
 
             playlistPickerSongs?.let { songsToAdd ->
-                WindowBottomSheet(
+                EllaMiuixBottomSheet(
                     show = true,
                     enableNestedScroll = false,
                     title = stringResource(R.string.song_more_add_to_playlist_title),

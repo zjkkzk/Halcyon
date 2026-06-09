@@ -12,7 +12,6 @@ import com.ella.music.data.model.Song
 import com.ella.music.viewmodel.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @Composable
 internal fun SongMoreTagActionSheets(
@@ -64,7 +63,7 @@ internal fun SongMoreTagActionSheets(
                 onTagEditorSongChange(null)
             }
         }
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = if (tagEditorKind == TagEditorOptionKind.LyricTiming) lyricTimingTitle else editTagTitle,
@@ -87,7 +86,7 @@ internal fun SongMoreTagActionSheets(
     }
 
     metadataEditorSong?.let { song ->
-        WindowBottomSheet(
+        EllaMiuixBottomSheet(
             show = true,
             enableNestedScroll = false,
             title = stringResource(R.string.song_more_metadata_editor_title),

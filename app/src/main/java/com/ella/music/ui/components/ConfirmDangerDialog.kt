@@ -1,20 +1,8 @@
 package com.ella.music.ui.components
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ella.music.R
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun ConfirmDangerDialog(
@@ -28,28 +16,14 @@ fun ConfirmDangerDialog(
     EllaMiuixDialog(
         show = show,
         title = title,
+        summary = message,
         onDismissRequest = onDismiss
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = message,
-                color = MiuixTheme.colorScheme.onSurface,
-                fontSize = 15.sp
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                TextButton(
-                    text = stringResource(R.string.common_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                TextButton(
-                    text = confirmText ?: stringResource(R.string.common_delete),
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
+        EllaMiuixDialogActions(
+            cancelText = stringResource(R.string.common_cancel),
+            confirmText = confirmText ?: stringResource(R.string.common_delete),
+            onCancel = onDismiss,
+            onConfirm = onConfirm
+        )
     }
 }

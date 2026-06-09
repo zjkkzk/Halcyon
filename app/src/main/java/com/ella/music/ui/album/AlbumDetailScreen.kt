@@ -1,5 +1,7 @@
 package com.ella.music.ui.album
 
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -85,7 +87,6 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -156,6 +157,14 @@ fun AlbumDetailScreen(
                 .distinctBy { it.lowercase(Locale.ROOT) }
                 .take(3)
                 .joinToString("\n")
+        }
+    }
+    val albumRecordedYear by produceState<String?>(initialValue = null, albumId, albumSongs) {
+        value = withContext(Dispatchers.IO) {
+            albumSongs
+                .asSequence()
+                .mapNotNull { song -> mainViewModel.getFullAudioTagInfo(song)?.recordedDateYear() }
+                .firstOrNull()
         }
     }
     val albumGenres = remember(albumSongs) {
@@ -339,7 +348,7 @@ fun AlbumDetailScreen(
                 participatingArtists.isNotEmpty() ||
                 participatingComposers.isNotEmpty() ||
                 participatingLyricists.isNotEmpty() ||
-                album?.year?.takeIf { it.isNotBlank() } != null
+                albumRecordedYear != null
             ) {
                 item(key = "album-extra-info") {
                     AlbumCopyrightFooter(
@@ -348,7 +357,7 @@ fun AlbumDetailScreen(
                         artists = participatingArtists,
                         composers = participatingComposers,
                         lyricists = participatingLyricists,
-                        year = album?.year?.takeIf { it.isNotBlank() },
+                        year = albumRecordedYear,
                         onGenreClick = { genre -> onNavigateToMetadataCategory("genre", genre) },
                         onArtistClick = onNavigateToArtist,
                         onComposerClick = { composer -> onNavigateToMetadataCategory("composer", composer) },
@@ -387,7 +396,7 @@ fun AlbumDetailScreen(
             },
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(end = 64.dp, top = 8.dp)
+                .padding(end = 56.dp, top = 8.dp)
                 .size(48.dp)
                 .align(Alignment.TopEnd)
         ) {
@@ -424,7 +433,7 @@ fun AlbumDetailScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             startPadding = 64.dp,
-            endPadding = 112.dp
+            endPadding = 104.dp
         )
 
         if (selectionMode) {
@@ -493,7 +502,7 @@ fun AlbumDetailScreen(
         )
 
         if (albumArtistChoices.isNotEmpty()) {
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.common_select_artist),
@@ -511,7 +520,7 @@ fun AlbumDetailScreen(
         }
 
         playlistPickerSongs?.let { songsToAdd ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.player_add_to_playlist),
@@ -553,3 +562,30 @@ fun AlbumDetailScreen(
         }
     }
 }
+
+private fun com.ella.music.data.metadata.AudioTagInfo.recordedDateYear(): String? =
+    (customTags.firstRecordedDateValue() ?: year?.trim())
+        ?.let { Regex("""\d{4}""").find(it)?.value }
+
+private fun Map<String, List<String>>.firstRecordedDateValue(): String? {
+    val targets = setOf(
+        "RECORDED DATE",
+        "RECORDEDDATE",
+        "RECORDING DATE",
+        "RECORDINGDATE",
+        "DATE RECORDED",
+        "RECORDEDTIME",
+        "DATE",
+        "TDRC"
+    ).mapTo(mutableSetOf()) { it.normalizedTagName() }
+    return entries
+        .firstOrNull { (key, values) ->
+            key.normalizedTagName() in targets && values.any { it.isNotBlank() }
+        }
+        ?.value
+        ?.firstOrNull { it.isNotBlank() }
+        ?.trim()
+}
+
+private fun String.normalizedTagName(): String =
+    uppercase(Locale.ROOT).filter { it.isLetterOrDigit() }

@@ -232,8 +232,8 @@ internal fun ArtistAlbumRow(
     val context = LocalContext.current
     val summary = buildList {
         add(context.getString(R.string.artist_album_song_summary_detail, album.songCount))
-        if (album.year.isNotBlank()) add(album.year)
         add(duration.formatArtistDetailDuration())
+        if (album.year.isNotBlank()) add(album.year)
     }.joinToString(" · ")
 
     Row(

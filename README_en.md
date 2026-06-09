@@ -3,7 +3,7 @@
 <h1 align="center">Halcyon</h1>
 
 <p align="center">
-  <b>formerly Ella Music, an Android Music Player Inspired by MIUI / HyperOS</b>
+  <b>An Android Music Player Inspired by MIUI / HyperOS</b>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## ✨ Overview
 
-**Halcyon** (formerly **Ella Music**) is an Android local music player built with **Jetpack Compose, Miuix, and AndroidX Media3**.
+**Halcyon** is an Android local music player built with **Jetpack Compose, Miuix, and AndroidX Media3**.
 
 It focuses on local music and lyrics, with a MIUI / HyperOS-inspired interface, word-by-word lyrics, floating lyrics, status-bar lyrics, dynamic covers, WebDAV remote libraries, LX Music API sources, library analytics, and a highly customizable player experience.
 

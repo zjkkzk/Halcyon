@@ -111,7 +111,6 @@ import com.ella.music.ui.components.MiniPlayer
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.TagEditorEditTracker
 import com.ella.music.ui.components.simpleLuminance
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE

@@ -4,12 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,14 +15,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.model.Song
 import com.ella.music.data.webdav.WebDavItem
+import com.ella.music.ui.components.EllaMiuixAction
+import com.ella.music.ui.components.EllaMiuixActionRow
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixTextField
-import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -129,7 +130,12 @@ internal fun WebDavSettingsDialog(
         ) {
             WebDavTextField(stringResource(R.string.webdav_url), url, onUrlChange)
             WebDavTextField(stringResource(R.string.webdav_username), username, onUsernameChange)
-            WebDavTextField(stringResource(R.string.webdav_password), password, onPasswordChange)
+            WebDavTextField(
+                label = stringResource(R.string.webdav_password),
+                value = password,
+                onValueChange = onPasswordChange,
+                visualTransformation = PasswordVisualTransformation()
+            )
             if (!testStatus.isNullOrBlank()) {
                 Text(
                     text = testStatus,
@@ -137,18 +143,15 @@ internal fun WebDavSettingsDialog(
                     color = MiuixTheme.colorScheme.primary
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(onClick = onClear) { Text(stringResource(R.string.common_remove)) }
-                Spacer(modifier = Modifier.weight(1f))
-                Button(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onTest) { Text(stringResource(R.string.common_test)) }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onSave) { Text(stringResource(R.string.common_save)) }
-            }
+            EllaMiuixActionRow(
+                actions = listOf(
+                    EllaMiuixAction(text = stringResource(R.string.common_remove), onClick = onClear),
+                    EllaMiuixAction(text = stringResource(R.string.common_cancel), onClick = onDismiss),
+                    EllaMiuixAction(text = stringResource(R.string.common_test), onClick = onTest),
+                    EllaMiuixAction(text = stringResource(R.string.common_save), onClick = onSave, primary = true)
+                ),
+                spacing = 8.dp
+            )
         }
     }
 }
@@ -157,12 +160,14 @@ internal fun WebDavSettingsDialog(
 internal fun WebDavTextField(
     label: String,
     value: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     EllaMiuixTextField(
         value = value,
         onValueChange = onValueChange,
         label = label,
+        visualTransformation = visualTransformation,
         modifier = Modifier.fillMaxWidth()
     )
 }

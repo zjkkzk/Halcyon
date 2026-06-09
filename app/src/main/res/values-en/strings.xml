@@ -296,7 +296,7 @@
     <string name="update_empty_changelog">This release does not include a changelog.</string>
     <string name="update_unavailable">Updates are temporarily unavailable</string>
     <string name="update_found_version">Found %1$s</string>
-    <string name="update_connecting_github">Connecting to GitHub to fetch the latest Halcyon (formerly Ella Music) release.</string>
+    <string name="update_connecting_github">Connecting to GitHub to fetch the latest Halcyon release.</string>
     <string name="update_has_update_summary">Current version v%1$s. Tap to view the latest APK and changelog.</string>
     <string name="update_no_update_summary">Current version v%1$s. No newer release is available right now.</string>
     <string name="update_view_github">View GitHub</string>
@@ -455,6 +455,7 @@
     <string name="settings_replay_gain">ReplayGain leveling</string>
     <string name="settings_replay_gain_summary">Adjust playback volume automatically from audio tags</string>
     <string name="settings_shuffle_mode">Shuffle mode</string>
+    <string name="settings_play_next_mode">Play next mode</string>
     <string name="settings_previous_button">Previous button</string>
     <string name="settings_disable_audio_focus">Disable audio focus</string>
     <string name="settings_disable_audio_focus_summary">When enabled, playback will no longer take audio focus from other apps</string>
@@ -475,6 +476,10 @@
     <string name="settings_shuffle_mode_true_random">True random</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Shuffle the queue and try not to repeat songs within one round</string>
     <string name="settings_shuffle_mode_true_random_summary">Pick songs randomly every time, so repeats can happen back to back</string>
+    <string name="settings_play_next_mode_reverse_stack">Reverse stack</string>
+    <string name="settings_play_next_mode_forward_stack">Forward stack</string>
+    <string name="settings_play_next_mode_reverse_stack_summary">Each new song is inserted directly after the current song</string>
+    <string name="settings_play_next_mode_forward_stack_summary">Songs added in sequence keep the same order after the current song</string>
     <string name="settings_previous_button_previous">Previous song</string>
     <string name="settings_previous_button_replay_current">Replay current song</string>
     <string name="settings_previous_button_previous_summary">Always switch to the previous song in the queue</string>
@@ -678,6 +683,8 @@
     <string name="library_search_no_results">No matching results</string>
     <string name="library_search_no_duplicates">No duplicate songs with the same title and album were found</string>
     <string name="library_search_song_unit">songs</string>
+    <string name="library_search_song_count_unit">songs</string>
+    <string name="library_search_artist_summary">%1$d songs · %2$d participated albums</string>
     <string name="library_search_lyric_prefix">Lyrics: </string>
     <string name="rating_filter_all">All ratings</string>
     <string name="rating_filter_star">%1$d stars</string>

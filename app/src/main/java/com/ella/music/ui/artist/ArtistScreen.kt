@@ -107,7 +107,6 @@ import top.yukonga.miuix.kmp.icon.extended.MapAlbum
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -326,7 +325,7 @@ fun ArtistScreen(
                                 selectionMode = true
                                 selectedIds = selectedIds + song.id
                             },
-                            onAddToQueue = { playerViewModel.addToPlaylist(song) },
+                            onPlayNext = { playerViewModel.playNext(song) },
                             onMore = { actionSong = song }
                         )
                     }
@@ -421,7 +420,7 @@ fun ArtistScreen(
             },
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(end = 64.dp, top = 8.dp)
+                .padding(end = 56.dp, top = 8.dp)
                 .size(48.dp)
                 .align(Alignment.TopEnd)
         ) {
@@ -458,7 +457,7 @@ fun ArtistScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             startPadding = 64.dp,
-            endPadding = 112.dp
+            endPadding = 104.dp
         )
 
         if (selectionMode) {
@@ -547,7 +546,7 @@ fun ArtistScreen(
         )
 
         playlistPickerSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.player_add_to_playlist),
@@ -587,7 +586,7 @@ fun ArtistScreen(
         }
 
         playlistPickerSongs?.let { songsToAdd ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.player_add_to_playlist),
@@ -628,7 +627,7 @@ fun ArtistScreen(
         }
 
         tagEditorSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_edit_tags_title),
@@ -646,7 +645,7 @@ fun ArtistScreen(
         }
 
         songInfoSheetSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.player_song_info),
@@ -665,7 +664,7 @@ fun ArtistScreen(
         }
 
         aiInterpretationSong?.let { song ->
-            WindowBottomSheet(
+            EllaMiuixBottomSheet(
                 show = true,
                 enableNestedScroll = false,
                 title = stringResource(R.string.song_more_ai_title),
