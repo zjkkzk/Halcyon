@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">Izinkan asisten AI (seperti Claude) mengontrol pemutaran musik melalui protokol MCP</string>
     <string name="settings_mcp_server_running">Mendengarkan di port %1$d</string>
     <string name="about_summary_reorderable">Komponen daftar seret-untuk-urutkan ulang (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d band</string>
+    <string name="equalizer_bass_boost">Penguat Bass</string>
+    <string name="equalizer_master">Ekualiser</string>
+    <string name="equalizer_preset">Preset</string>
+    <string name="equalizer_preset_custom">Khusus</string>
+    <string name="equalizer_reset">Atur ulang</string>
+    <string name="equalizer_screen_title">Ekualiser</string>
+    <string name="equalizer_section_effects">Efek</string>
+    <string name="equalizer_section_eq">Ekualiser</string>
+    <string name="equalizer_unavailable">Efek audio tidak didukung di perangkat ini, atau mulai pemutaran lalu sesuaikan.</string>
+    <string name="equalizer_virtualizer">Suara Surround</string>
+    <string name="settings_audio_equalizer_summary">Ekualiser, penguat bass, suara surround</string>
+    <string name="settings_font_screen_title">Font</string>
+    <string name="settings_font_settings">Pengaturan font</string>
+    <string name="settings_font_system_empty">Tidak ada font sistem yang ditemukan</string>
+    <string name="settings_font_system_fonts">Font sistem</string>
+    <string name="settings_font_system_pick">Pilih font dari sistem</string>
+    <string name="settings_font_system_pick_title">Pilih font sistem</string>
+    <string name="settings_monet_color">Warna dinamis</string>
+    <string name="settings_monet_color_summary">Gunakan Monet untuk menghasilkan warna aksen global</string>
+    <string name="settings_monet_cover">Sampul lagu</string>
+    <string name="settings_monet_off">Nonaktif</string>
+    <string name="settings_monet_wallpaper">Wallpaper sistem</string>
 </resources>

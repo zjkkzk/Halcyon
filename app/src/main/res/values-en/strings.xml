@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">Allow AI assistants (like Claude) to control music playback via MCP protocol</string>
     <string name="settings_mcp_server_running">Listening on port %1$d</string>
     <string name="about_summary_reorderable">Drag-to-reorder list component (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d bands</string>
+    <string name="equalizer_bass_boost">Bass Boost</string>
+    <string name="equalizer_master">Equalizer</string>
+    <string name="equalizer_preset">Preset</string>
+    <string name="equalizer_preset_custom">Custom</string>
+    <string name="equalizer_reset">Reset</string>
+    <string name="equalizer_screen_title">Equalizer</string>
+    <string name="equalizer_section_effects">Effects</string>
+    <string name="equalizer_section_eq">Equalizer</string>
+    <string name="equalizer_unavailable">Audio effects are not supported on this device, or start playback and then adjust.</string>
+    <string name="equalizer_virtualizer">Surround Sound</string>
+    <string name="settings_audio_equalizer_summary">Equalizer, bass boost, surround sound</string>
+    <string name="settings_font_screen_title">Font</string>
+    <string name="settings_font_settings">Font settings</string>
+    <string name="settings_font_system_empty">No system fonts found</string>
+    <string name="settings_font_system_fonts">System fonts</string>
+    <string name="settings_font_system_pick">Pick a font from the system</string>
+    <string name="settings_font_system_pick_title">Select system font</string>
+    <string name="settings_monet_color">Dynamic color</string>
+    <string name="settings_monet_color_summary">Use Monet to generate the global accent color</string>
+    <string name="settings_monet_cover">Song cover</string>
+    <string name="settings_monet_off">Off</string>
+    <string name="settings_monet_wallpaper">System wallpaper</string>
 </resources>

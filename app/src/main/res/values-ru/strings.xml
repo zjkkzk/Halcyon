@@ -1321,4 +1321,27 @@
     <string name="settings_mcp_server_running">Прослушивание порта %1$d</string>
     <string name="about_summary_reorderable">Компонент списка перетаскивания (Apache-2.0)</string>
 
+    <string name="equalizer_band_count">%1$d полос</string>
+    <string name="equalizer_bass_boost">Усиление баса</string>
+    <string name="equalizer_master">Эквалайзер</string>
+    <string name="equalizer_preset">Пресет</string>
+    <string name="equalizer_preset_custom">Свой</string>
+    <string name="equalizer_reset">Сбросить</string>
+    <string name="equalizer_screen_title">Эквалайзер</string>
+    <string name="equalizer_section_effects">Эффекты</string>
+    <string name="equalizer_section_eq">Эквалайзер</string>
+    <string name="equalizer_unavailable">Аудиоэффекты не поддерживаются на этом устройстве, или начните воспроизведение и затем настройте.</string>
+    <string name="equalizer_virtualizer">Объёмный звук</string>
+    <string name="settings_audio_equalizer_summary">Эквалайзер, усиление баса, объёмный звук</string>
+    <string name="settings_font_screen_title">Шрифт</string>
+    <string name="settings_font_settings">Настройки шрифта</string>
+    <string name="settings_font_system_empty">Системные шрифты не найдены</string>
+    <string name="settings_font_system_fonts">Системные шрифты</string>
+    <string name="settings_font_system_pick">Выбрать шрифт из системы</string>
+    <string name="settings_font_system_pick_title">Выбор системного шрифта</string>
+    <string name="settings_monet_color">Динамический цвет</string>
+    <string name="settings_monet_color_summary">Использовать Monet для общего акцентного цвета</string>
+    <string name="settings_monet_cover">Обложка</string>
+    <string name="settings_monet_off">Выкл.</string>
+    <string name="settings_monet_wallpaper">Системные обои</string>
 </resources>

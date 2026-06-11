@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">AI 보조자(예: Claude)가 MCP 프로토콜을 통해 음악 재생을 제어하도록 허용합니다.</string>
     <string name="settings_mcp_server_running">포트 %1$d에서 수신 중</string>
     <string name="about_summary_reorderable">드래그하여 재정렬 목록 구성요소(Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d 밴드</string>
+    <string name="equalizer_bass_boost">베이스 부스트</string>
+    <string name="equalizer_master">이퀄라이저</string>
+    <string name="equalizer_preset">프리셋</string>
+    <string name="equalizer_preset_custom">사용자 지정</string>
+    <string name="equalizer_reset">초기화</string>
+    <string name="equalizer_screen_title">이퀄라이저</string>
+    <string name="equalizer_section_effects">음향 효과</string>
+    <string name="equalizer_section_eq">이퀄라이저</string>
+    <string name="equalizer_unavailable">이 기기는 음향 효과를 지원하지 않거나, 재생을 시작한 후 조절하세요.</string>
+    <string name="equalizer_virtualizer">서라운드</string>
+    <string name="settings_audio_equalizer_summary">이퀄라이저, 베이스 부스트, 서라운드</string>
+    <string name="settings_font_screen_title">글꼴</string>
+    <string name="settings_font_settings">글꼴 설정</string>
+    <string name="settings_font_system_empty">사용 가능한 시스템 글꼴이 없습니다</string>
+    <string name="settings_font_system_fonts">시스템 글꼴</string>
+    <string name="settings_font_system_pick">시스템에서 글꼴 선택</string>
+    <string name="settings_font_system_pick_title">시스템 글꼴 선택</string>
+    <string name="settings_monet_color">동적 색상</string>
+    <string name="settings_monet_color_summary">Monet로 전체 강조 색상 생성</string>
+    <string name="settings_monet_cover">앨범 커버</string>
+    <string name="settings_monet_off">끄기</string>
+    <string name="settings_monet_wallpaper">시스템 배경화면</string>
 </resources>

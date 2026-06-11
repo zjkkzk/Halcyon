@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">Autoriser les assistants IA (comme Claude) à contrôler la lecture musicale via le protocole MCP</string>
     <string name="settings_mcp_server_running">Écoute sur le port %1$d</string>
     <string name="about_summary_reorderable">Composant de liste par glisser-déposer pour réordonner (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d bandes</string>
+    <string name="equalizer_bass_boost">Amplification des basses</string>
+    <string name="equalizer_master">Égaliseur</string>
+    <string name="equalizer_preset">Préréglage</string>
+    <string name="equalizer_preset_custom">Personnalisé</string>
+    <string name="equalizer_reset">Réinitialiser</string>
+    <string name="equalizer_screen_title">Égaliseur</string>
+    <string name="equalizer_section_effects">Effets</string>
+    <string name="equalizer_section_eq">Égaliseur</string>
+    <string name="equalizer_unavailable">Les effets audio ne sont pas pris en charge sur cet appareil, ou lancez la lecture puis réglez-les.</string>
+    <string name="equalizer_virtualizer">Son surround</string>
+    <string name="settings_audio_equalizer_summary">Égaliseur, amplification des basses, son surround</string>
+    <string name="settings_font_screen_title">Police</string>
+    <string name="settings_font_settings">Paramètres de police</string>
+    <string name="settings_font_system_empty">Aucune police système trouvée</string>
+    <string name="settings_font_system_fonts">Polices système</string>
+    <string name="settings_font_system_pick">Choisir une police du système</string>
+    <string name="settings_font_system_pick_title">Sélectionner une police système</string>
+    <string name="settings_monet_color">Couleur dynamique</string>
+    <string name="settings_monet_color_summary">Utiliser Monet pour générer la couleur d\'accentuation globale</string>
+    <string name="settings_monet_cover">Pochette</string>
+    <string name="settings_monet_off">Désactivé</string>
+    <string name="settings_monet_wallpaper">Fond d\'écran système</string>
 </resources>

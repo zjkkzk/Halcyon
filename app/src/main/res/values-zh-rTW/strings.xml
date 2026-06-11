@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">允許 AI 助理（例如 Claude）透過 MCP 協定控制音樂播放</string>
     <string name="settings_mcp_server_running">正在監聽連接埠 %1$d</string>
     <string name="about_summary_reorderable">可拖曳排序列表元件（Apache-2.0）</string>
+    <string name="equalizer_band_count">%1$d 段</string>
+    <string name="equalizer_bass_boost">重低音增強</string>
+    <string name="equalizer_master">等化器</string>
+    <string name="equalizer_preset">預設</string>
+    <string name="equalizer_preset_custom">自訂</string>
+    <string name="equalizer_reset">重設</string>
+    <string name="equalizer_screen_title">等化器</string>
+    <string name="equalizer_section_effects">音效</string>
+    <string name="equalizer_section_eq">等化器</string>
+    <string name="equalizer_unavailable">目前裝置暫不支援音效，或開始播放後再來調整。</string>
+    <string name="equalizer_virtualizer">環繞音效</string>
+    <string name="settings_audio_equalizer_summary">等化器、重低音增強、環繞音效</string>
+    <string name="settings_font_screen_title">字型</string>
+    <string name="settings_font_settings">字型設定</string>
+    <string name="settings_font_system_empty">找不到可用的系統字型</string>
+    <string name="settings_font_system_fonts">系統字型</string>
+    <string name="settings_font_system_pick">從系統中選取字型</string>
+    <string name="settings_font_system_pick_title">選擇系統字型</string>
+    <string name="settings_monet_color">動態取色</string>
+    <string name="settings_monet_color_summary">以 Monet 取色產生全域強調色</string>
+    <string name="settings_monet_cover">歌曲封面</string>
+    <string name="settings_monet_off">關閉</string>
+    <string name="settings_monet_wallpaper">系統桌布</string>
 </resources>

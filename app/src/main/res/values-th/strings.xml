@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">Allow AI assistants (like Claude) to control music playback via MCP protocol</string>
     <string name="settings_mcp_server_running">Listening on port %1$d</string>
     <string name="about_summary_reorderable">Drag-to-reorder list component (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d แบนด์</string>
+    <string name="equalizer_bass_boost">เพิ่มเสียงเบส</string>
+    <string name="equalizer_master">อีควอไลเซอร์</string>
+    <string name="equalizer_preset">พรีเซ็ต</string>
+    <string name="equalizer_preset_custom">กำหนดเอง</string>
+    <string name="equalizer_reset">รีเซ็ต</string>
+    <string name="equalizer_screen_title">อีควอไลเซอร์</string>
+    <string name="equalizer_section_effects">เอฟเฟกต์เสียง</string>
+    <string name="equalizer_section_eq">อีควอไลเซอร์</string>
+    <string name="equalizer_unavailable">อุปกรณ์นี้ไม่รองรับเอฟเฟกต์เสียง หรือเริ่มเล่นก่อนแล้วจึงปรับ</string>
+    <string name="equalizer_virtualizer">เสียงรอบทิศทาง</string>
+    <string name="settings_audio_equalizer_summary">อีควอไลเซอร์ เพิ่มเสียงเบส เสียงรอบทิศทาง</string>
+    <string name="settings_font_screen_title">แบบอักษร</string>
+    <string name="settings_font_settings">ตั้งค่าแบบอักษร</string>
+    <string name="settings_font_system_empty">ไม่พบแบบอักษรของระบบ</string>
+    <string name="settings_font_system_fonts">แบบอักษรของระบบ</string>
+    <string name="settings_font_system_pick">เลือกแบบอักษรจากระบบ</string>
+    <string name="settings_font_system_pick_title">เลือกแบบอักษรของระบบ</string>
+    <string name="settings_monet_color">สีแบบไดนามิก</string>
+    <string name="settings_monet_color_summary">ใช้ Monet สร้างสีเน้นทั้งระบบ</string>
+    <string name="settings_monet_cover">ปกเพลง</string>
+    <string name="settings_monet_off">ปิด</string>
+    <string name="settings_monet_wallpaper">วอลล์เปเปอร์ระบบ</string>
 </resources>

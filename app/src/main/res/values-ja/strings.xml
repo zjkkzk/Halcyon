@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">AI アシスタント（Claude など）が MCP プロトコル経由で音楽再生を制御できるようにします</string>
     <string name="settings_mcp_server_running">ポート %1$d でリッスン中</string>
     <string name="about_summary_reorderable">ドラッグ可能な並べ替えリストコンポーネント（Apache-2.0）</string>
+    <string name="equalizer_band_count">%1$d バンド</string>
+    <string name="equalizer_bass_boost">低音増強</string>
+    <string name="equalizer_master">イコライザー</string>
+    <string name="equalizer_preset">プリセット</string>
+    <string name="equalizer_preset_custom">カスタム</string>
+    <string name="equalizer_reset">リセット</string>
+    <string name="equalizer_screen_title">イコライザー</string>
+    <string name="equalizer_section_effects">音響効果</string>
+    <string name="equalizer_section_eq">イコライザー</string>
+    <string name="equalizer_unavailable">このデバイスは音響効果に対応していないか、再生を開始してから調整してください。</string>
+    <string name="equalizer_virtualizer">サラウンド</string>
+    <string name="settings_audio_equalizer_summary">イコライザー、低音増強、サラウンド</string>
+    <string name="settings_font_screen_title">フォント</string>
+    <string name="settings_font_settings">フォント設定</string>
+    <string name="settings_font_system_empty">利用可能なシステムフォントが見つかりません</string>
+    <string name="settings_font_system_fonts">システムフォント</string>
+    <string name="settings_font_system_pick">システムからフォントを選択</string>
+    <string name="settings_font_system_pick_title">システムフォントを選択</string>
+    <string name="settings_monet_color">ダイナミックカラー</string>
+    <string name="settings_monet_color_summary">Monet で全体のアクセントカラーを生成</string>
+    <string name="settings_monet_cover">アルバムアート</string>
+    <string name="settings_monet_off">オフ</string>
+    <string name="settings_monet_wallpaper">システムの壁紙</string>
 </resources>

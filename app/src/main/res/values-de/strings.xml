@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">KI-Assistenten wie Claude erlauben, die Musikwiedergabe über das MCP-Protokoll zu steuern</string>
     <string name="settings_mcp_server_running">Lauscht auf Port %1$d</string>
     <string name="about_summary_reorderable">Listenkomponente zum Ziehen und Neuordnen (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d Bänder</string>
+    <string name="equalizer_bass_boost">Bassverstärkung</string>
+    <string name="equalizer_master">Equalizer</string>
+    <string name="equalizer_preset">Voreinstellung</string>
+    <string name="equalizer_preset_custom">Benutzerdefiniert</string>
+    <string name="equalizer_reset">Zurücksetzen</string>
+    <string name="equalizer_screen_title">Equalizer</string>
+    <string name="equalizer_section_effects">Effekte</string>
+    <string name="equalizer_section_eq">Equalizer</string>
+    <string name="equalizer_unavailable">Audioeffekte werden auf diesem Gerät nicht unterstützt, oder starte zuerst die Wiedergabe und passe sie dann an.</string>
+    <string name="equalizer_virtualizer">Raumklang</string>
+    <string name="settings_audio_equalizer_summary">Equalizer, Bassverstärkung, Raumklang</string>
+    <string name="settings_font_screen_title">Schriftart</string>
+    <string name="settings_font_settings">Schrifteinstellungen</string>
+    <string name="settings_font_system_empty">Keine Systemschriftarten gefunden</string>
+    <string name="settings_font_system_fonts">Systemschriftarten</string>
+    <string name="settings_font_system_pick">Schriftart aus dem System wählen</string>
+    <string name="settings_font_system_pick_title">Systemschriftart auswählen</string>
+    <string name="settings_monet_color">Dynamische Farbe</string>
+    <string name="settings_monet_color_summary">Mit Monet die globale Akzentfarbe erzeugen</string>
+    <string name="settings_monet_cover">Albumcover</string>
+    <string name="settings_monet_off">Aus</string>
+    <string name="settings_monet_wallpaper">System-Hintergrund</string>
 </resources>

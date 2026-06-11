@@ -1334,4 +1334,27 @@
     <string name="settings_mcp_server_summary">Cho phép trợ lý AI (như Claude) điều khiển phát lại nhạc qua giao thức MCP</string>
     <string name="settings_mcp_server_running">Nghe trên cổng %1$d</string>
     <string name="about_summary_reorderable">Thành phần danh sách kéo để sắp xếp lại (Apache-2.0)</string>
+    <string name="equalizer_band_count">%1$d dải</string>
+    <string name="equalizer_bass_boost">Tăng cường âm trầm</string>
+    <string name="equalizer_master">Bộ chỉnh âm</string>
+    <string name="equalizer_preset">Cài đặt sẵn</string>
+    <string name="equalizer_preset_custom">Tùy chỉnh</string>
+    <string name="equalizer_reset">Đặt lại</string>
+    <string name="equalizer_screen_title">Bộ chỉnh âm</string>
+    <string name="equalizer_section_effects">Hiệu ứng</string>
+    <string name="equalizer_section_eq">Bộ chỉnh âm</string>
+    <string name="equalizer_unavailable">Thiết bị này không hỗ trợ hiệu ứng âm thanh, hoặc hãy bắt đầu phát rồi điều chỉnh.</string>
+    <string name="equalizer_virtualizer">Âm thanh vòm</string>
+    <string name="settings_audio_equalizer_summary">Bộ chỉnh âm, tăng cường âm trầm, âm thanh vòm</string>
+    <string name="settings_font_screen_title">Phông chữ</string>
+    <string name="settings_font_settings">Cài đặt phông chữ</string>
+    <string name="settings_font_system_empty">Không tìm thấy phông chữ hệ thống</string>
+    <string name="settings_font_system_fonts">Phông chữ hệ thống</string>
+    <string name="settings_font_system_pick">Chọn phông chữ từ hệ thống</string>
+    <string name="settings_font_system_pick_title">Chọn phông chữ hệ thống</string>
+    <string name="settings_monet_color">Màu động</string>
+    <string name="settings_monet_color_summary">Dùng Monet để tạo màu nhấn toàn cục</string>
+    <string name="settings_monet_cover">Ảnh bìa bài hát</string>
+    <string name="settings_monet_off">Tắt</string>
+    <string name="settings_monet_wallpaper">Hình nền hệ thống</string>
 </resources>

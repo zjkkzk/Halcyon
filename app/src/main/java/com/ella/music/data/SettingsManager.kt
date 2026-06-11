@@ -1472,8 +1472,16 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_HOME_AI_MIX_VISIBLE)
             setBoolean(KEY_MCP_SERVER_ENABLED)
             setBoolean(KEY_SLEEP_TIMER_STOP_AFTER_CURRENT)
+            setBoolean(KEY_EQ_ENABLED)
+            setBoolean(KEY_BASS_BOOST_ENABLED)
+            setBoolean(KEY_VIRTUALIZER_ENABLED)
+            setBoolean(KEY_LYRIC_SHARE_USE_LYRIC_FONT)
 
             setInt(KEY_THEME_MODE)
+            setInt(KEY_MONET_COLOR_MODE)
+            setInt(KEY_EQ_PRESET)
+            setInt(KEY_BASS_BOOST_STRENGTH)
+            setInt(KEY_VIRTUALIZER_STRENGTH)
             setInt(KEY_MIN_DURATION)
             setInt(KEY_SHUFFLE_MODE)
             setInt(KEY_PREVIOUS_BUTTON_ACTION)
@@ -1561,6 +1569,7 @@ class SettingsManager(private val context: Context) {
             setString(KEY_BOTTOM_DOCK_ITEMS)
             setString(KEY_LYRIC_OFFSET_OVERRIDES)
             setString(KEY_PLAYLIST_CUSTOM_ORDER)
+            setString(KEY_EQ_BANDS)
 
             fun clearMissingCustomImage(
                 enabledKey: Preferences.Key<Boolean>,

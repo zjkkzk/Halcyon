@@ -1321,4 +1321,27 @@
     <string name="settings_mcp_server_running">%1$d bağlantı noktasında dinleme</string>
     <string name="about_summary_reorderable">Yeniden sıralamak için sürükleyin liste bileşeni (Apache-2.0)</string>
 
+    <string name="equalizer_band_count">%1$d bant</string>
+    <string name="equalizer_bass_boost">Bas Güçlendirme</string>
+    <string name="equalizer_master">Ekolayzer</string>
+    <string name="equalizer_preset">Hazır ayar</string>
+    <string name="equalizer_preset_custom">Özel</string>
+    <string name="equalizer_reset">Sıfırla</string>
+    <string name="equalizer_screen_title">Ekolayzer</string>
+    <string name="equalizer_section_effects">Efektler</string>
+    <string name="equalizer_section_eq">Ekolayzer</string>
+    <string name="equalizer_unavailable">Bu cihaz ses efektlerini desteklemiyor veya oynatmayı başlatıp sonra ayarlayın.</string>
+    <string name="equalizer_virtualizer">Surround Ses</string>
+    <string name="settings_audio_equalizer_summary">Ekolayzer, bas güçlendirme, surround ses</string>
+    <string name="settings_font_screen_title">Yazı tipi</string>
+    <string name="settings_font_settings">Yazı tipi ayarları</string>
+    <string name="settings_font_system_empty">Sistem yazı tipi bulunamadı</string>
+    <string name="settings_font_system_fonts">Sistem yazı tipleri</string>
+    <string name="settings_font_system_pick">Sistemden yazı tipi seç</string>
+    <string name="settings_font_system_pick_title">Sistem yazı tipi seç</string>
+    <string name="settings_monet_color">Dinamik renk</string>
+    <string name="settings_monet_color_summary">Genel vurgu rengini oluşturmak için Monet kullan</string>
+    <string name="settings_monet_cover">Şarkı kapağı</string>
+    <string name="settings_monet_off">Kapalı</string>
+    <string name="settings_monet_wallpaper">Sistem duvar kağıdı</string>
 </resources>
