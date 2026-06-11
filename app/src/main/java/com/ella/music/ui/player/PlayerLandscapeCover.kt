@@ -116,18 +116,18 @@ internal fun LandscapeCoverPlayerPage(
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .weight(0.33f),
+                    .weight(0.38f),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.TopCenter
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .fillMaxWidth(0.88f)
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center
@@ -159,6 +159,7 @@ internal fun LandscapeCoverPlayerPage(
                         titleFontSize = 20.sp,
                         artistFontSize = 12.sp,
                         artistAlpha = 0.56f,
+                        showArtistWithAnnotation = true,
                         onArtistClick = onArtist,
                         modifier = Modifier.weight(1f)
                     )
@@ -206,7 +207,7 @@ internal fun LandscapeCoverPlayerPage(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .weight(0.67f)
+                    .weight(0.62f)
             ) {
                 SmoothLyricView(
                     songId = song?.id ?: 0L,

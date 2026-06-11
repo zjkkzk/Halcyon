@@ -61,6 +61,7 @@ internal fun PlayerSongMetaText(
     artistAlpha: Float,
     modifier: Modifier = Modifier,
     fallbackTitle: String? = null,
+    showArtistWithAnnotation: Boolean = false,
     onArtistClick: (() -> Unit)? = null,
     onAlbumClick: (() -> Unit)? = null
 ) {
@@ -93,7 +94,7 @@ internal fun PlayerSongMetaText(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        if (annotation.isBlank()) {
+        if (annotation.isBlank() || showArtistWithAnnotation) {
             PlayerMarqueeText(
                 text = artist,
                 fontSize = artistFontSize,

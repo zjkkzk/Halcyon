@@ -7,10 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -97,7 +99,17 @@ fun LyricSharePicker(
         listOf(Color(0xFF301E1F), Color(0xFF221F1E), Color(0xFF0D0C0E))
     }
 
-    Box(
+    val onToggleSelection: (Int, Boolean) -> Unit = { index, selected ->
+        selectedIndexes = if (selected) {
+            selectedIndexes - index
+        } else if (selectedIndexes.size >= MAX_SHARE_LINES) {
+            selectedIndexes
+        } else {
+            selectedIndexes + index
+        }
+    }
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -117,123 +129,199 @@ fun LyricSharePicker(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        val landscape = maxWidth > maxHeight
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Back,
-                        contentDescription = stringResource(R.string.common_back),
-                        tint = Color.White
-                    )
+            LyricShareHeader(
+                selectedCount = selectedIndexes.size,
+                shareEnabled = selectedIndexes.isNotEmpty(),
+                onDismiss = onDismiss,
+                onShare = {
+                    selectedIndexes
+                        .sorted()
+                        .mapNotNull(lyrics::getOrNull)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { onShare(it, includeTranslation) }
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.lyric_share_picker_title),
-                        color = Color.White,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.lyric_share_selected_count,
-                            selectedIndexes.size,
-                            MAX_SHARE_LINES
-                        ),
-                        color = Color.White.copy(alpha = 0.56f),
-                        fontSize = 12.sp
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        selectedIndexes
-                            .sorted()
-                            .mapNotNull(lyrics::getOrNull)
-                            .takeIf { it.isNotEmpty() }
-                            ?.let { onShare(it, includeTranslation) }
-                    }
-                ) {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Share,
-                        contentDescription = stringResource(R.string.common_share),
-                        tint = if (selectedIndexes.isEmpty()) Color.White.copy(alpha = 0.34f) else Color.White
-                    )
-                }
-            }
-
-            LyricSharePreviewCard(
-                song = song,
-                annotation = annotation,
-                customInfo = customInfo,
-                cover = cover,
-                colors = colors,
-                lines = selectedLines,
-                shareTypeface = shareTypeface,
-                includeTranslation = includeTranslation,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
             )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White.copy(alpha = 0.10f))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.lyric_share_include_translation),
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(R.string.lyric_share_include_translation_summary),
-                        color = Color.White.copy(alpha = 0.56f),
-                        fontSize = 12.sp
-                    )
+            if (landscape) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LyricSharePreviewCard(
+                            song = song,
+                            annotation = annotation,
+                            customInfo = customInfo,
+                            cover = cover,
+                            colors = colors,
+                            lines = selectedLines,
+                            shareTypeface = shareTypeface,
+                            includeTranslation = includeTranslation,
+                            fitHeight = true,
+                            modifier = Modifier.fillMaxHeight()
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        LyricShareTranslationToggle(
+                            includeTranslation = includeTranslation,
+                            onToggle = { includeTranslation = it }
+                        )
+                        LyricShareLineList(
+                            lyrics = lyrics,
+                            selectedIndexes = selectedIndexes,
+                            listState = listState,
+                            onToggleSelection = onToggleSelection,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                    }
                 }
-                Switch(
-                    checked = includeTranslation,
-                    onCheckedChange = { includeTranslation = it }
+            } else {
+                LyricSharePreviewCard(
+                    song = song,
+                    annotation = annotation,
+                    customInfo = customInfo,
+                    cover = cover,
+                    colors = colors,
+                    lines = selectedLines,
+                    shareTypeface = shareTypeface,
+                    includeTranslation = includeTranslation,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+                LyricShareTranslationToggle(
+                    includeTranslation = includeTranslation,
+                    onToggle = { includeTranslation = it }
+                )
+                LyricShareLineList(
+                    lyrics = lyrics,
+                    selectedIndexes = selectedIndexes,
+                    listState = listState,
+                    onToggleSelection = onToggleSelection,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 )
             }
-
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(lyrics) { index, line ->
-                    val selected = index in selectedIndexes
-                    LyricSharePickerRow(
-                        line = line,
-                        selected = selected,
-                        onClick = {
-                            selectedIndexes = if (selected) {
-                                selectedIndexes - index
-                            } else if (selectedIndexes.size >= MAX_SHARE_LINES) {
-                                selectedIndexes
-                            } else {
-                                selectedIndexes + index
-                            }
-                        }
-                    )
-                }
-                item { Spacer(modifier = Modifier.height(18.dp)) }
-            }
         }
+    }
+}
+
+@Composable
+private fun LyricShareHeader(
+    selectedCount: Int,
+    shareEnabled: Boolean,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = MiuixIcons.Regular.Back,
+                contentDescription = stringResource(R.string.common_back),
+                tint = Color.White
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.lyric_share_picker_title),
+                color = Color.White,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(
+                    R.string.lyric_share_selected_count,
+                    selectedCount,
+                    MAX_SHARE_LINES
+                ),
+                color = Color.White.copy(alpha = 0.56f),
+                fontSize = 12.sp
+            )
+        }
+        IconButton(onClick = onShare) {
+            Icon(
+                imageVector = MiuixIcons.Regular.Share,
+                contentDescription = stringResource(R.string.common_share),
+                tint = if (!shareEnabled) Color.White.copy(alpha = 0.34f) else Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun LyricShareTranslationToggle(
+    includeTranslation: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = 0.10f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.lyric_share_include_translation),
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.lyric_share_include_translation_summary),
+                color = Color.White.copy(alpha = 0.56f),
+                fontSize = 12.sp
+            )
+        }
+        Switch(
+            checked = includeTranslation,
+            onCheckedChange = onToggle
+        )
+    }
+}
+
+@Composable
+private fun LyricShareLineList(
+    lyrics: List<LyricLine>,
+    selectedIndexes: Set<Int>,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    onToggleSelection: (Int, Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        state = listState,
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        itemsIndexed(lyrics) { index, line ->
+            val selected = index in selectedIndexes
+            LyricSharePickerRow(
+                line = line,
+                selected = selected,
+                onClick = { onToggleSelection(index, selected) }
+            )
+        }
+        item { Spacer(modifier = Modifier.height(18.dp)) }
     }
 }
 
@@ -310,6 +398,7 @@ private fun LyricSharePreviewCard(
     lines: List<LyricLine>,
     shareTypeface: android.graphics.Typeface?,
     includeTranslation: Boolean,
+    fitHeight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -347,6 +436,9 @@ private fun LyricSharePreviewCard(
         contentDescription = null,
         modifier = modifier
             .clip(RoundedCornerShape(28.dp))
-            .aspectRatio(layout.canvasWidth.toFloat() / layout.adaptiveCanvasHeight.toFloat())
+            .aspectRatio(
+                ratio = layout.canvasWidth.toFloat() / layout.adaptiveCanvasHeight.toFloat(),
+                matchHeightConstraintsFirst = fitHeight
+            )
     )
 }
