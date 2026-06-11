@@ -14,10 +14,25 @@ internal fun miniLyricsPreviewHeight(
     showPronunciation: Boolean,
     compact: Boolean = false
 ) = when (line?.miniVisiblePartCount(showTranslation, showPronunciation) ?: 1) {
-    0, 1 -> if (compact) 132.dp else 168.dp
+    // Single-line (e.g. Chinese only): keep a tall area and let the tighter line gap fit 5 lines.
+    0, 1 -> if (compact) 150.dp else 186.dp
     2 -> if (compact) 150.dp else 190.dp
     3 -> if (compact) 162.dp else 206.dp
     else -> if (compact) 170.dp else 214.dp
+}
+
+/**
+ * Height for the lyric preview in a cramped floating window: just enough for the current line
+ * (plus its translation/pronunciation), so the transport controls below stay on-screen.
+ */
+internal fun miniLyricsCompactHeight(
+    line: LyricLine?,
+    showTranslation: Boolean,
+    showPronunciation: Boolean
+) = when (line?.miniVisiblePartCount(showTranslation, showPronunciation) ?: 1) {
+    0, 1 -> 40.dp
+    2 -> 60.dp
+    else -> 78.dp
 }
 
 @Composable
@@ -34,12 +49,21 @@ internal fun MiniLyricsPreview(
     fontPath: String = "",
     fontWeight: FontWeight = FontWeight.ExtraBold,
     fontScale: Float = 1f,
+    compact: Boolean = false,
     onLineClick: (LyricLine) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val safeIndex = currentIndex.takeIf { it in lyrics.indices }
         ?: lyrics.indexOfFirst { it.hasMiniLyric() }.takeIf { it >= 0 }
         ?: return
+    // When only the main line shows (e.g. Chinese with no translation/pronunciation), tighten the
+    // line gap so the preview fits ~5 lines instead of ~4.
+    val singleLinePreview = compact || (lyrics.getOrNull(safeIndex)
+        ?.miniVisiblePartCount(showTranslation, showPronunciation) ?: 1) <= 1
+    // In a cramped floating window, shrink the type so long (e.g. English) lines fit the narrow
+    // width instead of overflowing, and take less vertical room.
+    val primarySizeSp = if (compact) 15.5f else 19f
+    val secondarySizeSp = if (compact) 11.5f else 13.5f
     SmoothLyricView(
         songId = songId,
         songTitle = songTitle,
@@ -53,14 +77,15 @@ internal fun MiniLyricsPreview(
         fontScale = fontScale * 0.92f,
         fontPath = fontPath,
         fontWeight = fontWeight,
-        primaryTextSizeSp = 19f,
-        secondaryTextSizeSp = 13.5f,
+        primaryTextSizeSp = primarySizeSp,
+        secondaryTextSizeSp = secondarySizeSp,
         anchorOffsetRatio = -0.01f,
         topContentPadding = 0.dp,
         onLineClick = onLineClick,
         nonCurrentLineBlurEnabled = false,
         nonCurrentLineBlurDistance = Int.MAX_VALUE,
         autoScrollResumeEnabled = true,
+        lineGapDp = if (singleLinePreview) 4f else null,
         modifier = modifier.fillMaxWidth()
     )
 }

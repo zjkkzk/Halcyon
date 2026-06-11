@@ -147,6 +147,10 @@ internal fun CoverPlayerPage(
     BoxWithConstraints(modifier = modifier) {
         val useWidePlayer = maxWidth > maxHeight && maxWidth >= 700.dp
         val isSmallWindow = maxWidth < 300.dp || (maxWidth < 420.dp && maxHeight < 560.dp)
+        // Tall-but-narrow or short floating windows: the lyric preview overflows and the bottom
+        // transport controls get clipped. Compact the lyrics (smaller, single line) and drop the
+        // visualizer to reclaim vertical space, keeping the 1:1 cover untouched.
+        val compactWindow = !useWidePlayer && (maxHeight < 720.dp || maxWidth < 340.dp)
         val effectiveMiniLyricLine = miniLyricLine.takeUnless { isSmallWindow }
         val showHiResLogo = hiResLogoEnabled && audioInfo?.isHiResLogoTrack() == true
         val showCustomPlayerBackground =
@@ -311,10 +315,17 @@ internal fun CoverPlayerPage(
                                 fontPath = fontPath,
                                 fontWeight = fontWeight,
                                 fontScale = fontScale,
+                                compact = compactWindow,
                                 onLineClick = { onShowLyrics() },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(miniLyricsPreviewHeight(effectiveMiniLyricLine, showTranslation, showPronunciation))
+                                    .height(
+                                        if (compactWindow) {
+                                            miniLyricsCompactHeight(effectiveMiniLyricLine, showTranslation, showPronunciation)
+                                        } else {
+                                            miniLyricsPreviewHeight(effectiveMiniLyricLine, showTranslation, showPronunciation)
+                                        }
+                                    )
                             )
                         }
 
@@ -351,16 +362,18 @@ internal fun CoverPlayerPage(
                             onClearQueue = onClearQueue,
                             modifier = Modifier.height(76.dp)
                         )
-                        AudioVisualizer(
-                            enabled = visualizerEnabled,
-                            audioSessionId = audioSessionId,
-                            isPlaying = isPlaying,
-                            positionMs = currentPosition,
-                            accent = Color.White.copy(alpha = 0.86f),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(30.dp)
-                        )
+                        if (!compactWindow) {
+                            AudioVisualizer(
+                                enabled = visualizerEnabled,
+                                audioSessionId = audioSessionId,
+                                isPlaying = isPlaying,
+                                positionMs = currentPosition,
+                                accent = Color.White.copy(alpha = 0.86f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(30.dp)
+                            )
+                        }
                     }
                 } else {
                     Column(
@@ -434,10 +447,17 @@ internal fun CoverPlayerPage(
                                 fontPath = fontPath,
                                 fontWeight = fontWeight,
                                 fontScale = fontScale,
+                                compact = compactWindow,
                                 onLineClick = { onShowLyrics() },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(miniLyricsPreviewHeight(effectiveMiniLyricLine, showTranslation, showPronunciation, compact = true))
+                                    .height(
+                                        if (compactWindow) {
+                                            miniLyricsCompactHeight(effectiveMiniLyricLine, showTranslation, showPronunciation)
+                                        } else {
+                                            miniLyricsPreviewHeight(effectiveMiniLyricLine, showTranslation, showPronunciation, compact = true)
+                                        }
+                                    )
                             )
                         } else {
                             Spacer(modifier = Modifier.height(12.dp))

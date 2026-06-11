@@ -156,7 +156,7 @@ class RawsLyricView @JvmOverloads constructor(
     private var hlTransColor = Color.argb(200, 255, 255, 255)
     private var dimTransColor = Color.argb(60, 255, 255, 255)
 
-    private val lineGapPx = LINE_GAP_DP * density
+    private var lineGapPx = LINE_GAP_DP * density
     private val linePadTopPx = LINE_PAD_TOP_DP * density
     private val linePadBottomPx = LINE_PAD_BOTTOM_DP * density
     private val transGapPx = TRANS_GAP_DP * density
@@ -554,6 +554,17 @@ class RawsLyricView @JvmOverloads constructor(
             it.onLyricChanged(newList, oldList)
             it.onLyricTextChanged(oldList.joinToString("\n") { l -> l.text ?: "" }, newList.joinToString("\n") { l -> l.text ?: "" })
         }
+        requestLayout()
+        invalidate()
+    }
+
+    /** Override the vertical gap between lyric lines (in dp). Pass a negative value to reset to default. */
+    fun setLineGapDp(dp: Float) {
+        val newGap = if (dp < 0f) LINE_GAP_DP * density else dp * density
+        if (newGap == lineGapPx) return
+        lineGapPx = newGap
+        rebuildEntries()
+        scrollToCurrentLine(false)
         requestLayout()
         invalidate()
     }
