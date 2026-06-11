@@ -17,14 +17,6 @@ internal data class FontChoice(
 
 internal fun collectFontChoices(context: Context): List<FontChoice> {
     val bundledFonts = ensureBundledFontChoices(context)
-    val systemFont = listOf(
-        FontChoice(
-            name = context.getString(R.string.settings_lyric_font_system_default),
-            path = SYSTEM_FONT_PATH,
-            source = context.getString(R.string.settings_lyric_font_source_system),
-            sourceRank = FONT_SOURCE_SYSTEM
-        )
-    )
     val importedDir = File(context.filesDir, IMPORTED_FONT_DIR)
     val importedFonts = importedDir.listFiles()
         ?.asSequence()
@@ -39,10 +31,44 @@ internal fun collectFontChoices(context: Context): List<FontChoice> {
         }
         ?.toList()
         .orEmpty()
-    return (bundledFonts + systemFont + importedFonts)
+    return (bundledFonts + importedFonts)
         .distinctBy { it.path }
         .sortedWith(compareBy<FontChoice> { it.sourceRank }.thenBy { it.name.lowercase() })
 }
+
+/** System fonts: the "system default" pseudo-font plus every readable font file under the system font dirs. */
+internal fun collectSystemFontChoices(context: Context): List<FontChoice> {
+    val choices = mutableListOf(
+        FontChoice(
+            name = context.getString(R.string.settings_lyric_font_system_default),
+            path = SYSTEM_FONT_PATH,
+            source = context.getString(R.string.settings_lyric_font_source_system),
+            sourceRank = FONT_SOURCE_SYSTEM
+        )
+    )
+    val seen = HashSet<String>()
+    SYSTEM_FONT_DIRS.forEach { dirPath ->
+        File(dirPath).listFiles()
+            ?.asSequence()
+            ?.filter { it.isFile && it.extension.lowercase() in SUPPORTED_FONT_EXTENSIONS && it.canRead() }
+            ?.forEach { file ->
+                if (seen.add(file.absolutePath)) {
+                    choices += FontChoice(
+                        name = file.nameWithoutExtension.cleanFontName(context),
+                        path = file.absolutePath,
+                        source = context.getString(R.string.settings_font_system_fonts),
+                        sourceRank = FONT_SOURCE_SYSTEM_FILE
+                    )
+                }
+            }
+    }
+    return choices
+        .distinctBy { it.path }
+        .sortedWith(compareBy<FontChoice> { it.sourceRank }.thenBy { it.name.lowercase() })
+}
+
+internal fun isSystemFontPath(path: String): Boolean =
+    path == SYSTEM_FONT_PATH || path.startsWith("/system/") || path.startsWith("/product/")
 
 internal fun String.toFontFamilyOrNull(weight: Int, italic: Boolean): FontFamily? {
     if (this == SYSTEM_FONT_PATH) {
@@ -141,7 +167,9 @@ private const val MISANS_VF_ASSET_PATH = "fonts/MiSans-Semibold.ttf"
 private const val FONT_SOURCE_BUNDLED = 0
 private const val FONT_SOURCE_SYSTEM = 1
 internal const val FONT_SOURCE_IMPORTED = 2
+private const val FONT_SOURCE_SYSTEM_FILE = 3
 const val SYSTEM_FONT_PATH = "__system_default__"
+private val SYSTEM_FONT_DIRS = listOf("/system/fonts", "/product/fonts", "/system/font")
 private val SUPPORTED_FONT_EXTENSIONS = setOf("ttf", "otf", "ttc")
 internal val SUPPORTED_FONT_MIME_TYPES = arrayOf(
     "font/ttf",

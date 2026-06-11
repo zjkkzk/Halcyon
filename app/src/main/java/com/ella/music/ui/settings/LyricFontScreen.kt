@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.player.DesktopLyricService
@@ -40,7 +43,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -56,11 +61,17 @@ fun LyricFontScreen(
     val lyricFontWeight by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     val lyricFontItalic by settingsManager.lyricFontItalic.collectAsState(initial = false)
     var fonts by remember { mutableStateOf<List<FontChoice>>(emptyList()) }
+    var systemFonts by remember { mutableStateOf<List<FontChoice>>(emptyList()) }
+    var showSystemFontPicker by remember { mutableStateOf(false) }
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = if (isDark) Color(0xFF101014) else Color(0xFFF4F4F7)
+    val currentSystemFont = remember(selectedFontPath, systemFonts) {
+        systemFonts.firstOrNull { it.path == selectedFontPath }
+    }
 
     LaunchedEffect(Unit) {
         fonts = withContext(Dispatchers.IO) { collectFontChoices(context) }
+        systemFonts = withContext(Dispatchers.IO) { collectSystemFontChoices(context) }
     }
     LaunchedEffect(lyricFontItalic) {
         if (lyricFontItalic) settingsManager.setLyricFontItalic(false)
@@ -93,7 +104,7 @@ fun LyricFontScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         EllaSmallTopAppBar(
-            title = stringResource(R.string.settings_lyric_font),
+            title = stringResource(R.string.settings_font_screen_title),
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -122,20 +133,6 @@ fun LyricFontScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                SystemDefaultFontCard(
-                    selected = selectedFontPath.isBlank(),
-                    onClick = {
-                        scope.launch {
-                            settingsManager.clearLyricFont()
-                            notifyDesktopLyricFontChanged(context, settingsManager)
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.settings_lyric_font_system_default_applied),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                )
                 LyricFontWeightCard(
                     selectedFontPath = selectedFontPath,
                     lyricFontWeight = lyricFontWeight,
@@ -198,7 +195,59 @@ fun LyricFontScreen(
             }
 
             item {
+                SystemFontEntryCard(
+                    currentSystemFontName = currentSystemFont?.name,
+                    currentSystemFontPath = currentSystemFont?.path,
+                    currentWeight = lyricFontWeight,
+                    onClick = { showSystemFontPicker = true }
+                )
                 Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+
+    if (showSystemFontPicker) {
+        WindowBottomSheet(
+            show = true,
+            enableNestedScroll = false,
+            title = stringResource(R.string.settings_font_system_pick_title),
+            onDismissRequest = { showSystemFontPicker = false }
+        ) {
+            if (systemFonts.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.settings_font_system_empty),
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(18.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .heightIn(max = 480.dp)
+                        .padding(horizontal = 12.dp)
+                ) {
+                    items(systemFonts, key = { it.path }) { font ->
+                        FontChoiceItem(
+                            font = font,
+                            currentWeight = lyricFontWeight,
+                            italic = false,
+                            selected = selectedFontPath == font.path,
+                            onClick = {
+                                scope.launch {
+                                    settingsManager.setLyricFont(font.name, font.path)
+                                    notifyDesktopLyricFontChanged(context, settingsManager)
+                                    showSystemFontPicker = false
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.settings_lyric_font_applied, font.name),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }

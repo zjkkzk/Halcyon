@@ -9,14 +9,13 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 
 @Composable
 internal fun SettingsLyricsSection(
-    onNavigateToLyricFont: () -> Unit,
     playerViewModel: PlayerViewModel?
 ) {
     SmallTitle(text = stringResource(R.string.settings_lyrics))
 
     SettingsCardGroup {
         Column {
-            SettingsMiniLyricsControls(onNavigateToLyricFont = onNavigateToLyricFont)
+            SettingsMiniLyricsControls()
             SettingsLyriconControls(playerViewModel = playerViewModel)
             SettingsDesktopLyricControls(playerViewModel = playerViewModel)
             SettingsLyricOutputControls(playerViewModel = playerViewModel)

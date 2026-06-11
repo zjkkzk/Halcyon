@@ -35,6 +35,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import com.ella.music.ui.components.EllaSmallTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 enum class SettingsDetailMode {
@@ -59,6 +60,7 @@ fun SettingsDetailScreen(
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val pageBackground = if (isDark) Color(0xFF101014) else Color(0xFFF4F4F7)
 
+    val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val homeSectionOrder by settingsManager.homeSectionOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_SECTION_ORDER)
     val homeHiddenSections by settingsManager.homeHiddenSections.collectAsState(initial = "")
     val homeLibraryTileOrder by settingsManager.homeLibraryTileOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
@@ -155,6 +157,13 @@ fun SettingsDetailScreen(
             when (effectiveMode) {
                 SettingsDetailMode.AppearanceHome -> {
                     SettingsAppearanceSection()
+                    SettingsCardGroup {
+                        ArrowPreference(
+                            title = stringResource(R.string.settings_font_settings),
+                            summary = lyricFontName.ifBlank { stringResource(R.string.settings_system_default) },
+                            onClick = onNavigateToLyricFont
+                        )
+                    }
                     SettingsHomeCustomizeSection(
                         onOpenHomeDisplay = { showHomeDisplayPage = true }
                     )
@@ -173,7 +182,6 @@ fun SettingsDetailScreen(
                 }
                 SettingsDetailMode.Lyrics -> {
                     SettingsLyricsSection(
-                        onNavigateToLyricFont = onNavigateToLyricFont,
                         playerViewModel = playerViewModel
                     )
                     SettingsLyricShareSection()

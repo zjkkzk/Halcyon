@@ -11,14 +11,11 @@ import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
 @Composable
-internal fun SettingsMiniLyricsControls(
-    onNavigateToLyricFont: () -> Unit
-) {
+internal fun SettingsMiniLyricsControls() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -27,7 +24,6 @@ internal fun SettingsMiniLyricsControls(
     val miniPlayerRightButton by settingsManager.miniPlayerRightButton.collectAsState(initial = 0)
     val miniPlayerLyricsEnabled by settingsManager.miniPlayerLyricsEnabled.collectAsState(initial = true)
     val lyricSourcePriority by settingsManager.lyricSourcePriority.collectAsState(initial = SettingsManager.DEFAULT_LYRIC_SOURCE_PRIORITY)
-    val lyricFontName by settingsManager.lyricFontName.collectAsState(initial = "")
     val ignoreSplMetadataLines by settingsManager.ignoreSplMetadataLines.collectAsState(initial = false)
 
     val statusLyricSecondaryLabels = listOf(
@@ -86,12 +82,6 @@ internal fun SettingsMiniLyricsControls(
         onSelectedIndexChange = { index ->
             scope.launch { settingsManager.setMiniPlayerRightButton(index) }
         }
-    )
-
-    ArrowPreference(
-        title = stringResource(R.string.settings_lyric_font),
-        summary = lyricFontName.ifBlank { stringResource(R.string.settings_system_default) },
-        onClick = onNavigateToLyricFont
     )
 
     SwitchPreference(

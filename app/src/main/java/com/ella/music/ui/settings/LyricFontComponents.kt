@@ -27,6 +27,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -114,6 +115,62 @@ internal fun LyricFontWeightCard(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun SystemFontEntryCard(
+    currentSystemFontName: String?,
+    currentSystemFontPath: String?,
+    currentWeight: Int,
+    onClick: () -> Unit
+) {
+    val previewFamily = remember(currentSystemFontPath, currentWeight) {
+        currentSystemFontPath?.toFontFamilyOrNull(currentWeight, false)
+    }
+    Card(
+        modifier = Modifier.padding(vertical = 4.dp),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_font_system_fonts),
+                    fontSize = 12.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                )
+                Text(
+                    text = currentSystemFontName ?: stringResource(R.string.settings_font_system_pick),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = previewFamily,
+                    color = MiuixTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                if (currentSystemFontName != null) {
+                    Text(
+                        text = stringResource(R.string.settings_font_system_pick),
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+            Icon(
+                imageVector = MiuixIcons.Basic.ArrowRight,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
