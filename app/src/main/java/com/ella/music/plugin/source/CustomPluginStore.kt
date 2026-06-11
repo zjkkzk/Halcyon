@@ -24,6 +24,11 @@ class CustomPluginStore(
             .mapNotNull { dir -> runCatching { loadPlugin(dir) }.getOrNull() }
     }
 
+    suspend fun deletePlugin(id: String): Boolean = withContext(Dispatchers.IO) {
+        val dir = File(rootDir, id.safeFileName())
+        dir.isDirectory && dir.deleteRecursively()
+    }
+
     suspend fun importPluginZip(uri: Uri): PluginManifest = withContext(Dispatchers.IO) {
         rootDir.mkdirs()
         val tempDir = File(context.cacheDir, "lyrico_plugin_import_${System.currentTimeMillis()}")

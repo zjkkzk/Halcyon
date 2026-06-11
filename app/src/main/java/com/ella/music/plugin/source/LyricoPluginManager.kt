@@ -20,6 +20,8 @@ class LyricoPluginManager(
 
     suspend fun importPluginZip(uri: Uri) = customStore.importPluginZip(uri)
 
+    suspend fun deletePlugin(id: String): Boolean = customStore.deletePlugin(id)
+
     suspend fun enabledSources(): List<BuiltInPluginSource> {
         val sources = availableSources()
         val enabledIds = settingsManager.lyricoPluginEnabledIds.first()
