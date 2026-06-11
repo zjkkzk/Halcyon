@@ -23,6 +23,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,9 +167,18 @@ fun EllaMiuixTextField(
     } else {
         Modifier
     }
+    // Drive the field through a TextFieldValue so a pre-filled value (e.g. rename) starts with the
+    // caret at the end instead of position 0. External value changes also reset the caret to the end.
+    var fieldValue by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    if (value != fieldValue.text) {
+        fieldValue = TextFieldValue(value, TextRange(value.length))
+    }
     TextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = fieldValue,
+        onValueChange = {
+            fieldValue = it
+            if (it.text != value) onValueChange(it.text)
+        },
         label = label,
         useLabelAsPlaceholder = true,
         singleLine = singleLine,
