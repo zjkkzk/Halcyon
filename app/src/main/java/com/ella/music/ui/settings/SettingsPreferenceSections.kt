@@ -145,20 +145,11 @@ internal fun SettingsLyricShareSection() {
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val lyricShareCustomInfo by settingsManager.lyricShareCustomInfo.collectAsState(initial = "")
-    val lyricShareUseLyricFont by settingsManager.lyricShareUseLyricFont.collectAsState(initial = false)
 
     SmallTitle(text = stringResource(R.string.settings_lyric_share_card))
 
     SettingsCardGroup {
         Column {
-            SwitchPreference(
-                title = stringResource(R.string.settings_lyric_share_use_lyric_font),
-                summary = stringResource(R.string.settings_lyric_share_use_lyric_font_summary),
-                checked = lyricShareUseLyricFont,
-                onCheckedChange = { value ->
-                    scope.launch { settingsManager.setLyricShareUseLyricFont(value) }
-                }
-            )
             SplitSettingTextField(
                 label = stringResource(R.string.settings_lyric_share_custom_info),
                 value = lyricShareCustomInfo,

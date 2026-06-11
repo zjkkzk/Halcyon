@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -60,6 +61,7 @@ fun LyricFontScreen(
     val selectedFontPath by settingsManager.lyricFontPath.collectAsState(initial = "")
     val lyricFontWeight by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     val lyricFontItalic by settingsManager.lyricFontItalic.collectAsState(initial = false)
+    val lyricShareUseLyricFont by settingsManager.lyricShareUseLyricFont.collectAsState(initial = false)
     var fonts by remember { mutableStateOf<List<FontChoice>>(emptyList()) }
     var systemFonts by remember { mutableStateOf<List<FontChoice>>(emptyList()) }
     var showSystemFontPicker by remember { mutableStateOf(false) }
@@ -133,6 +135,16 @@ fun LyricFontScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(8.dp))
+                SettingsCardGroup {
+                    SwitchPreference(
+                        title = stringResource(R.string.settings_lyric_share_use_lyric_font),
+                        summary = stringResource(R.string.settings_lyric_share_use_lyric_font_summary),
+                        checked = lyricShareUseLyricFont,
+                        onCheckedChange = { value ->
+                            scope.launch { settingsManager.setLyricShareUseLyricFont(value) }
+                        }
+                    )
+                }
                 LyricFontWeightCard(
                     selectedFontPath = selectedFontPath,
                     lyricFontWeight = lyricFontWeight,
