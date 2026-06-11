@@ -43,10 +43,6 @@ object AudioTagReader {
                 // 处理属性 Map
                 val props = metadata.propertyMap
 
-                props.forEach{(key, value) ->
-                    Log.d(TAG, "Read tag: $key = ${value.joinToString()}")
-                }
-
                 fun firstOf(vararg keys: String): String? {
                     for (key in keys) {
                         val arr = props[key]

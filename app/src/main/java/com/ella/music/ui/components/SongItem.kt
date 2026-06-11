@@ -130,7 +130,7 @@ fun SongItem(
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
                     contentScale = ContentScale.Crop,
-                    sizePx = 128,
+                    sizePx = 512,
                     showDefaultPlaceholder = false
                 )
             } else {
