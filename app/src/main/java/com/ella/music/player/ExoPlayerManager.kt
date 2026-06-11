@@ -214,6 +214,13 @@ class ExoPlayerManager(private val context: Context) {
 
             override fun onRepeatModeChanged(repeatMode: Int) {
                 _repeatMode.value = repeatMode
+                // The combined playback-mode button in the media notification changes the app-level
+                // shuffle flag (persisted, not part of Media3 state) together with the repeat mode.
+                // Re-read it here so the player page stays in sync with notification-driven changes.
+                val persistedShuffle = loadAppShuffleEnabled()
+                if (_shuffleEnabled.value != persistedShuffle) {
+                    _shuffleEnabled.value = persistedShuffle
+                }
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {

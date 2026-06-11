@@ -409,6 +409,9 @@ class PlaybackService : MediaLibraryService() {
     )
 
     private fun Player.notificationPlaybackModeAction(): MediaButtonPlaybackModeAction {
+        // The player page persists the app shuffle flag out-of-band; refresh from it so the
+        // notification icon reflects changes made on the player page.
+        appShuffleEnabled = loadAppShuffleEnabled()
         return when {
             appShuffleEnabled -> MediaButtonPlaybackModeAction(
                 icon = R.drawable.ic_notification_shuffle,
@@ -433,6 +436,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun Player.cycleNotificationPlaybackMode() {
+        // Start from the latest persisted shuffle flag (the player page may have changed it).
+        appShuffleEnabled = loadAppShuffleEnabled()
         when {
             appShuffleEnabled -> {
                 appShuffleEnabled = false
