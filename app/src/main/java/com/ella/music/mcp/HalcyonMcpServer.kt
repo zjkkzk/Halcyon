@@ -99,12 +99,13 @@ class HalcyonMcpServer(
         ) { _ ->
             val song = playerManager.currentSong.value
                 ?: return@addTool ok("""{"status":"idle"}""")
+            val positionMs = onMain { playerManager.livePositionMs() }
             val result = buildJsonObject {
                 put("title", JsonPrimitive(song.title))
                 put("artist", JsonPrimitive(song.artist))
                 put("album", JsonPrimitive(song.album))
                 put("is_playing", JsonPrimitive(playerManager.isPlaying.value))
-                put("position_ms", JsonPrimitive(playerManager.currentPosition.value))
+                put("position_ms", JsonPrimitive(positionMs))
                 put("duration_ms", JsonPrimitive(playerManager.duration.value))
             }
             ok(json.encodeToString(JsonObject.serializer(), result))
