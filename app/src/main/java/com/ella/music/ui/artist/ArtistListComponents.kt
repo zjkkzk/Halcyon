@@ -32,6 +32,7 @@ import com.ella.music.ui.components.ArtworkUsage
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.SelectionCheck
 import com.ella.music.ui.components.toFastIndexSection
+import com.ella.music.ui.folder.musicSortKey
 import com.ella.music.ui.components.rememberSongArtworkState
 import com.ella.music.viewmodel.MainViewModel
 import top.yukonga.miuix.kmp.basic.Icon
@@ -42,7 +43,7 @@ import top.yukonga.miuix.kmp.icon.extended.Pin
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal fun Artist.indexLetter(): String {
-    return name.toFastIndexSection()
+    return name.musicSortKey().toFastIndexSection()
 }
 
 @Composable

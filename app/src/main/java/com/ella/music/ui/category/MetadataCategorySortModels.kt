@@ -52,7 +52,7 @@ internal fun MetadataCategorySortMode.displayLabel(type: String): String {
 
 internal fun List<MetadataCategoryItem>.sortedForCategory(mode: MetadataCategorySortMode): List<MetadataCategoryItem> {
     return when (mode) {
-        MetadataCategorySortMode.Name -> sortedBy { it.name.lowercase(Locale.ROOT) }
+        MetadataCategorySortMode.Name -> sortedBy { it.name.musicSortKey() }
         MetadataCategorySortMode.NameDesc -> sortedByDescending { it.name.toIntOrNull() ?: Int.MIN_VALUE }
         MetadataCategorySortMode.SongCount -> sortedByDescending { it.songCount }
         MetadataCategorySortMode.AlbumCount -> sortedByDescending { it.albumCount }

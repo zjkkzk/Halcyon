@@ -1,6 +1,7 @@
 package com.ella.music.ui.artist
 
 import com.ella.music.ui.components.EllaMiuixBottomSheet
+import com.ella.music.ui.folder.musicSortKey
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -234,7 +235,7 @@ fun ArtistListScreen(
             artists.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
         val sorted = when (sortMode) {
-            ArtistSortMode.Name -> filtered.sortedBy { it.name.lowercase() }
+            ArtistSortMode.Name -> filtered.sortedBy { it.name.musicSortKey() }
             ArtistSortMode.SongCount -> filtered.sortedByDescending { it.songCount }
             ArtistSortMode.AlbumCount -> filtered.sortedByDescending { it.albumCount }
             ArtistSortMode.ReleaseAlbumCount -> filtered.sortedByDescending { releaseAlbumCounts[it.name.tagIdentityKey()] ?: 0 }
