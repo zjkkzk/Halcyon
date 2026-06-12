@@ -161,6 +161,7 @@ internal fun LandscapeCoverPlayerPage(
                         artistFontSize = 12.sp,
                         artistAlpha = 0.56f,
                         showArtistWithAnnotation = true,
+                        contentColor = palette.onBackground,
                         onArtistClick = onArtist,
                         modifier = Modifier.weight(1f)
                     )
@@ -227,6 +228,7 @@ internal fun LandscapeCoverPlayerPage(
                     secondaryTextSizeSp = 14f,
                     anchorOffsetRatio = -0.08f,
                     topContentPadding = 8.dp,
+                    contentColor = palette.onBackground,
                     // A custom wallpaper is a busy background; blurring far lines makes them
                     // unreadable, so keep all lines sharp when one is set.
                     nonCurrentLineBlurEnabled = customBackgroundUri.isBlank(),

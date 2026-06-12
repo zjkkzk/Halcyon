@@ -49,6 +49,7 @@ internal fun SettingsAppearanceSection() {
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
+    val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_DARK)
 
     val themeLabels = listOf(
         stringResource(R.string.theme_follow_system),
@@ -212,6 +213,18 @@ internal fun SettingsAppearanceSection() {
                 selectedIndex = selectedMonetMode,
                 onSelectedIndexChange = { index ->
                     scope.launch { settingsManager.setMonetColorMode(index) }
+                }
+            )
+            WindowSpinnerPreference(
+                title = stringResource(R.string.settings_player_bg_theme),
+                summary = stringResource(
+                    R.string.settings_current_value,
+                    themeLabels[playerBgTheme.coerceIn(themeLabels.indices)]
+                ),
+                items = themeEntries,
+                selectedIndex = playerBgTheme.coerceIn(themeLabels.indices),
+                onSelectedIndexChange = { index ->
+                    scope.launch { settingsManager.setPlayerBackgroundTheme(index) }
                 }
             )
             WindowSpinnerPreference(

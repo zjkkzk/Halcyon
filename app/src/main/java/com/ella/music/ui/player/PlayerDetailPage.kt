@@ -88,7 +88,7 @@ internal fun PlayerDetailPage(
             item {
                 Text(
                     text = stringResource(R.string.player_song_details),
-                    color = Color.White,
+                    color = LocalPlayerContentColor.current,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -162,7 +162,7 @@ internal fun PlayerDetailPage(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.player_netease_section),
-                        color = Color.White.copy(alpha = 0.72f),
+                        color = LocalPlayerContentColor.current.copy(alpha = 0.72f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )

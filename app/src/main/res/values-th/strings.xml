@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">เขียนแท็ก LYRICS ปกติ</string>
     <string name="lyric_match_write_ttml_tag">เขียนแท็ก TTMLLYRIC</string>
     <string name="settings_lyric_plugin_config">ตั้งค่าปลั๊กอิน</string>
+    <string name="settings_player_bg_theme">พื้นหลังเครื่องเล่น</string>
 </resources>

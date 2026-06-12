@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,7 @@ fun SmoothLyricView(
     fontPath: String = "",
     fontWeight: FontWeight = FontWeight.ExtraBold,
     italic: Boolean = false,
+    contentColor: Color = Color.White,
     primaryTextSizeSp: Float = 28f,
     secondaryTextSizeSp: Float = 15f,
     anchorOffsetRatio: Float = -0.12f,
@@ -52,7 +54,7 @@ fun SmoothLyricView(
             Text(
                 text = stringResource(R.string.no_lyrics),
                 fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.72f)
+                color = contentColor.copy(alpha = 0.72f)
             )
         }
         return
@@ -73,19 +75,24 @@ fun SmoothLyricView(
             boldFallback = false
         )
     }
+    val contentArgb = contentColor.toArgb()
     val style = remember(
         fontScale,
         density.fontScale,
         lyricTypeface,
         secondaryTypeface,
         primaryTextSizeSp,
-        secondaryTextSizeSp
+        secondaryTextSizeSp,
+        contentArgb
     ) {
         buildLyriconRichLineConfig(
             primaryTextSizePx = with(density) { (primaryTextSizeSp.sp * fontScale).toPx() },
             secondaryTextSizePx = with(density) { (secondaryTextSizeSp.sp * fontScale).toPx() },
             primaryTypeface = lyricTypeface,
-            secondaryTypeface = secondaryTypeface
+            secondaryTypeface = secondaryTypeface,
+            primaryTextColor = contentArgb,
+            secondaryTextColor = contentColor.copy(alpha = 0.745f).toArgb(),
+            syllableBackgroundColor = contentColor.copy(alpha = 0.345f).toArgb()
         )
     }
 

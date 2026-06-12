@@ -32,13 +32,13 @@ internal fun PlayerDetailInfoLine(label: String, value: String) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            color = Color.White.copy(alpha = 0.44f),
+            color = LocalPlayerContentColor.current.copy(alpha = 0.44f),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
         Text(
             text = value,
-            color = Color.White.copy(alpha = 0.88f),
+            color = LocalPlayerContentColor.current.copy(alpha = 0.88f),
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
@@ -58,7 +58,7 @@ internal fun PlayerDetailActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = if (enabled) 0.11f else 0.055f))
+            .background(LocalPlayerContentColor.current.copy(alpha = if (enabled) 0.11f else 0.055f))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -66,13 +66,13 @@ internal fun PlayerDetailActionRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = Color.White.copy(alpha = if (enabled) 0.92f else 0.42f),
+                color = LocalPlayerContentColor.current.copy(alpha = if (enabled) 0.92f else 0.42f),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = summary.ifBlank { stringResource(R.string.player_no_info) },
-                color = Color.White.copy(alpha = if (enabled) 0.58f else 0.30f),
+                color = LocalPlayerContentColor.current.copy(alpha = if (enabled) 0.58f else 0.30f),
                 fontSize = 12.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -80,7 +80,7 @@ internal fun PlayerDetailActionRow(
         }
         Text(
             text = "›",
-            color = Color.White.copy(alpha = if (enabled) 0.72f else 0.24f),
+            color = LocalPlayerContentColor.current.copy(alpha = if (enabled) 0.72f else 0.24f),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )

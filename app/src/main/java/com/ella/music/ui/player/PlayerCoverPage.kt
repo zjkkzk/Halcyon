@@ -291,6 +291,7 @@ internal fun CoverPlayerPage(
                                 artistFontSize = 14.sp,
                                 artistAlpha = 0.54f,
                                 showArtistWithAnnotation = true,
+                                contentColor = palette.onBackground,
                                 onArtistClick = onArtist,
                                 modifier = Modifier
                                     .weight(1f)
@@ -427,6 +428,7 @@ internal fun CoverPlayerPage(
                                 artistFontSize = 14.sp,
                                 artistAlpha = 0.62f,
                                 showArtistWithAnnotation = true,
+                                contentColor = palette.onBackground,
                                 onArtistClick = onArtist,
                                 modifier = Modifier.weight(1f)
                             )

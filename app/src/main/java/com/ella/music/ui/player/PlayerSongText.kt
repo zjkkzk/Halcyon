@@ -62,6 +62,7 @@ internal fun PlayerSongMetaText(
     modifier: Modifier = Modifier,
     fallbackTitle: String? = null,
     showArtistWithAnnotation: Boolean = false,
+    contentColor: Color = Color.White,
     onArtistClick: (() -> Unit)? = null,
     onAlbumClick: (() -> Unit)? = null
 ) {
@@ -82,7 +83,7 @@ internal fun PlayerSongMetaText(
                 ?: stringResource(R.string.player_not_playing),
             fontSize = titleFontSize,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White.copy(alpha = 0.96f),
+            color = contentColor.copy(alpha = 0.96f),
             modifier = Modifier.fillMaxWidth()
         )
         if (annotation.isNotBlank()) {
@@ -90,7 +91,7 @@ internal fun PlayerSongMetaText(
                 text = annotation,
                 fontSize = (artistFontSize.value * 0.82f).sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = (artistAlpha + 0.16f).coerceAtMost(0.82f)),
+                color = contentColor.copy(alpha = (artistAlpha + 0.16f).coerceAtMost(0.82f)),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -99,7 +100,7 @@ internal fun PlayerSongMetaText(
                 text = artist,
                 fontSize = artistFontSize,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = artistAlpha),
+                color = contentColor.copy(alpha = artistAlpha),
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(clickableMetaModifier(artist.isNotBlank(), onArtistClick))

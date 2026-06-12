@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">Einfaches LYRICS-Tag schreiben</string>
     <string name="lyric_match_write_ttml_tag">TTMLLYRIC-Tag schreiben</string>
     <string name="settings_lyric_plugin_config">Plug-in-Einstellungen</string>
+    <string name="settings_player_bg_theme">Player-Hintergrund</string>
 </resources>

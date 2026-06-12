@@ -31,8 +31,10 @@ internal data class PlayerSongPresentationState(
 internal fun rememberPlayerSongPresentationState(
     context: Context,
     song: Song?,
-    playerViewModel: PlayerViewModel
+    playerViewModel: PlayerViewModel,
+    playerLight: Boolean = false
 ): PlayerSongPresentationState {
+    val paletteDefault = if (playerLight) PlayerPalette.LightDefault else PlayerPalette.Default
     val embeddedCover by produceState<Bitmap?>(initialValue = null, song?.id, song?.dateModified, song?.fileSize) {
         value = withContext(Dispatchers.IO) {
             runCatching {
@@ -45,11 +47,11 @@ internal fun rememberPlayerSongPresentationState(
             embeddedCover ?: song?.let { loadPaletteCoverBitmap(context, it) }
         }
     }
-    val palette by produceState(initialValue = PlayerPalette.Default, paletteBitmap) {
-        value = withContext(Dispatchers.Default) { PlayerPalette.from(paletteBitmap) }
+    val palette by produceState(initialValue = paletteDefault, paletteBitmap, playerLight) {
+        value = withContext(Dispatchers.Default) { PlayerPalette.from(paletteBitmap, playerLight) }
     }
-    val lyricPalette by produceState(initialValue = PlayerPalette.Default, paletteBitmap) {
-        value = withContext(Dispatchers.Default) { PlayerPalette.fromLyricBackground(paletteBitmap) }
+    val lyricPalette by produceState(initialValue = paletteDefault, paletteBitmap, playerLight) {
+        value = withContext(Dispatchers.Default) { PlayerPalette.fromLyricBackground(paletteBitmap, playerLight) }
     }
     val audioInfo by produceState<AudioInfo?>(initialValue = null, song?.id, song?.dateModified, song?.fileSize) {
         value = withContext(Dispatchers.IO) { song?.let(playerViewModel::getAudioInfo) }

@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">Tulis tag LYRICS biasa</string>
     <string name="lyric_match_write_ttml_tag">Tulis tag TTMLLYRIC</string>
     <string name="settings_lyric_plugin_config">Pengaturan plugin</string>
+    <string name="settings_player_bg_theme">Latar belakang pemutar</string>
 </resources>

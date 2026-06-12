@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">通常の LYRICS タグに書き込む</string>
     <string name="lyric_match_write_ttml_tag">TTMLLYRIC タグに書き込む</string>
     <string name="settings_lyric_plugin_config">プラグイン設定</string>
+    <string name="settings_player_bg_theme">プレーヤーの背景</string>
 </resources>

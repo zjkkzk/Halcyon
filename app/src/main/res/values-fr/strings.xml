@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">Écrire la balise LYRICS simple</string>
     <string name="lyric_match_write_ttml_tag">Écrire la balise TTMLLYRIC</string>
     <string name="settings_lyric_plugin_config">Paramètres des plug-ins</string>
+    <string name="settings_player_bg_theme">Arrière-plan du lecteur</string>
 </resources>

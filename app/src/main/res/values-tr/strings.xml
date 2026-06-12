@@ -1378,4 +1378,5 @@
     <string name="lyric_match_write_lyrics_tag">Düz LYRICS etiketi yaz</string>
     <string name="lyric_match_write_ttml_tag">TTMLLYRIC etiketi yaz</string>
     <string name="settings_lyric_plugin_config">Eklenti ayarları</string>
+    <string name="settings_player_bg_theme">Oynatıcı arka planı</string>
 </resources>

@@ -57,6 +57,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -250,10 +252,18 @@ fun PlayerScreen(
     fun requestDeleteSong(targetSong: Song) {
         uiState.deleteConfirmSong = targetSong
     }
+    val playerBackgroundTheme by settingsManager.playerBackgroundTheme
+        .collectAsState(initial = SettingsManager.PLAYER_BG_THEME_DARK)
+    val playerLight = when (playerBackgroundTheme) {
+        SettingsManager.PLAYER_BG_THEME_LIGHT -> true
+        SettingsManager.PLAYER_BG_THEME_DARK -> false
+        else -> !isSystemInDarkTheme()
+    }
     val songPresentation = rememberPlayerSongPresentationState(
         context = context,
         song = song,
-        playerViewModel = playerViewModel
+        playerViewModel = playerViewModel,
+        playerLight = playerLight
     )
     val embeddedCover = songPresentation.embeddedCover
     val paletteBitmap = songPresentation.paletteBitmap
@@ -337,6 +347,7 @@ fun PlayerScreen(
         }
     ) { dismissingPlayer ->
         Box(modifier = Modifier.fillMaxSize()) {
+          CompositionLocalProvider(LocalPlayerContentColor provides palette.onBackground) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -350,11 +361,15 @@ fun PlayerScreen(
                         )
                     )
             )
-            ImmersiveCoverBackground(
-                palette = palette,
-                flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
-                modifier = Modifier.fillMaxSize()
-            )
+            // The immersive flow effect is a dark wash; skip it under a light player theme so the
+            // light gradient stays light.
+            if (!playerLight) {
+                ImmersiveCoverBackground(
+                    palette = palette,
+                    flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             PlayerScreenPageHost(
                 immersiveAlbumCover = immersiveAlbumCover,
@@ -571,6 +586,7 @@ fun PlayerScreen(
                     landscapeState.coverMode = false
                 }
             )
+          }
 
             PlayerScreenSheetHost(
                 context = context,

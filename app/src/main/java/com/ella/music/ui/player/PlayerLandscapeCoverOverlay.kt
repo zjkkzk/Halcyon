@@ -146,7 +146,7 @@ internal fun LandscapeCoverPlaybackOverlay(
         ) {
             Text(
                 text = song?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.app_name),
-                color = Color.White.copy(alpha = 0.96f),
+                color = LocalPlayerContentColor.current.copy(alpha = 0.96f),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
@@ -155,7 +155,7 @@ internal fun LandscapeCoverPlaybackOverlay(
             )
             Text(
                 text = song?.artist?.takeIf { it.isNotBlank() } ?: stringResource(R.string.player_unknown_artist),
-                color = Color.White.copy(alpha = 0.52f),
+                color = LocalPlayerContentColor.current.copy(alpha = 0.52f),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -198,7 +198,7 @@ internal fun LandscapeCoverPlaybackOverlay(
                     ) {
                         Text(
                             text = line?.text?.trim().orEmpty(),
-                            color = Color.White.copy(alpha = 0.92f),
+                            color = LocalPlayerContentColor.current.copy(alpha = 0.92f),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = fontFamily,
@@ -212,7 +212,7 @@ internal fun LandscapeCoverPlaybackOverlay(
                         if (secondary != null) {
                             Text(
                                 text = secondary,
-                                color = Color.White.copy(alpha = 0.55f),
+                                color = LocalPlayerContentColor.current.copy(alpha = 0.55f),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = fontFamily,
@@ -240,7 +240,7 @@ internal fun LandscapeCoverPlaybackOverlay(
             contentAlignment = Alignment.Center
         ) {
             CloseIcon(
-                color = Color.White.copy(alpha = 0.92f),
+                color = LocalPlayerContentColor.current.copy(alpha = 0.92f),
                 modifier = Modifier.size(26.dp)
             )
         }

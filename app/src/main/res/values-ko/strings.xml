@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">일반 LYRICS 태그 기록</string>
     <string name="lyric_match_write_ttml_tag">TTMLLYRIC 태그 기록</string>
     <string name="settings_lyric_plugin_config">플러그인 설정</string>
+    <string name="settings_player_bg_theme">플레이어 배경</string>
 </resources>

@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">寫入一般 LYRICS 標籤</string>
     <string name="lyric_match_write_ttml_tag">寫入 TTMLLYRIC 標籤</string>
     <string name="settings_lyric_plugin_config">外掛設定</string>
+    <string name="settings_player_bg_theme">播放頁背景</string>
 </resources>

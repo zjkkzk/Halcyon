@@ -36,7 +36,7 @@ internal fun LandscapeLyricLine(
                     text = stringResource(R.string.player_no_lyrics),
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = alpha),
+            color = LocalPlayerContentColor.current.copy(alpha = alpha),
             fontFamily = fontFamily
         )
         return
@@ -59,7 +59,7 @@ internal fun LandscapeLyricLine(
                 text = pronunciation,
                 fontSize = (14 * scale).sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = alpha * 0.58f),
+                color = LocalPlayerContentColor.current.copy(alpha = alpha * 0.58f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontFamily = fontFamily
@@ -70,7 +70,7 @@ internal fun LandscapeLyricLine(
             fontSize = (if (primary) 26 else 22).sp * scale,
             lineHeight = (if (primary) 31 else 27).sp * scale,
             fontWeight = if (primary) FontWeight.ExtraBold else FontWeight.Bold,
-            color = Color.White.copy(alpha = alpha),
+            color = LocalPlayerContentColor.current.copy(alpha = alpha),
             maxLines = if (primary) 3 else 2,
             overflow = TextOverflow.Ellipsis,
             fontFamily = fontFamily
@@ -81,7 +81,7 @@ internal fun LandscapeLyricLine(
                 fontSize = (if (primary) 17 else 14).sp * scale,
                 lineHeight = (if (primary) 22 else 19).sp * scale,
                 fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold,
-                color = Color.White.copy(alpha = if (primary) 0.74f else alpha * 0.72f),
+                color = LocalPlayerContentColor.current.copy(alpha = if (primary) 0.74f else alpha * 0.72f),
                 maxLines = if (primary) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
                 fontFamily = fontFamily

@@ -1391,4 +1391,5 @@
     <string name="lyric_match_write_lyrics_tag">Ghi thẻ LYRICS thường</string>
     <string name="lyric_match_write_ttml_tag">Ghi thẻ TTMLLYRIC</string>
     <string name="settings_lyric_plugin_config">Cài đặt plugin</string>
+    <string name="settings_player_bg_theme">Nền trình phát</string>
 </resources>

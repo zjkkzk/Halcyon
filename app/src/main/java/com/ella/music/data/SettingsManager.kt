@@ -54,6 +54,7 @@ class SettingsManager(private val context: Context) {
         val KEY_GAPLESS = booleanPreferencesKey("gapless_playback")
         val KEY_THEME_MODE = intPreferencesKey("theme_mode")
         val KEY_MONET_COLOR_MODE = intPreferencesKey("monet_color_mode")
+        val KEY_PLAYER_BACKGROUND_THEME = intPreferencesKey("player_background_theme")
         val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
         val KEY_BOTTOM_BAR_GLASS_EFFECT = stringPreferencesKey("bottom_bar_glass_effect")
         val KEY_BOTTOM_DOCK_ITEMS = stringPreferencesKey("bottom_dock_items")
@@ -209,6 +210,10 @@ class SettingsManager(private val context: Context) {
         const val STARTUP_PLAY_RANDOM = 1
         const val STARTUP_PLAY_RESUME = 2
 
+        const val PLAYER_BG_THEME_FOLLOW_SYSTEM = 0
+        const val PLAYER_BG_THEME_LIGHT = 1
+        const val PLAYER_BG_THEME_DARK = 2
+
         const val LYRIC_SOURCE_AUTO = 0
         const val LYRIC_SOURCE_EXTERNAL = 1
         const val LYRIC_SOURCE_EMBEDDED = 2
@@ -337,6 +342,8 @@ class SettingsManager(private val context: Context) {
     val gaplessPlayback: Flow<Boolean> = context.dataStore.data.map { it[KEY_GAPLESS] ?: true }
     val themeMode: Flow<Int> = context.dataStore.data.map { it[KEY_THEME_MODE] ?: 0 }
     val monetColorMode: Flow<Int> = context.dataStore.data.map { it[KEY_MONET_COLOR_MODE] ?: 0 }
+    val playerBackgroundTheme: Flow<Int> =
+        context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_THEME] ?: PLAYER_BG_THEME_DARK }
     val appLanguage: Flow<String> =
         context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: APP_LANGUAGE_SYSTEM }
     val bottomBarGlassEffect: Flow<BottomBarGlassEffect> = context.dataStore.data.map { preferences ->
@@ -654,6 +661,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setMonetColorMode(mode: Int) {
         context.dataStore.edit { it[KEY_MONET_COLOR_MODE] = mode }
+    }
+
+    suspend fun setPlayerBackgroundTheme(mode: Int) {
+        context.dataStore.edit { it[KEY_PLAYER_BACKGROUND_THEME] = mode }
     }
 
     suspend fun setAppLanguage(languageTag: String) {
@@ -1502,6 +1513,7 @@ class SettingsManager(private val context: Context) {
 
             setInt(KEY_THEME_MODE)
             setInt(KEY_MONET_COLOR_MODE)
+            setInt(KEY_PLAYER_BACKGROUND_THEME)
             setInt(KEY_EQ_PRESET)
             setInt(KEY_BASS_BOOST_STRENGTH)
             setInt(KEY_VIRTUALIZER_STRENGTH)

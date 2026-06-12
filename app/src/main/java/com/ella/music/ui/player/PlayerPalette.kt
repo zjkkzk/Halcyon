@@ -37,13 +37,28 @@ private fun Bitmap.scaledForPalette(): Bitmap {
     )
 }
 
+/**
+ * Primary content color (text / icons) for the player surface. Provided once at the player root
+ * from the active [PlayerPalette.onBackground] so the many small components that don't receive a
+ * palette can still flip between white (dark background) and dark (light background).
+ */
+internal val LocalPlayerContentColor = androidx.compose.runtime.compositionLocalOf { androidx.compose.ui.graphics.Color.White }
+
 internal data class PlayerPalette(
     val top: Color,
     val middle: Color,
     val bottom: Color,
-    val accent: Color
+    val accent: Color,
+    /** Primary content color (text / icons) that reads against this background. */
+    val onBackground: Color = Color.White,
+    val isLight: Boolean = false
 ) {
+    /** Muted content color for secondary text; alpha-blended from [onBackground]. */
+    val onBackgroundMuted: Color get() = onBackground.copy(alpha = 0.6f)
+
     companion object {
+        private val LightContent = Color(0xFF16181C)
+
         val Default = PlayerPalette(
             top = Color(0xFF171717),
             middle = Color(0xFF0B0B0D),
@@ -51,17 +66,26 @@ internal data class PlayerPalette(
             accent = Color(0xFF2F7DFF)
         )
 
-        fun from(bitmap: Bitmap?): PlayerPalette {
-            return fromCoverBackground(bitmap)
+        val LightDefault = PlayerPalette(
+            top = Color(0xFFFCFCFD),
+            middle = Color(0xFFF1F2F5),
+            bottom = Color(0xFFE6E8EC),
+            accent = Color(0xFF2F7DFF),
+            onBackground = LightContent,
+            isLight = true
+        )
+
+        fun from(bitmap: Bitmap?, light: Boolean = false): PlayerPalette {
+            return fromCoverBackground(bitmap, light)
         }
 
         /** A single representative, vibrancy-boosted color from the cover, for use as a Monet seed. */
         fun seedColor(bitmap: Bitmap?): Color? = representativeAccent(bitmap)?.toPlayerAccent()
 
-        fun fromCoverBackground(bitmap: Bitmap?): PlayerPalette {
-            val representative = representativeAccent(bitmap) ?: return Default
+        fun fromCoverBackground(bitmap: Bitmap?, light: Boolean = false): PlayerPalette {
+            val representative = representativeAccent(bitmap) ?: return if (light) LightDefault else Default
             val accent = representative.toPlayerAccent()
-            return PlayerPalette(
+            return if (light) lightPalette(accent) else PlayerPalette(
                 top = accent.darken(0.40f),
                 middle = accent.darken(0.66f),
                 bottom = accent.darken(0.86f),
@@ -69,15 +93,25 @@ internal data class PlayerPalette(
             )
         }
 
-        fun fromLyricBackground(bitmap: Bitmap?): PlayerPalette {
-            val accent = representativeAccent(bitmap)?.toPlayerAccent() ?: return Default
-            return PlayerPalette(
+        fun fromLyricBackground(bitmap: Bitmap?, light: Boolean = false): PlayerPalette {
+            val accent = representativeAccent(bitmap)?.toPlayerAccent() ?: return if (light) LightDefault else Default
+            return if (light) lightPalette(accent) else PlayerPalette(
                 top = accent.darken(0.42f),
                 middle = accent.darken(0.68f),
                 bottom = accent.darken(0.88f),
                 accent = accent
             )
         }
+
+        /** A soft tinted-light background derived from the cover accent, with dark content. */
+        private fun lightPalette(accent: Color): PlayerPalette = PlayerPalette(
+            top = accent.lighten(0.86f),
+            middle = accent.lighten(0.92f),
+            bottom = accent.lighten(0.97f),
+            accent = accent.darken(0.10f),
+            onBackground = LightContent,
+            isLight = true
+        )
 
         private fun representativeAccent(bitmap: Bitmap?): Color? {
             if (bitmap == null || bitmap.width <= 0 || bitmap.height <= 0) return null

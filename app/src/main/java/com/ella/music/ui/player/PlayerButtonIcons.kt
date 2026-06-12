@@ -90,7 +90,7 @@ internal fun PlayerQuickAction(
         ) {
             QuickActionIcon(
                 kind = kind,
-                color = Color.White.copy(alpha = 0.9f),
+                color = LocalPlayerContentColor.current.copy(alpha = 0.9f),
                 modifier = Modifier.size(19.dp)
             )
         }
@@ -211,11 +211,11 @@ internal fun PlayerHeaderAction(
                 } else {
                     stringResource(R.string.common_favorite)
                 },
-                tint = if (selected) Color(0xFFFF4D6D) else Color.White.copy(alpha = 0.92f),
+                tint = if (selected) Color(0xFFFF4D6D) else LocalPlayerContentColor.current.copy(alpha = 0.92f),
                 modifier = Modifier.size(25.dp)
             )
             PlayerHeaderActionKind.More -> MoreIcon(
-                color = Color.White.copy(alpha = 0.90f),
+                color = LocalPlayerContentColor.current.copy(alpha = 0.90f),
                 modifier = Modifier.size(24.dp)
             )
         }

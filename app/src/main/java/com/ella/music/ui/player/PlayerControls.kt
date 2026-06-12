@@ -57,7 +57,7 @@ internal fun LandscapeProgressRow(
             text = formatTime(currentPosition),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.72f)
+            color = palette.onBackground.copy(alpha = 0.72f)
         )
         GlowSeekBar(
             value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
@@ -76,7 +76,7 @@ internal fun LandscapeProgressRow(
             },
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.72f)
+            color = palette.onBackground.copy(alpha = 0.72f)
         )
     }
 }
@@ -103,7 +103,7 @@ internal fun LandscapeTransportControls(
             Icon(
                 painter = painterResource(id = R.drawable.ic_skip_previous),
                 contentDescription = stringResource(R.string.common_previous),
-                tint = Color.White.copy(alpha = 0.92f),
+                tint = palette.onBackground.copy(alpha = 0.92f),
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -116,7 +116,7 @@ internal fun LandscapeTransportControls(
         ) {
             CenteredPlayPauseGlyph(
                 isPlaying = isPlaying,
-                tint = Color.White.copy(alpha = 0.96f),
+                tint = palette.onBackground.copy(alpha = 0.96f),
                 modifier = Modifier.size(34.dp)
             )
         }
@@ -124,7 +124,7 @@ internal fun LandscapeTransportControls(
             Icon(
                 painter = painterResource(id = R.drawable.ic_skip_next),
                 contentDescription = stringResource(R.string.common_next),
-                tint = Color.White.copy(alpha = 0.92f),
+                tint = palette.onBackground.copy(alpha = 0.92f),
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -166,7 +166,7 @@ internal fun PlayerProgressBlock(
             Text(
                 text = formatTime(currentPosition),
                 fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.56f),
+                color = palette.onBackground.copy(alpha = 0.56f),
                 modifier = Modifier.align(Alignment.CenterStart)
             )
             if (infoLabels.isNotEmpty()) {
@@ -174,11 +174,11 @@ internal fun PlayerProgressBlock(
                 Text(
                     text = infoText,
                     fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.62f),
+                    color = palette.onBackground.copy(alpha = 0.62f),
                     modifier = Modifier
                         .align(Alignment.Center)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(palette.onBackground.copy(alpha = 0.10f))
                         .pointerInput(infoLabels, bluetoothDeviceName) {
                             detectTapGestures(
                                 onTap = {
@@ -201,7 +201,7 @@ internal fun PlayerProgressBlock(
                     "-${formatTime((duration - currentPosition).coerceAtLeast(0L))}"
                 },
                 fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.56f),
+                color = palette.onBackground.copy(alpha = 0.56f),
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -245,7 +245,7 @@ internal fun PlayerTransportControls(
             Icon(
                 painter = painterResource(id = R.drawable.ic_skip_previous),
                 contentDescription = stringResource(R.string.common_previous),
-                tint = Color.White.copy(alpha = 0.92f),
+                tint = palette.onBackground.copy(alpha = 0.92f),
                 modifier = Modifier.size(38.dp)
             )
         }
@@ -253,13 +253,13 @@ internal fun PlayerTransportControls(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .then(if (showOutlines) Modifier.background(Color.White.copy(alpha = 0.18f)) else Modifier)
+                .then(if (showOutlines) Modifier.background(palette.onBackground.copy(alpha = 0.18f)) else Modifier)
                 .playerNoIndicationClick(onPlayPause),
             contentAlignment = Alignment.Center
         ) {
             CenteredPlayPauseGlyph(
                 isPlaying = isPlaying,
-                tint = Color.White.copy(alpha = 0.96f),
+                tint = palette.onBackground.copy(alpha = 0.96f),
                 modifier = Modifier.size(if (isPlaying) 38.dp else 40.dp)
             )
         }
@@ -267,14 +267,14 @@ internal fun PlayerTransportControls(
             Icon(
                 painter = painterResource(id = R.drawable.ic_skip_next),
                 contentDescription = stringResource(R.string.common_next),
-                tint = Color.White.copy(alpha = 0.92f),
+                tint = palette.onBackground.copy(alpha = 0.92f),
                 modifier = Modifier.size(38.dp)
             )
         }
         Box(contentAlignment = Alignment.Center) {
             PlayerTransportIconButton(onClick = onToggleQueue) {
                 QueueListIcon(
-                    color = Color.White.copy(alpha = 0.58f),
+                    color = palette.onBackground.copy(alpha = 0.58f),
                     modifier = Modifier.size(28.dp)
                 )
             }

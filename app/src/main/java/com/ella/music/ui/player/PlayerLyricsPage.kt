@@ -163,6 +163,7 @@ internal fun LyricsPlayerPage(
                     fontPath = fontPath,
                     fontWeight = fontWeight,
                     italic = italic,
+                    contentColor = palette.onBackground,
                     // Keep far lines sharp over a busy custom wallpaper so they stay readable.
                     nonCurrentLineBlurEnabled = !useCustomPlayerBackground,
                     onLineClick = onLineClick,

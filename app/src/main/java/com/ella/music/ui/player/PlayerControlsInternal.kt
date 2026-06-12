@@ -117,7 +117,7 @@ internal fun PlaybackModeIcon(
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = label,
-            tint = Color.White,
+            tint = LocalPlayerContentColor.current,
             modifier = Modifier.size(20.dp)
         )
     }

@@ -41,7 +41,7 @@ internal fun LyricToggleButton(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = if (active) 0.24f else 0.10f))
+            .background(LocalPlayerContentColor.current.copy(alpha = if (active) 0.24f else 0.10f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -49,7 +49,7 @@ internal fun LyricToggleButton(
             text = text,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = if (active) 1f else 0.62f)
+            color = LocalPlayerContentColor.current.copy(alpha = if (active) 1f else 0.62f)
         )
     }
 }
