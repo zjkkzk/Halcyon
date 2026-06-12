@@ -24,7 +24,7 @@
 
 **Halcyon** is an Android local music player built with **Jetpack Compose, Miuix, and AndroidX Media3**.
 
-It focuses on local music and lyrics, with a MIUI / HyperOS-inspired interface, word-by-word lyrics, floating lyrics, status-bar lyrics, dynamic covers, WebDAV remote libraries, LX Music API sources, library analytics, and a highly customizable player experience.
+It focuses on local music and lyrics, with a MIUI / HyperOS-inspired interface, word-by-word lyrics, floating lyrics, status-bar lyrics, dynamic covers, an in-app equalizer, Monet dynamic color, online lyric matching, WebDAV remote libraries, LX Music API sources, library analytics, and a highly customizable player experience.
 
 ---
 
@@ -43,24 +43,27 @@ It focuses on local music and lyrics, with a MIUI / HyperOS-inspired interface, 
 - Provides an immersive lyric page, landscape lyric page, and landscape stacked-cover page.
 - Supports dynamic video covers matched by song, album, or global fallback.
 - Supports global custom wallpapers, launch posters, custom Hi-Res badges, and optional player button outlines.
+- Supports Monet dynamic color derived from the system wallpaper or the current song cover.
 - Non-immersive player covers can show a Hi-Res / MQ badge.
-- The player supports pull-down dismissal, dynamic backgrounds, blurred cover backgrounds, and landscape queue-cover switching.
+- The player supports pull-down dismissal, dynamic backgrounds, blurred cover backgrounds, and landscape queue-cover switching; the landscape cover wall shows the title / artist on top with a live scrolling lyric.
 
 ### 🎤 Lyrics
 
 - Supports LRC, Enhanced LRC, ELRC, TTML, and Lyricify lyric parsing.
 - Supports word-by-word lyrics, translations, romanization / phonetics, background vocals, TTML duets, and ELRC V1/V2 duet tags.
 - Reads embedded lyrics and external lyric files, including matching `.lrc`, `.ttml`, and `.elrc` files.
+- Supports online lyric matching for local songs via Lyrico-compatible plugins: import / delete lyric source plugins and write results to embedded tags or a `.lrc` file.
 - Provides floating desktop lyrics, status-bar lyrics, media notification lyrics, lyric barrage, SuperLyricApi, and Lyric Getter API integration.
-- Supports lyric card sharing, font import, lyric offset, tap-to-seek, and secondary-line configuration.
+- Supports lyric card sharing, font import with a system-font picker, lyric offset, tap-to-seek, and secondary-line configuration.
 
 ### 🌐 WebDAV & LX Online Music
 
 - Supports WebDAV remote libraries with connection testing, Digest authentication, remote browsing, and remote playback.
 - Supports LX Music API sources, online search, streaming playback, cover / lyric retrieval, and local downloads.
 
-### 🎚 Decoding, Tags & Audio Quality
+### 🎚 Audio Effects, Decoding, Tags & Quality
 
+- Includes an in-app equalizer with a 5-band EQ, bass boost, and virtualizer.
 - Uses lyrico-audiotag as the primary local metadata path, supporting artwork, basic tags, and embedded lyrics for common audio formats.
 - Provides system, FFmpeg, and automatic decoding modes for better ALAC / AAC / M4A compatibility.
 - Supports ReplayGain, shuffle queue restoration, quality labels, and 24-bit / 96 kHz recognition.
