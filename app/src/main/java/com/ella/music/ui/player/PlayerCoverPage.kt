@@ -189,6 +189,7 @@ internal fun CoverPlayerPage(
                 fontWeight = fontWeight,
                 fontScale = fontScale,
                 showTotalDuration = playerShowTotalDuration,
+                playerTapSeekEnabled = playerTapSeekEnabled,
                 queueExpanded = queueExpanded,
                 playlist = playlist,
                 audioSessionId = audioSessionId,

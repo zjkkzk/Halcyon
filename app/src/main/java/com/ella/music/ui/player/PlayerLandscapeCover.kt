@@ -62,6 +62,7 @@ internal fun LandscapeCoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     showTotalDuration: Boolean,
+    playerTapSeekEnabled: Boolean,
     queueExpanded: Boolean,
     playlist: List<Song>,
     audioSessionId: Int,
@@ -177,7 +178,7 @@ internal fun LandscapeCoverPlayerPage(
                     audioInfo = audioInfo,
                     bluetoothDeviceName = bluetoothDeviceName,
                     palette = palette,
-                    allowTapSeek = false,
+                    allowTapSeek = playerTapSeekEnabled,
                     showTotalDuration = showTotalDuration,
                     onSeek = onSeek
                 )
