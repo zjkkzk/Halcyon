@@ -60,6 +60,7 @@ internal fun LandscapeLyricsOverlay(
     isPlaying: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    beautifulLyricsBackground: Boolean,
     onLineClick: (LyricLine) -> Unit,
     onLineLongClick: (LyricLine) -> Unit,
     onSeek: (Float) -> Unit,
@@ -72,13 +73,22 @@ internal fun LandscapeLyricsOverlay(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.background(palette.middle)) {
-        FluidLyricBackground(
-            palette = palette,
-            positionMs = currentPosition,
-            isPlaying = isPlaying,
-            flowEffectMode = flowEffectMode,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (beautifulLyricsBackground) {
+            BeautifulLyricsDynamicBackground(
+                palette = palette,
+                positionMs = currentPosition,
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            FluidLyricBackground(
+                palette = palette,
+                positionMs = currentPosition,
+                isPlaying = isPlaying,
+                flowEffectMode = flowEffectMode,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxSize()

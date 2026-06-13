@@ -58,6 +58,9 @@ internal fun LyricsPlayerPage(
     isPlaying: Boolean,
     playerBackgroundEnabled: Boolean,
     playerBackgroundUri: String,
+    playerBackgroundOpacity: Float,
+    playerBackgroundDim: Float,
+    beautifulLyricsBackground: Boolean,
     isFavorite: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
@@ -113,6 +116,15 @@ internal fun LyricsPlayerPage(
         if (useCustomPlayerBackground) {
             PlayerCustomBackground(
                 uri = playerBackgroundUri,
+                imageAlpha = playerBackgroundOpacity,
+                dimAlpha = playerBackgroundDim,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (beautifulLyricsBackground) {
+            BeautifulLyricsDynamicBackground(
+                palette = palette,
+                positionMs = currentPositionMs,
+                isPlaying = isPlaying,
                 modifier = Modifier.fillMaxSize()
             )
         } else if (useBlurBackground) {

@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -51,7 +52,8 @@ fun EllaSearchBar(
     placeholder: String,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
-    autoFocus: Boolean = true
+    autoFocus: Boolean = true,
+    containerColor: Color = MiuixTheme.colorScheme.surfaceContainerHigh
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -104,7 +106,7 @@ fun EllaSearchBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(CircleShape)
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                    .background(containerColor)
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

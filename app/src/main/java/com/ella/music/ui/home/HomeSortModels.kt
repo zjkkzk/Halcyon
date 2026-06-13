@@ -99,6 +99,7 @@ private data class SongSortEntry(
 
 private object HomeSortResultCache {
     private const val MaxSize = 8
+    private const val MaxCachedSongCount = 10_000
     private val lock = Any()
     private val values = object : LinkedHashMap<HomeSortCacheKey, HomeSortedSongs>(MaxSize, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<HomeSortCacheKey, HomeSortedSongs>?): Boolean {
@@ -107,6 +108,7 @@ private object HomeSortResultCache {
     }
 
     fun getOrPut(songs: List<Song>, sortMode: HomeSortMode, builder: () -> HomeSortedSongs): HomeSortedSongs {
+        if (songs.size > MaxCachedSongCount) return builder()
         val key = songs.cacheKey(sortMode)
         synchronized(lock) {
             values[key]?.let { return it }

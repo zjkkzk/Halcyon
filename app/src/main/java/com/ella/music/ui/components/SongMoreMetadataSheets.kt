@@ -1,33 +1,44 @@
 package com.ella.music.ui.components
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
+import com.ella.music.data.metadata.AudioCoverInfo
 import com.ella.music.data.metadata.AudioTagInfo
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
 import com.ella.music.viewmodel.MainViewModel
 import com.lonx.audiotag.model.AudioTagKeys
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -66,8 +77,10 @@ internal fun SongMetadataEditorSheet(
     song: Song,
     mainViewModel: MainViewModel,
     onDismiss: () -> Unit,
-    onSave: (AudioTagInfo) -> Unit
+    onSave: (AudioTagInfo, AudioCoverInfo?, Boolean) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val tagInfo by produceState<SongTagInfo?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
         value = withContext(Dispatchers.IO) { mainViewModel.getSongTagInfo(song) }
     }
@@ -88,6 +101,26 @@ internal fun SongMetadataEditorSheet(
     var copyright by remember(tagInfo) { mutableStateOf(tagInfo?.copyright.orEmpty()) }
     var comment by remember(tagInfo) { mutableStateOf(tagInfo?.comment.orEmpty()) }
     var rating by remember(tagInfo) { mutableStateOf(tagInfo?.rating ?: 0) }
+    val currentCover by produceState<Any?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
+        value = withContext(Dispatchers.IO) { mainViewModel.getCoverArtBitmap(song) }
+    }
+    var selectedCover by remember(song.id) { mutableStateOf<AudioCoverInfo?>(null) }
+    var selectedCoverPreview by remember(song.id) { mutableStateOf<Any?>(null) }
+    var coverChanged by remember(song.id) { mutableStateOf(false) }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            } ?: return@launch
+            selectedCover = AudioCoverInfo(
+                bytes = bytes,
+                mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+            )
+            selectedCoverPreview = uri
+            coverChanged = true
+        }
+    }
     var customTags: MutableList<Pair<String, String>> by remember(fullTagInfo) {
         val initial: MutableList<Pair<String, String>> = fullTagInfo?.customTags
             ?.filter { entry -> !AudioTagKeys.isReserved(entry.key) }
@@ -99,6 +132,62 @@ internal fun SongMetadataEditorSheet(
     var showAddTag by remember { mutableStateOf(false) }
 
     SongSheetColumn {
+        SectionHeader(stringResource(R.string.song_more_metadata_section_cover))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val previewModel = selectedCoverPreview ?: currentCover
+            if (previewModel != null) {
+                SafeCoverImage(
+                    model = previewModel,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth(0.52f)
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop,
+                    sizePx = 512
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.song_more_metadata_cover_empty),
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(vertical = 34.dp)
+                )
+            }
+        }
+        EllaMiuixActionRow(
+            actions = listOf(
+                EllaMiuixAction(
+                    text = stringResource(R.string.song_more_metadata_cover_choose),
+                    onClick = { coverPicker.launch(arrayOf("image/*")) },
+                    primary = true
+                ),
+                EllaMiuixAction(
+                    text = stringResource(R.string.song_more_metadata_cover_remove),
+                    onClick = {
+                        selectedCover = null
+                        selectedCoverPreview = null
+                        coverChanged = true
+                    }
+                )
+            ),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        )
+        if (coverChanged && selectedCover == null) {
+            Text(
+                text = stringResource(R.string.song_more_metadata_cover_remove_pending),
+                fontSize = 12.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+
         SectionHeader(stringResource(R.string.song_more_metadata_section_basic))
         MetadataField(stringResource(R.string.song_more_metadata_title), title) { title = it }
         MetadataField(stringResource(R.string.song_more_metadata_artist), artist) { artist = it }
@@ -262,7 +351,7 @@ internal fun SongMetadataEditorSheet(
                     rating = rating.takeIf { v -> v != tagInfo?.rating },
                     customTags = ctMap
                 )
-                onSave(tags)
+                onSave(tags, selectedCover, coverChanged)
             },
             modifier = Modifier.padding(horizontal = 18.dp)
         )

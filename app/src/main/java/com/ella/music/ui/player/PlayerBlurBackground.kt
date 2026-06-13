@@ -110,6 +110,95 @@ internal fun FluidLyricBackground(
 }
 
 @Composable
+internal fun BeautifulLyricsDynamicBackground(
+    palette: PlayerPalette,
+    positionMs: Long,
+    isPlaying: Boolean,
+    animate: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "beautiful_lyrics_background")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 12_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "beautiful_lyrics_background_drift"
+    )
+    val activeDrift = if (animate) drift else 0.42f
+    val pulse = if (isPlaying) {
+        0.5f + 0.5f * kotlin.math.sin(positionMs / 760.0).toFloat()
+    } else {
+        0.36f
+    }
+    val scrim = if (palette.isLight) Color.White else Color.Black
+
+    Canvas(modifier = modifier.background(palette.middle)) {
+        val w = size.width
+        val h = size.height
+        val t = activeDrift * kotlin.math.PI.toFloat() * 2f
+
+        drawRect(
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    palette.top.copy(alpha = 0.96f),
+                    palette.accent.copy(alpha = if (palette.isLight) 0.34f else 0.42f),
+                    palette.bottom.copy(alpha = 0.98f)
+                ),
+                start = Offset(0f, 0f),
+                end = Offset(w, h)
+            )
+        )
+
+        val blobs = listOf(
+            Triple(
+                palette.accent.copy(alpha = 0.34f + pulse * 0.08f),
+                Offset((0.20f + 0.18f * kotlin.math.sin(t)) * w, (0.20f + 0.14f * kotlin.math.cos(t)) * h),
+                0.54f
+            ),
+            Triple(
+                palette.top.copy(alpha = 0.30f),
+                Offset((0.82f + 0.16f * kotlin.math.cos(t * 0.7f)) * w, (0.28f + 0.18f * kotlin.math.sin(t * 0.8f)) * h),
+                0.46f
+            ),
+            Triple(
+                Color.White.copy(alpha = if (palette.isLight) 0.22f else 0.13f),
+                Offset((0.46f + 0.20f * kotlin.math.sin(t * 0.55f)) * w, (0.58f + 0.16f * kotlin.math.cos(t * 0.9f)) * h),
+                0.40f
+            ),
+            Triple(
+                palette.bottom.copy(alpha = 0.36f),
+                Offset((0.70f + 0.18f * kotlin.math.cos(t * 0.95f)) * w, (0.84f + 0.10f * kotlin.math.sin(t)) * h),
+                0.58f
+            )
+        )
+        blobs.forEach { (color, center, radiusFactor) ->
+            val radius = maxOf(w, h) * radiusFactor
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(color, Color.Transparent),
+                    center = center,
+                    radius = radius
+                ),
+                radius = radius,
+                center = center
+            )
+        }
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    scrim.copy(alpha = if (palette.isLight) 0.18f else 0.16f),
+                    Color.Transparent,
+                    scrim.copy(alpha = if (palette.isLight) 0.30f else 0.46f)
+                )
+            )
+        )
+    }
+}
+
+@Composable
 internal fun PlayerBlurBackground(
     song: Song?,
     embeddedCover: Bitmap?,

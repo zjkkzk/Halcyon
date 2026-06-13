@@ -182,6 +182,9 @@ fun PlayerScreen(
     val immersiveAlbumCover = playerSettings.immersiveAlbumCover
     val playerBackgroundEnabled = playerSettings.playerBackgroundEnabled
     val playerBackgroundUri = playerSettings.playerBackgroundUri
+    val playerBackgroundOpacity = playerSettings.playerBackgroundOpacity / 100f
+    val playerBackgroundDim = playerSettings.playerBackgroundDim / 100f
+    val beautifulLyricsBackground = playerSettings.beautifulLyricsBackground
     val hiResLogoEnabled = playerSettings.hiResLogoEnabled
     val hiResLogoUri = playerSettings.hiResLogoUri
     val lyricShareCustomInfo = playerSettings.lyricShareCustomInfo
@@ -401,6 +404,9 @@ fun PlayerScreen(
                         immersiveAlbumCover = immersiveAlbumCover,
                         playerBackgroundEnabled = playerBackgroundEnabled,
                         playerBackgroundUri = playerBackgroundUri,
+                        playerBackgroundOpacity = playerBackgroundOpacity,
+                        playerBackgroundDim = playerBackgroundDim,
+                        beautifulLyricsBackground = beautifulLyricsBackground,
                         hiResLogoEnabled = hiResLogoEnabled,
                         hiResLogoUri = hiResLogoUri,
                         isPlaying = isPlaying,
@@ -484,6 +490,9 @@ fun PlayerScreen(
                         isPlaying = isPlaying,
                         playerBackgroundEnabled = playerBackgroundEnabled,
                         playerBackgroundUri = playerBackgroundUri,
+                        playerBackgroundOpacity = playerBackgroundOpacity,
+                        playerBackgroundDim = playerBackgroundDim,
+                        beautifulLyricsBackground = beautifulLyricsBackground,
                         isCurrentSongFavorite = isCurrentSongFavorite,
                         audioSessionId = audioSessionId,
                         effectiveAudioVisualizerEnabled = effectiveAudioVisualizerEnabled,
@@ -505,6 +514,8 @@ fun PlayerScreen(
                         tagInfo = tagInfo,
                         neteaseInfo = neteaseInfo,
                         playerBackgroundUri = playerBackgroundUri,
+                        playerBackgroundOpacity = playerBackgroundOpacity,
+                        playerBackgroundDim = playerBackgroundDim,
                         immersiveAlbumCover = immersiveAlbumCover,
                         playerBackgroundEnabled = playerBackgroundEnabled,
                         onNavigateToAlbum = onNavigateToAlbum,
@@ -546,6 +557,7 @@ fun PlayerScreen(
                 playlist = playlist,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = effectiveAudioVisualizerEnabled,
+                beautifulLyricsBackground = beautifulLyricsBackground,
                 flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                 isFavorite = isCurrentSongFavorite,
                 onDynamicCoverFailed = { uiState.dynamicCoverFailedPath = it },

@@ -36,6 +36,8 @@ internal fun PlayerDetailPage(
     tagInfo: SongTagInfo?,
     neteaseInfo: NeteaseKeyInfo?,
     customBackgroundUri: String,
+    customBackgroundOpacity: Float = 1f,
+    customBackgroundDim: Float = 0.26f,
     onAlbum: () -> Unit,
     onArtist: (String) -> Unit,
     onComposer: (String) -> Unit,
@@ -74,6 +76,8 @@ internal fun PlayerDetailPage(
         if (customBackgroundUri.isNotBlank()) {
             PlayerCustomBackground(
                 uri = customBackgroundUri,
+                imageAlpha = customBackgroundOpacity,
+                dimAlpha = customBackgroundDim,
                 modifier = Modifier.fillMaxSize()
             )
         }

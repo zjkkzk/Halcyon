@@ -63,6 +63,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun PlaylistScreen(
     mainViewModel: MainViewModel,
     playerViewModel: com.ella.music.viewmodel.PlayerViewModel,
+    showBackButton: Boolean = true,
     onBack: () -> Unit,
     onPlaylistClick: (String) -> Unit
 ) {
@@ -307,10 +308,11 @@ fun PlaylistScreen(
             .background(ellaPageBackground())
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        PlaylistScreenTopBar(
-            selectionMode = selectionMode,
-            selectedCount = selectedPlaylistIds.size,
-            sortItems = PlaylistSortMode.entries.map { mode ->
+            PlaylistScreenTopBar(
+                selectionMode = selectionMode,
+                selectedCount = selectedPlaylistIds.size,
+                showBackButton = showBackButton,
+                sortItems = PlaylistSortMode.entries.map { mode ->
                 SortDropdownItem(
                     text = stringResource(mode.labelRes),
                     selected = playlistSortMode == mode,

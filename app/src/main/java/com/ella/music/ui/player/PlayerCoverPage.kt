@@ -54,6 +54,9 @@ internal fun CoverPlayerPage(
     immersiveAlbumCover: Boolean,
     playerBackgroundEnabled: Boolean,
     playerBackgroundUri: String,
+    playerBackgroundOpacity: Float,
+    playerBackgroundDim: Float,
+    beautifulLyricsBackground: Boolean,
     hiResLogoEnabled: Boolean,
     hiResLogoUri: String,
     isPlaying: Boolean,
@@ -178,6 +181,8 @@ internal fun CoverPlayerPage(
         if (showCustomPlayerBackground && !useWidePlayer) {
             PlayerCustomBackground(
                 uri = playerBackgroundUri,
+                imageAlpha = playerBackgroundOpacity,
+                dimAlpha = playerBackgroundDim,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -197,6 +202,9 @@ internal fun CoverPlayerPage(
                 flowEffectMode = flowEffectMode,
                 dynamicFlowEnabled = dynamicFlowEnabled,
                 customBackgroundUri = playerBackgroundUri.takeIf { showCustomPlayerBackground }.orEmpty(),
+                customBackgroundOpacity = playerBackgroundOpacity,
+                customBackgroundDim = playerBackgroundDim,
+                beautifulLyricsBackground = beautifulLyricsBackground,
                 lyrics = lyrics,
                 currentLyricIndex = currentLyricIndex,
                 showTranslation = showTranslation,

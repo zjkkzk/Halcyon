@@ -126,18 +126,20 @@ internal fun HomeTileSection(
     title: String,
     tiles: List<HomeTileSpec>,
     context: Context,
-    showPinButtons: Boolean
+    showPinButtons: Boolean,
+    cardColor: Color = MiuixTheme.colorScheme.surfaceContainer
 ) {
     if (tiles.isEmpty()) return
     SectionTitle(title)
-    HomeTileGrid(tiles = tiles, context = context, showPinButtons = showPinButtons)
+    HomeTileGrid(tiles = tiles, context = context, showPinButtons = showPinButtons, cardColor = cardColor)
 }
 
 @Composable
 internal fun HomeTileGrid(
     tiles: List<HomeTileSpec>,
     context: Context,
-    showPinButtons: Boolean
+    showPinButtons: Boolean,
+    cardColor: Color = MiuixTheme.colorScheme.surfaceContainer
 ) {
     tiles.chunked(2).forEachIndexed { index, rowTiles ->
         if (index > 0) Spacer(modifier = Modifier.height(10.dp))
@@ -157,6 +159,7 @@ internal fun HomeTileGrid(
                             ).show()
                         }
                     } else null,
+                    cardColor = cardColor,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -301,6 +304,7 @@ private fun HomeTile(
     subtitle: String,
     onClick: () -> Unit,
     onPinClick: (() -> Unit)? = null,
+    cardColor: Color = MiuixTheme.colorScheme.surfaceContainer,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -308,7 +312,7 @@ private fun HomeTile(
             .height(96.dp)
             .clip(RoundedCornerShape(16.dp))
             // Neutral card surface (Monet-tinted when dynamic color is on), matching the playlist page.
-            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .background(cardColor)
             .combinedClickable(onClick = onClick, onLongClick = onPinClick)
             .padding(14.dp),
         verticalArrangement = Arrangement.SpaceBetween

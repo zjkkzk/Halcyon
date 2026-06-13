@@ -73,7 +73,11 @@ interface AudioTagWriter {
     suspend fun writeTags(pfd: ParcelFileDescriptor, tags: AudioTagInfo): Result<Unit> =
         Result.failure(UnsupportedOperationException("Writing tags through a file descriptor is not supported"))
     suspend fun writeEmbeddedCover(path: String, cover: AudioCoverInfo): Result<Unit>
+    suspend fun writeEmbeddedCover(pfd: ParcelFileDescriptor, cover: AudioCoverInfo): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Writing cover through a file descriptor is not supported"))
     suspend fun removeEmbeddedCover(path: String): Result<Unit>
+    suspend fun removeEmbeddedCover(pfd: ParcelFileDescriptor): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Removing cover through a file descriptor is not supported"))
 }
 
 class AudioTagRepository(
@@ -135,8 +139,14 @@ class AudioTagRepository(
     suspend fun writeEmbeddedCover(path: String, cover: AudioCoverInfo): Result<Unit> =
         writer?.writeEmbeddedCover(path, cover)?.onSuccess { clear(path) } ?: Result.failure(UnsupportedOperationException("No audio tag writer"))
 
+    suspend fun writeEmbeddedCover(pfd: ParcelFileDescriptor, pathForCache: String, cover: AudioCoverInfo): Result<Unit> =
+        writer?.writeEmbeddedCover(pfd, cover)?.onSuccess { clear(pathForCache) } ?: Result.failure(UnsupportedOperationException("No audio tag writer"))
+
     suspend fun removeEmbeddedCover(path: String): Result<Unit> =
         writer?.removeEmbeddedCover(path)?.onSuccess { clear(path) } ?: Result.failure(UnsupportedOperationException("No audio tag writer"))
+
+    suspend fun removeEmbeddedCover(pfd: ParcelFileDescriptor, pathForCache: String): Result<Unit> =
+        writer?.removeEmbeddedCover(pfd)?.onSuccess { clear(pathForCache) } ?: Result.failure(UnsupportedOperationException("No audio tag writer"))
 
     fun readTagsBlocking(path: String): AudioTagInfo? = runBlocking(Dispatchers.IO) { readTags(path) }
 
@@ -384,22 +394,30 @@ class LyricoAudioTagReaderWriter : AudioTagReader, AudioTagWriter {
     }
 
     override suspend fun writeEmbeddedCover(path: String, cover: AudioCoverInfo): Result<Unit> = runCatching {
+        withPfd(path, ParcelFileDescriptor.MODE_READ_WRITE) { pfd ->
+            writeEmbeddedCover(pfd, cover).getOrThrow()
+        } ?: error("Unable to open audio file for cover writing")
+    }
+
+    override suspend fun writeEmbeddedCover(pfd: ParcelFileDescriptor, cover: AudioCoverInfo): Result<Unit> = runCatching {
         val picture = AudioPicture(
             data = cover.bytes,
             mimeType = cover.mimeType ?: "image/jpeg",
             description = "",
             pictureType = "Front Cover"
         )
-        val ok = withPfd(path, ParcelFileDescriptor.MODE_READ_WRITE) { pfd ->
-            LyricoWriter.writePictures(pfd, listOf(picture))
-        } ?: false
+        val ok = LyricoWriter.writePictures(pfd, listOf(picture))
         check(ok) { "lyrico-audiotag writeEmbeddedCover returned false" }
     }
 
     override suspend fun removeEmbeddedCover(path: String): Result<Unit> = runCatching {
-        val ok = withPfd(path, ParcelFileDescriptor.MODE_READ_WRITE) { pfd ->
-            LyricoWriter.writePictures(pfd, emptyList())
-        } ?: false
+        withPfd(path, ParcelFileDescriptor.MODE_READ_WRITE) { pfd ->
+            removeEmbeddedCover(pfd).getOrThrow()
+        } ?: error("Unable to open audio file for cover removal")
+    }
+
+    override suspend fun removeEmbeddedCover(pfd: ParcelFileDescriptor): Result<Unit> = runCatching {
+        val ok = LyricoWriter.writePictures(pfd, emptyList())
         check(ok) { "lyrico-audiotag removeEmbeddedCover returned false" }
     }
 

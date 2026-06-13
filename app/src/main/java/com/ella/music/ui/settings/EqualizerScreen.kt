@@ -120,7 +120,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
                 Column {
                     SwitchPreference(
                         title = stringResource(R.string.equalizer_master),
-                        summary = stringResource(R.string.equalizer_band_count, caps.bandCount),
+                        summary = stringResource(R.string.equalizer_band_count, caps.displayBandCount),
                         checked = eqEnabled,
                         onCheckedChange = { scope.launch { settingsManager.setEqEnabled(it) } }
                     )
@@ -141,8 +141,8 @@ fun EqualizerScreen(onBack: () -> Unit) {
                                 } else {
                                     val presetIndex = index - 1
                                     val levels = caps.presetBandLevelsMb.getOrNull(presetIndex)
-                                        ?: List(caps.bandCount) { 0 }
-                                    settingsManager.setEqPresetWithBands(presetIndex, levels)
+                                        ?: List(caps.displayBandCount) { 0 }
+                                    settingsManager.setEqPresetWithBands(presetIndex, levels.toDisplayBandLevels(caps))
                                 }
                             }
                         }
@@ -157,9 +157,9 @@ fun EqualizerScreen(onBack: () -> Unit) {
                         .padding(horizontal = 12.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    for (band in 0 until caps.bandCount) {
+                    for (band in 0 until caps.displayBandCount) {
                         val levelMb = bandLevels.getOrElse(band) { 0 }
-                        val freqHz = caps.centerFreqsHz.getOrElse(band) { 0 }
+                        val freqHz = caps.displayCenterFreqsHz.getOrElse(band) { 0 }
                         EqBandColumn(
                             freqLabel = formatFreq(freqHz),
                             gainLabel = formatGainDb(levelMb),
@@ -167,7 +167,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
                             minMb = caps.minLevelMb,
                             maxMb = caps.maxLevelMb,
                             onLevelChange = { newLevel ->
-                                val updated = MutableList(caps.bandCount) { idx -> bandLevels.getOrElse(idx) { 0 } }
+                                val updated = MutableList(caps.displayBandCount) { idx -> bandLevels.getOrElse(idx) { 0 } }
                                 updated[band] = newLevel.coerceIn(caps.minLevelMb, caps.maxLevelMb)
                                 scope.launch { settingsManager.setEqBandLevelsMb(updated) }
                             },
@@ -186,7 +186,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
                     .padding(end = 8.dp, top = 2.dp, bottom = 6.dp)
                     .pointerInput(Unit) {
                         detectTapGestures {
-                            scope.launch { settingsManager.setEqBandLevelsMb(List(caps.bandCount) { 0 }) }
+                            scope.launch { settingsManager.setEqBandLevelsMb(List(caps.displayBandCount) { 0 }) }
                         }
                     }
             )
@@ -324,6 +324,31 @@ private fun EffectStrengthRow(
 
 private const val DEFAULT_EFFECT_STRENGTH = 600
 
+private fun List<Int>.toDisplayBandLevels(caps: com.ella.music.player.EqualizerCapabilities): List<Int> {
+    if (size == caps.displayBandCount) return this
+    if (isEmpty()) return List(caps.displayBandCount) { 0 }
+    return caps.displayCenterFreqsHz.map { displayFreq ->
+        val sourceIndex = caps.centerFreqsHz.nearestBandIndex(displayFreq).takeIf { it >= 0 } ?: 0
+        getOrElse(sourceIndex) { 0 }
+    }
+}
+
+private fun List<Int>.nearestBandIndex(freqHz: Int): Int {
+    if (isEmpty()) return -1
+    var bestIndex = 0
+    var bestDistance = Float.MAX_VALUE
+    forEachIndexed { index, center ->
+        val safeCenter = center.coerceAtLeast(1)
+        val safeFreq = freqHz.coerceAtLeast(1)
+        val distance = kotlin.math.abs(kotlin.math.ln(safeFreq.toFloat() / safeCenter.toFloat()))
+        if (distance < bestDistance) {
+            bestDistance = distance
+            bestIndex = index
+        }
+    }
+    return bestIndex
+}
+
 private fun formatFreq(hz: Int): String =
     if (hz >= 1000) "%.1fk".format(hz / 1000f) else hz.toString()
 
@@ -331,4 +356,3 @@ private fun formatGainDb(levelMb: Int): String {
     val db = levelMb / 100f
     return "%.1f".format(db)
 }
-

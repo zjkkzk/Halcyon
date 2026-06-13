@@ -176,6 +176,7 @@ private fun buildArtistListAggregate(
 fun ArtistListScreen(
     mainViewModel: MainViewModel,
     playerViewModel: com.ella.music.viewmodel.PlayerViewModel,
+    showBackButton: Boolean = true,
     onBack: () -> Unit,
     onArtistClick: (String) -> Unit
 ) {
@@ -294,13 +295,15 @@ fun ArtistListScreen(
                 title = if (selectionMode) stringResource(R.string.library_selected_count, selectedArtistKeys.size) else stringResource(R.string.category_artist),
                 color = ellaPageBackground(),
                 navigationIcon = {
-                    IconButton(onClick = { if (selectionMode) finishSelectionMode() else onBack() }) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Back,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    if (showBackButton || selectionMode) {
+                        IconButton(onClick = { if (selectionMode) finishSelectionMode() else onBack() }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 },
                 actions = {

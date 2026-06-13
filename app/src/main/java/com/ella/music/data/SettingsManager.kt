@@ -13,8 +13,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.ella.music.player.FIXED_EQ_BAND_COUNT
 import com.ella.music.player.AudioEffectSettings
 import com.ella.music.plugin.source.LyricoPluginManager
+import com.ella.music.data.remote.RemoteMusicProvider
+import com.ella.music.data.remote.RemoteMusicSourceConfig
 import androidx.annotation.StringRes
 import com.ella.music.R
 import org.json.JSONObject
@@ -28,6 +31,10 @@ data class LxSourceConfig(
     val url: String,
     val name: String,
     val script: String
+)
+
+data class OnlineSourceSelection(
+    val provider: RemoteMusicProvider
 )
 
 enum class BottomBarGlassEffect {
@@ -117,8 +124,15 @@ class SettingsManager(private val context: Context) {
         val KEY_STARTUP_POSTER_URI = stringPreferencesKey("startup_poster_uri")
         val KEY_APP_WALLPAPER_ENABLED = booleanPreferencesKey("app_wallpaper_enabled")
         val KEY_APP_WALLPAPER_URI = stringPreferencesKey("app_wallpaper_uri")
+        val KEY_APP_WALLPAPER_OPACITY = intPreferencesKey("app_wallpaper_opacity")
+        val KEY_APP_WALLPAPER_DIM = intPreferencesKey("app_wallpaper_dim")
         val KEY_PLAYER_BACKGROUND_ENABLED = booleanPreferencesKey("player_background_enabled")
         val KEY_PLAYER_BACKGROUND_URI = stringPreferencesKey("player_background_uri")
+        val KEY_PLAYER_BACKGROUND_OPACITY = intPreferencesKey("player_background_opacity")
+        val KEY_PLAYER_BACKGROUND_DIM = intPreferencesKey("player_background_dim")
+        val KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND = booleanPreferencesKey("player_beautiful_lyrics_background")
+        val KEY_HOME_CARD_COLOR = stringPreferencesKey("home_card_color")
+        val KEY_HOME_CARD_OPACITY = intPreferencesKey("home_card_opacity")
         val KEY_HI_RES_LOGO_ENABLED = booleanPreferencesKey("hi_res_logo_enabled")
         val KEY_HI_RES_LOGO_URI = stringPreferencesKey("hi_res_logo_uri")
         val KEY_MCP_SERVER_ENABLED = booleanPreferencesKey("mcp_server_enabled")
@@ -147,6 +161,15 @@ class SettingsManager(private val context: Context) {
         val KEY_LX_SOURCE_SCRIPT = stringPreferencesKey("lx_source_script")
         val KEY_LX_SOURCES_JSON = stringPreferencesKey("lx_sources_json")
         val KEY_LX_SELECTED_SOURCE_ID = stringPreferencesKey("lx_selected_source_id")
+        val KEY_ONLINE_SELECTED_PROVIDER = stringPreferencesKey("online_selected_provider")
+        val KEY_NAVIDROME_URL = stringPreferencesKey("navidrome_url")
+        val KEY_NAVIDROME_USERNAME = stringPreferencesKey("navidrome_username")
+        val KEY_NAVIDROME_PASSWORD = stringPreferencesKey("navidrome_password")
+        val KEY_EMBY_URL = stringPreferencesKey("emby_url")
+        val KEY_EMBY_USERNAME = stringPreferencesKey("emby_username")
+        val KEY_EMBY_TOKEN = stringPreferencesKey("emby_token")
+        val KEY_EMBY_USER_ID = stringPreferencesKey("emby_user_id")
+        val KEY_EMBY_SERVER_NAME = stringPreferencesKey("emby_server_name")
         val KEY_OPENAI_API_KEY = stringPreferencesKey("openai_api_key")
         val KEY_OPENAI_BASE_URL = stringPreferencesKey("openai_base_url")
         val KEY_OPENAI_MODEL = stringPreferencesKey("openai_model")
@@ -490,10 +513,24 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_APP_WALLPAPER_ENABLED] ?: false }
     val appWallpaperUri: Flow<String> =
         context.dataStore.data.map { it[KEY_APP_WALLPAPER_URI] ?: "" }
+    val appWallpaperOpacity: Flow<Int> =
+        context.dataStore.data.map { it[KEY_APP_WALLPAPER_OPACITY]?.coerceIn(20, 100) ?: 100 }
+    val appWallpaperDim: Flow<Int> =
+        context.dataStore.data.map { it[KEY_APP_WALLPAPER_DIM]?.coerceIn(0, 80) ?: 30 }
     val playerBackgroundEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_ENABLED] ?: false }
     val playerBackgroundUri: Flow<String> =
         context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_URI] ?: "" }
+    val playerBackgroundOpacity: Flow<Int> =
+        context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_OPACITY]?.coerceIn(20, 100) ?: 100 }
+    val playerBackgroundDim: Flow<Int> =
+        context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_DIM]?.coerceIn(0, 80) ?: 26 }
+    val playerBeautifulLyricsBackground: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND] ?: false }
+    val homeCardColor: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_CARD_COLOR] ?: "" }
+    val homeCardOpacity: Flow<Int> =
+        context.dataStore.data.map { it[KEY_HOME_CARD_OPACITY]?.coerceIn(20, 100) ?: 58 }
     val hiResLogoEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_HI_RES_LOGO_ENABLED] ?: false }
     val hiResLogoUri: Flow<String> =
@@ -541,6 +578,26 @@ class SettingsManager(private val context: Context) {
     val lxSourceUrl: Flow<String> = selectedLxSource.map { it?.url.orEmpty() }
     val lxSourceName: Flow<String> = selectedLxSource.map { it?.name.orEmpty() }
     val lxSourceScript: Flow<String> = selectedLxSource.map { it?.script.orEmpty() }
+    val selectedOnlineProvider: Flow<RemoteMusicProvider> =
+        context.dataStore.data.map { RemoteMusicProvider.fromId(it[KEY_ONLINE_SELECTED_PROVIDER].orEmpty()) }
+    val navidromeConfig: Flow<RemoteMusicSourceConfig> = context.dataStore.data.map {
+        RemoteMusicSourceConfig(
+            provider = RemoteMusicProvider.Navidrome,
+            baseUrl = it[KEY_NAVIDROME_URL].orEmpty(),
+            username = it[KEY_NAVIDROME_USERNAME].orEmpty(),
+            password = it[KEY_NAVIDROME_PASSWORD].orEmpty()
+        )
+    }
+    val embyConfig: Flow<RemoteMusicSourceConfig> = context.dataStore.data.map {
+        RemoteMusicSourceConfig(
+            provider = RemoteMusicProvider.Emby,
+            baseUrl = it[KEY_EMBY_URL].orEmpty(),
+            username = it[KEY_EMBY_USERNAME].orEmpty(),
+            token = it[KEY_EMBY_TOKEN].orEmpty(),
+            userId = it[KEY_EMBY_USER_ID].orEmpty(),
+            serverName = it[KEY_EMBY_SERVER_NAME].orEmpty()
+        )
+    }
     val openAiApiKey: Flow<String> = context.dataStore.data.map { it[KEY_OPENAI_API_KEY] ?: "" }
     val openAiBaseUrl: Flow<String> =
         context.dataStore.data.map { it[KEY_OPENAI_BASE_URL] ?: DEFAULT_OPENAI_BASE_URL }
@@ -928,13 +985,13 @@ class SettingsManager(private val context: Context) {
     suspend fun setEqPresetWithBands(preset: Int, bandLevelsMb: List<Int>) {
         context.dataStore.edit {
             it[KEY_EQ_PRESET] = preset
-            it[KEY_EQ_BANDS] = bandLevelsMb.joinToString(",")
+            it[KEY_EQ_BANDS] = bandLevelsMb.normalizedEqBands().joinToString(",")
         }
     }
 
     suspend fun setEqBandLevelsMb(bandLevelsMb: List<Int>) {
         context.dataStore.edit {
-            it[KEY_EQ_BANDS] = bandLevelsMb.joinToString(",")
+            it[KEY_EQ_BANDS] = bandLevelsMb.normalizedEqBands().joinToString(",")
             it[KEY_EQ_PRESET] = AudioEffectSettings.PRESET_CUSTOM
         }
     }
@@ -956,9 +1013,12 @@ class SettingsManager(private val context: Context) {
     }
 
     private fun parseEqBands(raw: String?): List<Int> {
-        if (raw.isNullOrBlank()) return emptyList()
-        return raw.split(',').mapNotNull { it.trim().toIntOrNull() }
+        if (raw.isNullOrBlank()) return List(FIXED_EQ_BAND_COUNT) { 0 }
+        return raw.split(',').mapNotNull { it.trim().toIntOrNull() }.normalizedEqBands()
     }
+
+    private fun List<Int>.normalizedEqBands(): List<Int> =
+        List(FIXED_EQ_BAND_COUNT) { index -> getOrElse(index) { 0 } }
 
     suspend fun setDynamicCoverEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_DYNAMIC_COVER_ENABLED] = enabled }
@@ -990,6 +1050,14 @@ class SettingsManager(private val context: Context) {
         }
     }
 
+    suspend fun setAppWallpaperOpacity(opacity: Int) {
+        context.dataStore.edit { it[KEY_APP_WALLPAPER_OPACITY] = opacity.coerceIn(20, 100) }
+    }
+
+    suspend fun setAppWallpaperDim(dim: Int) {
+        context.dataStore.edit { it[KEY_APP_WALLPAPER_DIM] = dim.coerceIn(0, 80) }
+    }
+
     suspend fun setPlayerBackgroundEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_PLAYER_BACKGROUND_ENABLED] = enabled }
     }
@@ -999,6 +1067,29 @@ class SettingsManager(private val context: Context) {
             val safeUri = uri.trim()
             if (safeUri.isBlank()) it.remove(KEY_PLAYER_BACKGROUND_URI) else it[KEY_PLAYER_BACKGROUND_URI] = safeUri
         }
+    }
+
+    suspend fun setPlayerBackgroundOpacity(opacity: Int) {
+        context.dataStore.edit { it[KEY_PLAYER_BACKGROUND_OPACITY] = opacity.coerceIn(20, 100) }
+    }
+
+    suspend fun setPlayerBackgroundDim(dim: Int) {
+        context.dataStore.edit { it[KEY_PLAYER_BACKGROUND_DIM] = dim.coerceIn(0, 80) }
+    }
+
+    suspend fun setPlayerBeautifulLyricsBackground(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND] = enabled }
+    }
+
+    suspend fun setHomeCardColor(color: String) {
+        context.dataStore.edit {
+            val safeColor = color.trim()
+            if (safeColor.isBlank()) it.remove(KEY_HOME_CARD_COLOR) else it[KEY_HOME_CARD_COLOR] = safeColor
+        }
+    }
+
+    suspend fun setHomeCardOpacity(opacity: Int) {
+        context.dataStore.edit { it[KEY_HOME_CARD_OPACITY] = opacity.coerceIn(20, 100) }
     }
 
     suspend fun setHiResLogoEnabled(enabled: Boolean) {
@@ -1180,6 +1271,46 @@ class SettingsManager(private val context: Context) {
                 prefs[KEY_LX_SOURCE_NAME] = selected.name
                 prefs[KEY_LX_SOURCE_SCRIPT] = selected.script
             }
+        }
+    }
+
+    suspend fun selectOnlineProvider(provider: RemoteMusicProvider) {
+        context.dataStore.edit { it[KEY_ONLINE_SELECTED_PROVIDER] = provider.id }
+    }
+
+    suspend fun setNavidromeConfig(baseUrl: String, username: String, password: String) {
+        context.dataStore.edit {
+            it[KEY_NAVIDROME_URL] = baseUrl.trim().trimEnd('/')
+            it[KEY_NAVIDROME_USERNAME] = username.trim()
+            it[KEY_NAVIDROME_PASSWORD] = password
+        }
+    }
+
+    suspend fun clearNavidromeConfig() {
+        context.dataStore.edit {
+            it.remove(KEY_NAVIDROME_URL)
+            it.remove(KEY_NAVIDROME_USERNAME)
+            it.remove(KEY_NAVIDROME_PASSWORD)
+        }
+    }
+
+    suspend fun setEmbyConfig(baseUrl: String, username: String, token: String, userId: String, serverName: String) {
+        context.dataStore.edit {
+            it[KEY_EMBY_URL] = baseUrl.trim().trimEnd('/')
+            it[KEY_EMBY_USERNAME] = username.trim()
+            it[KEY_EMBY_TOKEN] = token
+            it[KEY_EMBY_USER_ID] = userId
+            if (serverName.isBlank()) it.remove(KEY_EMBY_SERVER_NAME) else it[KEY_EMBY_SERVER_NAME] = serverName
+        }
+    }
+
+    suspend fun clearEmbyConfig() {
+        context.dataStore.edit {
+            it.remove(KEY_EMBY_URL)
+            it.remove(KEY_EMBY_USERNAME)
+            it.remove(KEY_EMBY_TOKEN)
+            it.remove(KEY_EMBY_USER_ID)
+            it.remove(KEY_EMBY_SERVER_NAME)
         }
     }
 
@@ -1486,6 +1617,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_STARTUP_POSTER_ENABLED)
             setBoolean(KEY_APP_WALLPAPER_ENABLED)
             setBoolean(KEY_PLAYER_BACKGROUND_ENABLED)
+            setBoolean(KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND)
             setBoolean(KEY_HI_RES_LOGO_ENABLED)
             setBoolean(KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE)
             setBoolean(KEY_SHOW_PLAY_NEXT_IN_LISTS)
@@ -1547,6 +1679,11 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_DESKTOP_LYRIC_STATUS_BAR_POSITION)
             setInt(KEY_DESKTOP_LYRIC_STATUS_BAR_SECONDARY)
             setInt(KEY_SLEEP_TIMER_CUSTOM_MINUTES)
+            setInt(KEY_APP_WALLPAPER_OPACITY)
+            setInt(KEY_APP_WALLPAPER_DIM)
+            setInt(KEY_PLAYER_BACKGROUND_OPACITY)
+            setInt(KEY_PLAYER_BACKGROUND_DIM)
+            setInt(KEY_HOME_CARD_OPACITY)
 
             val dynamicSortKeyPrefixes = listOf(
                 "sort_metadata_category_",
@@ -1572,6 +1709,15 @@ class SettingsManager(private val context: Context) {
             setString(KEY_LX_SOURCE_SCRIPT)
             setString(KEY_LX_SOURCES_JSON)
             setString(KEY_LX_SELECTED_SOURCE_ID)
+            setString(KEY_ONLINE_SELECTED_PROVIDER)
+            setString(KEY_NAVIDROME_URL)
+            setString(KEY_NAVIDROME_USERNAME)
+            setString(KEY_NAVIDROME_PASSWORD)
+            setString(KEY_EMBY_URL)
+            setString(KEY_EMBY_USERNAME)
+            setString(KEY_EMBY_TOKEN)
+            setString(KEY_EMBY_USER_ID)
+            setString(KEY_EMBY_SERVER_NAME)
             setString(KEY_OPENAI_API_KEY)
             setString(KEY_OPENAI_BASE_URL)
             setString(KEY_OPENAI_MODEL)
@@ -1582,6 +1728,7 @@ class SettingsManager(private val context: Context) {
             setString(KEY_STARTUP_POSTER_URI)
             setString(KEY_APP_WALLPAPER_URI)
             setString(KEY_PLAYER_BACKGROUND_URI)
+            setString(KEY_HOME_CARD_COLOR)
             setString(KEY_HI_RES_LOGO_URI)
             setString(KEY_METADATA_EDITOR_ID)
             setString(KEY_LYRIC_TIMING_EDITOR_ID)

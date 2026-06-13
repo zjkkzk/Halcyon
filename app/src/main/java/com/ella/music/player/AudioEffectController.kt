@@ -41,6 +41,8 @@ data class EqualizerCapabilities(
     val supported: Boolean,
     val bandCount: Int,
     val centerFreqsHz: List<Int>,
+    val displayBandCount: Int = FIXED_EQ_BAND_COUNT,
+    val displayCenterFreqsHz: List<Int> = FIXED_EQ_CENTER_FREQS_HZ,
     val minLevelMb: Int,
     val maxLevelMb: Int,
     val presetNames: List<String>,
@@ -57,6 +59,8 @@ data class EqualizerCapabilities(
             supported = false,
             bandCount = 0,
             centerFreqsHz = emptyList(),
+            displayBandCount = FIXED_EQ_BAND_COUNT,
+            displayCenterFreqsHz = FIXED_EQ_CENTER_FREQS_HZ,
             minLevelMb = -1500,
             maxLevelMb = 1500,
             presetNames = emptyList(),
@@ -78,6 +82,9 @@ object AudioEffectState {
         _capabilities.value = capabilities
     }
 }
+
+const val FIXED_EQ_BAND_COUNT = 10
+val FIXED_EQ_CENTER_FREQS_HZ = listOf(31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000)
 
 /**
  * Owns the [Equalizer], [BassBoost] and [Virtualizer] effects for the currently playing audio
@@ -126,7 +133,9 @@ class AudioEffectController {
             val min = range[0].toInt()
             val max = range[1].toInt()
             for (band in 0 until bandCount) {
-                val levelMb = settings.eqBandLevelsMb.getOrElse(band) { 0 }.coerceIn(min, max)
+                val freqHz = runCatching { eq.getCenterFreq(band.toShort()) / 1000 }.getOrDefault(0)
+                val profileBand = nearestDisplayBandIndex(freqHz)
+                val levelMb = settings.eqBandLevelsMb.getOrElse(profileBand) { 0 }.coerceIn(min, max)
                 runCatching { eq.setBandLevel(band.toShort(), levelMb.toShort()) }
             }
             eq.enabled = settings.eqEnabled
@@ -187,6 +196,8 @@ class AudioEffectController {
                 supported = true,
                 bandCount = bandCount,
                 centerFreqsHz = centerFreqs,
+                displayBandCount = FIXED_EQ_BAND_COUNT,
+                displayCenterFreqsHz = FIXED_EQ_CENTER_FREQS_HZ,
                 minLevelMb = minMb,
                 maxLevelMb = maxMb,
                 presetNames = presetNames,
@@ -212,4 +223,18 @@ class AudioEffectController {
     private companion object {
         const val TAG = "AudioEffectController"
     }
+}
+
+private fun nearestDisplayBandIndex(freqHz: Int): Int {
+    if (freqHz <= 0) return 0
+    var bestIndex = 0
+    var bestDistance = Float.MAX_VALUE
+    FIXED_EQ_CENTER_FREQS_HZ.forEachIndexed { index, center ->
+        val distance = kotlin.math.abs(kotlin.math.ln(freqHz.toFloat() / center.toFloat()))
+        if (distance < bestDistance) {
+            bestDistance = distance
+            bestIndex = index
+        }
+    }
+    return bestIndex
 }

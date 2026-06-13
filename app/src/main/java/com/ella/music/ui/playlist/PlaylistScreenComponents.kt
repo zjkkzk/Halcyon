@@ -50,6 +50,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun PlaylistScreenTopBar(
     selectionMode: Boolean,
     selectedCount: Int,
+    showBackButton: Boolean,
     sortItems: List<SortDropdownItem>,
     onBackClick: () -> Unit,
     onDeleteSelectedClick: () -> Unit,
@@ -67,12 +68,14 @@ internal fun PlaylistScreenTopBar(
             },
             color = ellaPageBackground(),
             navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Back,
-                        contentDescription = stringResource(R.string.common_back),
-                        tint = MiuixTheme.colorScheme.onSurface
-                    )
+                if (showBackButton || selectionMode) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Back,
+                            contentDescription = stringResource(R.string.common_back),
+                            tint = MiuixTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             },
             actions = {

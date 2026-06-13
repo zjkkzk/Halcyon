@@ -32,12 +32,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.LxSourceConfig
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.lx.LxOnlineService
+import com.ella.music.data.remote.EmbyService
+import com.ella.music.data.remote.NavidromeService
+import com.ella.music.data.remote.RemoteMusicProvider
+import com.ella.music.data.remote.RemoteMusicSourceConfig
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.ellaPageBackground
 import kotlinx.coroutines.Dispatchers
@@ -65,9 +70,24 @@ fun LxSourceSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val service = remember(context) { LxOnlineService(context) }
+    val navidromeService = remember(context) { NavidromeService(context) }
+    val embyService = remember(context) { EmbyService(context) }
     val sources by settingsManager.lxSources.collectAsState(initial = emptyList())
     val selectedId by settingsManager.selectedLxSourceId.collectAsState(initial = "")
+    val selectedProvider by settingsManager.selectedOnlineProvider.collectAsState(initial = RemoteMusicProvider.Lx)
+    val savedNavidrome by settingsManager.navidromeConfig.collectAsState(
+        initial = RemoteMusicSourceConfig(RemoteMusicProvider.Navidrome, "")
+    )
+    val savedEmby by settingsManager.embyConfig.collectAsState(
+        initial = RemoteMusicSourceConfig(RemoteMusicProvider.Emby, "")
+    )
     var importUrl by remember { mutableStateOf("") }
+    var navidromeUrl by remember(savedNavidrome.baseUrl) { mutableStateOf(savedNavidrome.baseUrl) }
+    var navidromeUser by remember(savedNavidrome.username) { mutableStateOf(savedNavidrome.username) }
+    var navidromePassword by remember(savedNavidrome.password) { mutableStateOf(savedNavidrome.password) }
+    var embyUrl by remember(savedEmby.baseUrl) { mutableStateOf(savedEmby.baseUrl) }
+    var embyUser by remember(savedEmby.username) { mutableStateOf(savedEmby.username) }
+    var embyPassword by remember { mutableStateOf("") }
     var isBusy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf(context.getString(R.string.lx_source_import_hint)) }
 
@@ -135,6 +155,95 @@ fun LxSourceSettingsScreen(onBack: () -> Unit) {
             }
         }
     ) {
+        SmallTitle(text = stringResource(R.string.remote_source_section))
+        RemoteProviderSelector(
+            selectedProvider = selectedProvider,
+            navidromeConfigured = savedNavidrome.isConfigured,
+            embyConfigured = savedEmby.isConfigured,
+            onSelect = { provider ->
+                scope.launch {
+                    settingsManager.selectOnlineProvider(provider)
+                    message = context.getString(R.string.remote_source_selected, provider.displayName(context))
+                }
+            }
+        )
+
+        RemoteServerConfigCard(
+            title = stringResource(R.string.remote_source_navidrome),
+            summary = stringResource(R.string.remote_source_navidrome_summary),
+            url = navidromeUrl,
+            username = navidromeUser,
+            password = navidromePassword,
+            passwordLabel = stringResource(R.string.remote_source_password_or_token),
+            enabled = !isBusy,
+            onUrlChange = { navidromeUrl = it },
+            onUsernameChange = { navidromeUser = it },
+            onPasswordChange = { navidromePassword = it },
+            onSave = {
+                scope.launch {
+                    isBusy = true
+                    runCatching {
+                        val config = RemoteMusicSourceConfig(
+                            provider = RemoteMusicProvider.Navidrome,
+                            baseUrl = navidromeUrl,
+                            username = navidromeUser,
+                            password = navidromePassword
+                        )
+                        navidromeService.test(config)
+                        settingsManager.setNavidromeConfig(navidromeUrl, navidromeUser, navidromePassword)
+                        settingsManager.selectOnlineProvider(RemoteMusicProvider.Navidrome)
+                        message = context.getString(R.string.remote_source_saved_named, context.getString(R.string.remote_source_navidrome))
+                    }.onFailure {
+                        message = it.localizedMessage ?: context.getString(R.string.remote_source_save_failed)
+                        showToast(message)
+                    }
+                    isBusy = false
+                }
+            },
+            onClear = {
+                scope.launch {
+                    settingsManager.clearNavidromeConfig()
+                    message = context.getString(R.string.remote_source_cleared_named, context.getString(R.string.remote_source_navidrome))
+                }
+            }
+        )
+
+        RemoteServerConfigCard(
+            title = stringResource(R.string.remote_source_emby),
+            summary = savedEmby.serverName.ifBlank { stringResource(R.string.remote_source_emby_summary) },
+            url = embyUrl,
+            username = embyUser,
+            password = embyPassword,
+            passwordLabel = stringResource(R.string.webdav_password),
+            enabled = !isBusy,
+            onUrlChange = { embyUrl = it },
+            onUsernameChange = { embyUser = it },
+            onPasswordChange = { embyPassword = it },
+            onSave = {
+                scope.launch {
+                    isBusy = true
+                    runCatching {
+                        val login = embyService.login(embyUrl, embyUser, embyPassword)
+                        settingsManager.setEmbyConfig(embyUrl, embyUser, login.token, login.userId, login.serverName)
+                        settingsManager.selectOnlineProvider(RemoteMusicProvider.Emby)
+                        embyPassword = ""
+                        message = context.getString(R.string.remote_source_saved_named, context.getString(R.string.remote_source_emby))
+                    }.onFailure {
+                        message = it.localizedMessage ?: context.getString(R.string.remote_source_save_failed)
+                        showToast(message)
+                    }
+                    isBusy = false
+                }
+            },
+            onClear = {
+                scope.launch {
+                    settingsManager.clearEmbyConfig()
+                    message = context.getString(R.string.remote_source_cleared_named, context.getString(R.string.remote_source_emby))
+                }
+            }
+        )
+
+        SmallTitle(text = stringResource(R.string.lx_source_imported_section))
         if (sources.isEmpty()) {
             EmptySourceText(stringResource(R.string.lx_source_empty))
         } else {
@@ -160,6 +269,105 @@ fun LxSourceSettingsScreen(onBack: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun RemoteProviderSelector(
+    selectedProvider: RemoteMusicProvider,
+    navidromeConfigured: Boolean,
+    embyConfigured: Boolean,
+    onSelect: (RemoteMusicProvider) -> Unit
+) {
+    Column {
+        RemoteProviderRow(RemoteMusicProvider.Lx, selectedProvider == RemoteMusicProvider.Lx, true, onSelect)
+        RemoteProviderRow(RemoteMusicProvider.Navidrome, selectedProvider == RemoteMusicProvider.Navidrome, navidromeConfigured, onSelect)
+        RemoteProviderRow(RemoteMusicProvider.Emby, selectedProvider == RemoteMusicProvider.Emby, embyConfigured, onSelect)
+    }
+}
+
+@Composable
+private fun RemoteProviderRow(
+    provider: RemoteMusicProvider,
+    selected: Boolean,
+    configured: Boolean,
+    onSelect: (RemoteMusicProvider) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        onClick = { if (configured) onSelect(provider) }
+    ) {
+        BasicComponent(
+            title = if (selected) stringResource(R.string.lx_source_current_suffix, provider.displayName(LocalContext.current)) else provider.displayName(LocalContext.current),
+            summary = if (configured) stringResource(R.string.remote_source_ready) else stringResource(R.string.remote_source_not_configured)
+        )
+    }
+}
+
+@Composable
+private fun RemoteServerConfigCard(
+    title: String,
+    summary: String,
+    url: String,
+    username: String,
+    password: String,
+    passwordLabel: String,
+    enabled: Boolean,
+    onUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            BasicComponent(title = title, summary = summary)
+            Spacer(modifier = Modifier.height(10.dp))
+            EllaMiuixTextField(
+                value = url,
+                onValueChange = onUrlChange,
+                label = stringResource(R.string.webdav_url),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            EllaMiuixTextField(
+                value = username,
+                onValueChange = onUsernameChange,
+                label = stringResource(R.string.webdav_username),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            EllaMiuixTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = passwordLabel,
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(enabled = enabled && url.isNotBlank() && username.isNotBlank(), onClick = onSave) {
+                    Text(stringResource(R.string.common_save))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(enabled = enabled, onClick = onClear) {
+                    Text(stringResource(R.string.common_delete))
+                }
+            }
+        }
+    }
+}
+
+private fun RemoteMusicProvider.displayName(context: android.content.Context): String =
+    when (this) {
+        RemoteMusicProvider.Lx -> "LX Music"
+        RemoteMusicProvider.Navidrome -> context.getString(R.string.remote_source_navidrome)
+        RemoteMusicProvider.Emby -> context.getString(R.string.remote_source_emby)
+    }
 
 @Composable
 private fun SourceSettingsScaffold(
@@ -240,7 +448,6 @@ private fun SourceSettingsScaffold(
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)
             )
 
-            SmallTitle(text = stringResource(R.string.lx_source_imported_section))
             content()
             Spacer(modifier = Modifier.height(120.dp))
         }

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.data.model.Song
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
 import com.ella.music.ui.components.EllaSmallTopAppBar
@@ -79,10 +80,22 @@ fun HomeScreen(
     val homeLibraryTileOrder by settingsManager.homeLibraryTileOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_LIBRARY_TILE_ORDER)
     val homeHiddenLibraryTiles by settingsManager.homeHiddenLibraryTiles.collectAsState(initial = "")
     val homeTilePinButtonsVisible by settingsManager.homeTilePinButtonsVisible.collectAsState(initial = false)
+    val appWallpaperEnabled by settingsManager.appWallpaperEnabled.collectAsState(initial = false)
+    val appWallpaperUri by settingsManager.appWallpaperUri.collectAsState(initial = "")
+    val homeCardColorRaw by settingsManager.homeCardColor.collectAsState(initial = "")
+    val homeCardOpacity by settingsManager.homeCardOpacity.collectAsState(initial = 58)
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     var aiPlaylistLoading by remember { mutableStateOf(false) }
     val pageBackground = ellaPageBackground()
     val cardText = if (isDark) Color.White else Color(0xFF15151A)
+    val wallpaperVisible = appWallpaperEnabled && appWallpaperUri.isNotBlank()
+    val baseHomeCardColor = homeCardColorRaw.parseHomeCardColorOrNull()
+        ?: MiuixTheme.colorScheme.surfaceContainer
+    val homeTileCardColor = if (wallpaperVisible || homeCardColorRaw.isNotBlank()) {
+        baseHomeCardColor.copy(alpha = homeCardOpacity.coerceIn(20, 100) / 100f)
+    } else {
+        baseHomeCardColor
+    }
     val featuredSongs = remember(songs) {
         when {
             songs.size <= 3 -> songs
@@ -106,12 +119,27 @@ fun HomeScreen(
     val yearCount = metadataCategoryCounts["year"] ?: 0
     val composerCount = metadataCategoryCounts["composer"] ?: 0
     val lyricistCount = metadataCategoryCounts["lyricist"] ?: 0
-    val songsById = remember(songs) { songs.associateBy { it.id } }
-    val recentSongs = remember(history, songsById) {
+    val recentSongIds = remember(history) {
         history
             .distinctBy { it.songId }
             .take(5)
-            .mapNotNull { entry -> songsById[entry.songId] }
+            .map { it.songId }
+    }
+    val recentSongs = remember(recentSongIds, songs) {
+        if (recentSongIds.isEmpty()) {
+            emptyList()
+        } else {
+            val pendingIds = recentSongIds.toMutableSet()
+            val matched = HashMap<Long, Song>(recentSongIds.size)
+            for (song in songs) {
+                if (song.id in pendingIds) {
+                    matched[song.id] = song
+                    pendingIds -= song.id
+                    if (pendingIds.isEmpty()) break
+                }
+            }
+            recentSongIds.mapNotNull(matched::get)
+        }
     }
 
     Column(
@@ -230,11 +258,11 @@ fun HomeScreen(
                 lyricistCount
             ) {
                 val all = mapOf(
-                    "artist" to HomeTileSpec("artist", context.getString(R.string.category_artist), context.getString(R.string.home_count_artists, artistCount), Color(0xFF118AB2), Screen.Artist.route, onNavigateToArtist),
-                    "album" to HomeTileSpec("album", context.getString(R.string.category_album), context.getString(R.string.home_count_albums, albums.size), Color(0xFFFF9F1C), Screen.Album.route, onNavigateToAlbum),
+                    "artist" to HomeTileSpec("artist", context.getString(R.string.category_artist), context.getString(R.string.home_count_artists, artistCount), Color(0xFF118AB2), Screen.Artist.createRoute(), onNavigateToArtist),
+                    "album" to HomeTileSpec("album", context.getString(R.string.category_album), context.getString(R.string.home_count_albums, albums.size), Color(0xFFFF9F1C), Screen.Album.createRoute(), onNavigateToAlbum),
                     "folder" to HomeTileSpec("folder", context.getString(R.string.category_folder), context.getString(R.string.home_count_folders, folderCount), Color(0xFF5E60CE), Screen.MetadataCategory.createRoute("folder")) { onNavigateToMetadataCategory("folder") },
-                    "folder_tree" to HomeTileSpec("folder_tree", context.getString(R.string.category_folder_tree), context.getString(R.string.home_browse_nested_folders), Color(0xFF8338EC), Screen.Folder.route, onNavigateToFolder),
-                    "playlist" to HomeTileSpec("playlist", context.getString(R.string.category_playlist), context.getString(R.string.home_count_playlists, playlists.size), Color(0xFFEF476F), Screen.Playlists.route, onNavigateToPlaylists),
+                    "folder_tree" to HomeTileSpec("folder_tree", context.getString(R.string.category_folder_tree), context.getString(R.string.home_browse_nested_folders), Color(0xFF8338EC), Screen.Folder.createRoute(), onNavigateToFolder),
+                    "playlist" to HomeTileSpec("playlist", context.getString(R.string.category_playlist), context.getString(R.string.home_count_playlists, playlists.size), Color(0xFFEF476F), Screen.Playlists.createRoute(), onNavigateToPlaylists),
                     "analytics" to HomeTileSpec("analytics", context.getString(R.string.category_analytics), context.getString(R.string.home_analytics_summary), Color(0xFFE71D36), Screen.Analytics.route, onNavigateToAnalytics),
                     "genre" to HomeTileSpec("genre", context.getString(R.string.category_genre), context.getString(R.string.home_count_genres, genreCount), Color(0xFF06D6A0), Screen.MetadataCategory.createRoute("genre")) { onNavigateToMetadataCategory("genre") },
                     "year" to HomeTileSpec("year", context.getString(R.string.category_year), context.getString(R.string.home_count_folders, yearCount), Color(0xFF4CC9F0), Screen.MetadataCategory.createRoute("year")) { onNavigateToMetadataCategory("year") },
@@ -246,7 +274,13 @@ fun HomeScreen(
 
             sectionOrder.filterNot { it in hiddenSections }.forEach { section ->
                 when (section) {
-                    "library" -> HomeTileSection(stringResource(R.string.home_library), libraryTiles, context, homeTilePinButtonsVisible)
+                    "library" -> HomeTileSection(
+                        stringResource(R.string.home_library),
+                        libraryTiles,
+                        context,
+                        homeTilePinButtonsVisible,
+                        cardColor = homeTileCardColor
+                    )
                     "online" -> {
                         SectionTitle(stringResource(R.string.home_online_music))
                         HomeTileGrid(
@@ -255,7 +289,8 @@ fun HomeScreen(
                                 HomeTileSpec("webdav", "WebDAV", stringResource(R.string.home_connect_cloud_music), Color(0xFF5E60CE), Screen.WebDav.route, onNavigateToWebDav)
                             ),
                             context = context,
-                            showPinButtons = homeTilePinButtonsVisible
+                            showPinButtons = homeTilePinButtonsVisible,
+                            cardColor = homeTileCardColor
                         )
                     }
                     "recent" -> {
@@ -287,4 +322,11 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(160.dp))
         }
     }
+}
+
+private fun String.parseHomeCardColorOrNull(): Color? {
+    val value = trim()
+    if (value.isBlank()) return null
+    val normalized = if (value.startsWith("#")) value else "#$value"
+    return runCatching { Color(android.graphics.Color.parseColor(normalized)) }.getOrNull()
 }

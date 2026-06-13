@@ -58,6 +58,7 @@ fun LibrarySearchScreen(
     playerViewModel: PlayerViewModel,
     initialFilterType: String? = null,
     initialQuery: String? = null,
+    showBackButton: Boolean = true,
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
@@ -180,13 +181,15 @@ fun LibrarySearchScreen(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = MiuixIcons.Regular.Back,
-                    contentDescription = stringResource(R.string.common_back),
-                    tint = MiuixTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(24.dp)
-                )
+            if (showBackButton) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Back,
+                        contentDescription = stringResource(R.string.common_back),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
             EllaSearchBar(
                 query = query,

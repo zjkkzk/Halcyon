@@ -74,6 +74,7 @@ import java.util.Locale
 fun FolderScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
+    showBackButton: Boolean = true,
     onBack: () -> Unit,
     onNavigateToPlayer: () -> Unit,
     onNavigateToLibraryAnalysis: () -> Unit,
@@ -121,13 +122,15 @@ fun FolderScreen(
                 title = stringResource(R.string.tab_folder),
                 color = ellaPageBackground(),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Back,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    if (showBackButton) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 },
                 actions = {

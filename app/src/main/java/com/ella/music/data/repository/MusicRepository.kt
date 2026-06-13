@@ -33,6 +33,7 @@ import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.model.searchableTagValues
+import com.ella.music.data.metadata.AudioCoverInfo
 import com.ella.music.data.metadata.AudioTagInfo
 import com.ella.music.data.metadata.AudioTagRepository
 import com.ella.music.data.metadata.LyricoAudioTagReaderWriter
@@ -817,6 +818,21 @@ class MusicRepository(private val context: Context) {
         }
     }
 
+    suspend fun writeSongEmbeddedCover(song: Song, cover: AudioCoverInfo?): Result<Song?> = withContext(Dispatchers.IO) {
+        val result = try {
+            writeSongCover(song, cover)
+        } catch (e: SecurityException) {
+            val sender = createWritePermissionIntentSender(song)
+                ?: return@withContext Result.failure(e)
+            return@withContext Result.failure(WritePermissionRequiredException(sender))
+        }
+        result.writePermissionRequestIfNeeded(song)?.let { return@withContext it }
+        result.map {
+            val immediate = updateSongAfterLocalTagWrite(song)
+            refreshSongAfterExternalEdit(immediate) ?: immediate
+        }
+    }
+
     private suspend fun updateSongAfterLocalTagWrite(song: Song): Song = withContext(Dispatchers.IO) {
         clearMetadataCache(song)
         val updated = song.withCurrentFileSnapshot()
@@ -868,6 +884,42 @@ class MusicRepository(private val context: Context) {
             Log.w("MusicRepo", "MediaStore tag write failed for ${song.path}, falling back to file path", error)
         }
         return audioTagRepository.writeTags(path, tags)
+    }
+
+    private suspend fun writeSongCover(song: Song, cover: AudioCoverInfo?): Result<Unit> {
+        if (song.isWebDavRemoteSong()) {
+            return Result.failure(IllegalArgumentException("Online / WebDAV songs are not supported for cover editing"))
+        }
+        val path = song.effectiveLocalPathForMetadata()
+        val writableUri = song.writableAudioUri()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && writableUri != null) {
+            val uriResult = runCatching {
+                val pfd = context.contentResolver.openFileDescriptor(writableUri, "rw")
+                    ?: error("Unable to open audio file for cover editing")
+                pfd.use { descriptor ->
+                    if (cover == null) {
+                        audioTagRepository.removeEmbeddedCover(descriptor, path).getOrThrow()
+                    } else {
+                        audioTagRepository.writeEmbeddedCover(descriptor, path, cover).getOrThrow()
+                    }
+                }
+            }
+            if (uriResult.isSuccess) {
+                clearMetadataCache(song)
+                return Result.success(Unit)
+            }
+
+            val error = uriResult.exceptionOrNull()
+            if (error is SecurityException || error?.isWritePermissionError() == true) {
+                return Result.failure(error)
+            }
+            Log.w("MusicRepo", "MediaStore cover write failed for ${song.path}, falling back to file path", error)
+        }
+        return if (cover == null) {
+            audioTagRepository.removeEmbeddedCover(path)
+        } else {
+            audioTagRepository.writeEmbeddedCover(path, cover)
+        }
     }
 
     fun getFullAudioTagInfo(song: Song): AudioTagInfo? {

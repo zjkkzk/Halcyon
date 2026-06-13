@@ -46,6 +46,9 @@ internal fun CoverPageContent(
     immersiveAlbumCover: Boolean,
     playerBackgroundEnabled: Boolean,
     playerBackgroundUri: String,
+    playerBackgroundOpacity: Float,
+    playerBackgroundDim: Float,
+    beautifulLyricsBackground: Boolean,
     hiResLogoEnabled: Boolean,
     hiResLogoUri: String,
     isPlaying: Boolean,
@@ -139,6 +142,9 @@ internal fun CoverPageContent(
         immersiveAlbumCover = immersiveAlbumCover,
         playerBackgroundEnabled = playerBackgroundEnabled,
         playerBackgroundUri = playerBackgroundUri,
+        playerBackgroundOpacity = playerBackgroundOpacity,
+        playerBackgroundDim = playerBackgroundDim,
+        beautifulLyricsBackground = beautifulLyricsBackground,
         hiResLogoEnabled = hiResLogoEnabled,
         hiResLogoUri = hiResLogoUri,
         isPlaying = isPlaying,
@@ -397,6 +403,9 @@ internal fun LyricsPageContent(
     isPlaying: Boolean,
     playerBackgroundEnabled: Boolean,
     playerBackgroundUri: String,
+    playerBackgroundOpacity: Float,
+    playerBackgroundDim: Float,
+    beautifulLyricsBackground: Boolean,
     isCurrentSongFavorite: Boolean,
     audioSessionId: Int,
     effectiveAudioVisualizerEnabled: Boolean,
@@ -435,6 +444,9 @@ internal fun LyricsPageContent(
         isPlaying = isPlaying,
         playerBackgroundEnabled = playerBackgroundEnabled,
         playerBackgroundUri = playerBackgroundUri,
+        playerBackgroundOpacity = playerBackgroundOpacity,
+        playerBackgroundDim = playerBackgroundDim,
+        beautifulLyricsBackground = beautifulLyricsBackground,
         isFavorite = isCurrentSongFavorite,
         audioSessionId = audioSessionId,
         visualizerEnabled = effectiveAudioVisualizerEnabled,
@@ -477,6 +489,8 @@ internal fun DetailPageContent(
     tagInfo: SongTagInfo?,
     neteaseInfo: NeteaseKeyInfo?,
     playerBackgroundUri: String,
+    playerBackgroundOpacity: Float,
+    playerBackgroundDim: Float,
     immersiveAlbumCover: Boolean,
     playerBackgroundEnabled: Boolean,
     onNavigateToAlbum: (Long) -> Unit,
@@ -492,6 +506,8 @@ internal fun DetailPageContent(
         customBackgroundUri = playerBackgroundUri.takeIf {
             !immersiveAlbumCover && playerBackgroundEnabled && playerBackgroundUri.isNotBlank()
         }.orEmpty(),
+        customBackgroundOpacity = playerBackgroundOpacity,
+        customBackgroundDim = playerBackgroundDim,
         onAlbum = {
             val albumId = song?.albumIdentityId() ?: 0L
             if (albumId > 0L) onNavigateToAlbum(albumId)

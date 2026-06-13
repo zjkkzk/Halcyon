@@ -41,6 +41,11 @@ import com.ella.music.data.SettingsManager
 import com.ella.music.data.lx.LxOnlineService
 import com.ella.music.data.lx.LxOnlineSong
 import com.ella.music.data.model.Song
+import com.ella.music.data.remote.EmbyService
+import com.ella.music.data.remote.NavidromeService
+import com.ella.music.data.remote.RemoteMusicProvider
+import com.ella.music.data.remote.RemoteMusicSourceConfig
+import com.ella.music.data.remote.RemoteOnlineSong
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ellaPageBackground
@@ -76,8 +81,17 @@ fun LxOnlineScreen(
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val service = remember(context) { LxOnlineService(context) }
+    val navidromeService = remember(context) { NavidromeService(context) }
+    val embyService = remember(context) { EmbyService(context) }
     val scope = rememberCoroutineScope()
 
+    val selectedProvider by settingsManager.selectedOnlineProvider.collectAsState(initial = RemoteMusicProvider.Lx)
+    val navidromeConfig by settingsManager.navidromeConfig.collectAsState(
+        initial = RemoteMusicSourceConfig(RemoteMusicProvider.Navidrome, "")
+    )
+    val embyConfig by settingsManager.embyConfig.collectAsState(
+        initial = RemoteMusicSourceConfig(RemoteMusicProvider.Emby, "")
+    )
     val loadedSources by settingsManager.lxSources.collectAsState(initial = null)
     val sources = loadedSources.orEmpty()
     val selectedSourceId by settingsManager.selectedLxSourceId.collectAsState(initial = "")
@@ -89,19 +103,60 @@ fun LxOnlineScreen(
     val currentSourceId = selectedSource?.id.orEmpty()
     var observedSourceId by remember { mutableStateOf<String?>(null) }
     var actionItem by remember { mutableStateOf<LxOnlineSong?>(null) }
-    LaunchedEffect(currentSourceId) {
+    var remoteResults by remember { mutableStateOf<List<RemoteOnlineSong>>(emptyList()) }
+    var remoteActionItem by remember { mutableStateOf<RemoteOnlineSong?>(null) }
+    LaunchedEffect(currentSourceId, selectedProvider) {
         val previousSourceId = observedSourceId
-        if (previousSourceId != null && previousSourceId != currentSourceId) {
+        val marker = "${selectedProvider.id}:$currentSourceId"
+        if (previousSourceId != null && previousSourceId != marker) {
             state.clearResults(
-                selectedSource?.let { context.getString(R.string.lx_online_source_switched, it.name) }
-                    ?: context.getString(R.string.lx_online_please_import_source)
+                context.getString(R.string.lx_online_source_switched, selectedProvider.displayName(context))
             )
+            remoteResults = emptyList()
         }
-        observedSourceId = currentSourceId
+        observedSourceId = marker
     }
+
+    val remoteConfig = when (selectedProvider) {
+        RemoteMusicProvider.Navidrome -> navidromeConfig
+        RemoteMusicProvider.Emby -> embyConfig
+        RemoteMusicProvider.Lx -> null
+    }
+    val remoteConfigured = selectedProvider == RemoteMusicProvider.Lx || remoteConfig?.isConfigured == true
 
     fun showToast(text: String) {
         Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+    }
+
+    suspend fun searchSelectedProvider() {
+        if (state.searchQuery.isBlank()) return
+        if (!remoteConfigured || selectedProvider == RemoteMusicProvider.Lx && selectedSource == null) {
+            showToast(context.getString(R.string.remote_source_configure_first))
+            return
+        }
+        state.isBusy = true
+        runCatching {
+            if (selectedProvider == RemoteMusicProvider.Lx) {
+                state.results = service.search(state.searchQuery, selectedSource)
+                remoteResults = emptyList()
+                state.message = if (state.results.isEmpty()) context.getString(R.string.lx_online_no_songs_found)
+                else context.getString(R.string.lx_online_songs_found, state.results.size)
+            } else {
+                val config = remoteConfig ?: error(context.getString(R.string.remote_source_configure_first))
+                remoteResults = when (selectedProvider) {
+                    RemoteMusicProvider.Navidrome -> navidromeService.search(state.searchQuery, config)
+                    RemoteMusicProvider.Emby -> embyService.search(state.searchQuery, config)
+                    RemoteMusicProvider.Lx -> emptyList()
+                }
+                state.results = emptyList()
+                state.message = if (remoteResults.isEmpty()) context.getString(R.string.lx_online_no_songs_found)
+                else context.getString(R.string.lx_online_songs_found, remoteResults.size)
+            }
+        }.onFailure {
+            state.message = it.localizedMessage ?: context.getString(R.string.lx_online_search_failed)
+            showToast(state.message)
+        }
+        state.isBusy = false
     }
 
     suspend fun playLazyOnlineQueue(startItem: LxOnlineSong) {
@@ -123,10 +178,25 @@ fun LxOnlineScreen(
     }
 
     suspend fun resolveActionSong(song: Song): Song {
+        remoteActionItem?.takeIf { it.song.id == song.id }?.let { item ->
+            return when (item.provider) {
+                RemoteMusicProvider.Navidrome -> navidromeService.resolvePlayableSong(item)
+                RemoteMusicProvider.Emby -> embyService.resolvePlayableSong(item)
+                RemoteMusicProvider.Lx -> item.song
+            }
+        }
         val item = actionItem?.takeIf { it.song.id == song.id }
             ?: state.results.firstOrNull { it.song.id == song.id }
             ?: error(context.getString(R.string.lx_online_song_expired))
         return service.resolvePlayableSong(item, selectedSource?.script.orEmpty())
+    }
+
+    suspend fun resolveActionRemoteSong(item: RemoteOnlineSong): Song {
+        return when (item.provider) {
+            RemoteMusicProvider.Navidrome -> navidromeService.resolvePlayableSong(item)
+            RemoteMusicProvider.Emby -> embyService.resolvePlayableSong(item)
+            RemoteMusicProvider.Lx -> item.song
+        }
     }
 
     Column(
@@ -136,7 +206,7 @@ fun LxOnlineScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         EllaSmallTopAppBar(
-            title = "LX Music",
+            title = selectedProvider.displayName(context),
             color = ellaPageBackground(),
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -168,8 +238,16 @@ fun LxOnlineScreen(
                 onClick = onNavigateToSourceSettings
             ) {
                 BasicComponent(
-                    title = selectedSource?.name ?: stringResource(R.string.lx_online_no_source_selected),
-                    summary = selectedSource?.url ?: stringResource(R.string.lx_online_no_source_hint),
+                    title = when (selectedProvider) {
+                        RemoteMusicProvider.Lx -> selectedSource?.name ?: stringResource(R.string.lx_online_no_source_selected)
+                        RemoteMusicProvider.Navidrome -> stringResource(R.string.remote_source_navidrome)
+                        RemoteMusicProvider.Emby -> stringResource(R.string.remote_source_emby)
+                    },
+                    summary = when (selectedProvider) {
+                        RemoteMusicProvider.Lx -> selectedSource?.url ?: stringResource(R.string.lx_online_no_source_hint)
+                        RemoteMusicProvider.Navidrome -> navidromeConfig.baseUrl.ifBlank { stringResource(R.string.remote_source_not_configured) }
+                        RemoteMusicProvider.Emby -> embyConfig.serverName.ifBlank { embyConfig.baseUrl }.ifBlank { stringResource(R.string.remote_source_not_configured) }
+                    },
                 )
             }
 
@@ -177,43 +255,16 @@ fun LxOnlineScreen(
                 value = state.searchQuery,
                 onValueChange = { state.searchQuery = it },
                 onSearch = {
-                    if (state.searchQuery.isBlank()) return@OnlineTextField
-                    if (selectedSource == null) {
-                        showToast(context.getString(R.string.lx_online_please_import_source))
-                        return@OnlineTextField
-                    }
-                    scope.launch {
-                        state.isBusy = true
-                        runCatching {
-                            state.results = service.search(state.searchQuery, selectedSource)
-                            state.message = if (state.results.isEmpty()) context.getString(R.string.lx_online_no_songs_found)
-                            else context.getString(R.string.lx_online_songs_found, state.results.size)
-                        }.onFailure {
-                            state.message = it.localizedMessage ?: context.getString(R.string.lx_online_search_failed)
-                            showToast(state.message)
-                        }
-                        state.isBusy = false
-                    }
+                    scope.launch { searchSelectedProvider() }
                 },
                 placeholder = stringResource(R.string.lx_online_search_placeholder),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
             )
 
             Button(
-                enabled = !state.isBusy && state.searchQuery.isNotBlank() && selectedSource != null,
+                enabled = !state.isBusy && state.searchQuery.isNotBlank() && remoteConfigured,
                 onClick = {
-                    scope.launch {
-                        state.isBusy = true
-                        runCatching {
-                            state.results = service.search(state.searchQuery, selectedSource)
-                            state.message = if (state.results.isEmpty()) context.getString(R.string.lx_online_no_songs_found)
-                            else context.getString(R.string.lx_online_songs_found, state.results.size)
-                        }.onFailure {
-                            state.message = it.localizedMessage ?: context.getString(R.string.lx_online_search_failed)
-                            showToast(state.message)
-                        }
-                        state.isBusy = false
-                    }
+                    scope.launch { searchSelectedProvider() }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -231,12 +282,84 @@ fun LxOnlineScreen(
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
             )
 
-            if (state.results.isEmpty()) {
+            val showingRemote = selectedProvider != RemoteMusicProvider.Lx
+            if ((!showingRemote && state.results.isEmpty()) || (showingRemote && remoteResults.isEmpty())) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (selectedSource == null) stringResource(R.string.lx_online_please_import_source) else stringResource(R.string.lx_online_search_hint),
+                        text = if (!remoteConfigured) stringResource(R.string.remote_source_configure_first) else stringResource(R.string.lx_online_search_hint),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
+                }
+            } else if (showingRemote) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(remoteResults, key = { it.song.id }) { item ->
+                        SongItem(
+                            song = item.song,
+                            albumArtUri = item.coverUrl.takeIf { it.isNotBlank() }?.let(Uri::parse),
+                            showPlayNextInLists = showPlayNextInLists,
+                            onClick = {
+                                val visible = remoteResults.ifEmpty { listOf(item) }
+                                val startIndex = visible.indexOfFirst { it.song.id == item.song.id }.coerceAtLeast(0)
+                                val resolver: suspend (Song) -> Song = { song ->
+                                    val target = visible.firstOrNull { it.song.id == song.id }
+                                        ?: error(context.getString(R.string.lx_online_song_expired))
+                                    when (target.provider) {
+                                        RemoteMusicProvider.Navidrome -> navidromeService.resolvePlayableSong(target)
+                                        RemoteMusicProvider.Emby -> embyService.resolvePlayableSong(target)
+                                        RemoteMusicProvider.Lx -> target.song
+                                    }
+                                }
+                                scope.launch {
+                                    state.isBusy = true
+                                    runCatching {
+                                        playerViewModel.setLazyOnlinePlaylist(
+                                            songs = visible.map { it.song },
+                                            startIndex = startIndex,
+                                            resolvedStartSong = resolver(item.song),
+                                            resolver = resolver
+                                        )
+                                        state.message = context.getString(R.string.lx_online_queue_obtained, visible.size)
+                                        if (openPlayerOnPlay) onNavigateToPlayer()
+                                    }.onFailure {
+                                        state.message = it.localizedMessage ?: context.getString(R.string.lx_online_playback_failed)
+                                        showToast(state.message)
+                                    }
+                                    state.isBusy = false
+                                }
+                            },
+                            onPlayNext = {
+                                scope.launch {
+                                    state.isBusy = true
+                                    runCatching {
+                                        val playable = resolveActionRemoteSong(item)
+                                        playerViewModel.playNext(playable)
+                                        showToast(context.getString(R.string.song_more_added_to_play_next))
+                                    }.onFailure {
+                                        state.message = it.localizedMessage ?: context.getString(R.string.lx_online_add_to_queue_failed)
+                                        showToast(state.message)
+                                    }
+                                    state.isBusy = false
+                                }
+                            },
+                            onDownload = {
+                                scope.launch {
+                                    state.isBusy = true
+                                    runCatching {
+                                        enqueueDownload(context, resolveActionRemoteSong(item))
+                                        showToast(context.getString(R.string.player_download_started))
+                                    }.onFailure {
+                                        state.message = it.localizedMessage ?: context.getString(R.string.lx_online_download_failed)
+                                        showToast(state.message)
+                                    }
+                                    state.isBusy = false
+                                }
+                            },
+                            onMore = {
+                                remoteActionItem = item
+                                actionItem = null
+                            }
+                        )
+                    }
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -288,6 +411,7 @@ fun LxOnlineScreen(
                             },
                             onMore = {
                                 actionItem = item
+                                remoteActionItem = null
                             }
                         )
                     }
@@ -297,10 +421,13 @@ fun LxOnlineScreen(
     }
 
     SongMoreActionHost(
-        actionSong = actionItem?.song,
+        actionSong = remoteActionItem?.song ?: actionItem?.song,
         mainViewModel = mainViewModel,
         playerViewModel = playerViewModel,
-        onDismissAction = { actionItem = null },
+        onDismissAction = {
+            actionItem = null
+            remoteActionItem = null
+        },
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToArtist = onNavigateToArtist,
         showDelete = false,
@@ -308,6 +435,13 @@ fun LxOnlineScreen(
         resolveSongForAction = ::resolveActionSong
     )
 }
+
+private fun RemoteMusicProvider.displayName(context: Context): String =
+    when (this) {
+        RemoteMusicProvider.Lx -> "LX Music"
+        RemoteMusicProvider.Navidrome -> context.getString(R.string.remote_source_navidrome)
+        RemoteMusicProvider.Emby -> context.getString(R.string.remote_source_emby)
+    }
 
 private fun enqueueDownload(context: Context, song: com.ella.music.data.model.Song) {
     val fileName = song.fileName.ifBlank { "${song.title}-${song.artist}.mp3" }.sanitizeFileName()

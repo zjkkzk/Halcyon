@@ -35,12 +35,25 @@ internal fun LandscapeCoverModeBackground(
     dynamicFlowEnabled: Boolean,
     visualizerEnabled: Boolean,
     customBackgroundUri: String,
+    customBackgroundOpacity: Float = 1f,
+    customBackgroundDim: Float = 0.26f,
+    beautifulLyricsBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.background(palette.middle)) {
         if (customBackgroundUri.isNotBlank()) {
             PlayerCustomBackground(
                 uri = customBackgroundUri,
+                imageAlpha = customBackgroundOpacity,
+                dimAlpha = customBackgroundDim,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (beautifulLyricsBackground) {
+            BeautifulLyricsDynamicBackground(
+                palette = palette,
+                positionMs = currentPosition,
+                isPlaying = isPlaying,
+                animate = !visualizerEnabled,
                 modifier = Modifier.fillMaxSize()
             )
         } else {

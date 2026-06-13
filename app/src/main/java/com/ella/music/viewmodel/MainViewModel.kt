@@ -22,6 +22,7 @@ import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
 import com.ella.music.data.metadata.AudioTagInfo
+import com.ella.music.data.metadata.AudioCoverInfo
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.repository.CoverUsage
@@ -275,6 +276,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         return result
     }
+
+    suspend fun writeSongEmbeddedCover(song: Song, cover: AudioCoverInfo?): Result<Song?> =
+        repository.writeSongEmbeddedCover(song, cover)
 
     fun getFullAudioTagInfo(song: Song): AudioTagInfo? =
         repository.getFullAudioTagInfo(song)

@@ -161,10 +161,10 @@ private fun Context.buildEllaActionShortcut(
 
 private fun shortcutIconForRoute(route: String): Int = when (route) {
     Screen.Library.route -> R.drawable.ic_shortcut_library
-    Screen.Playlists.route -> R.drawable.ic_shortcut_playlist
-    Screen.Folder.route -> R.drawable.ic_shortcut_folder
-    Screen.Album.route -> R.drawable.ic_shortcut_album
-    Screen.Artist.route -> R.drawable.ic_shortcut_artist
+    Screen.Playlists.createRoute() -> R.drawable.ic_shortcut_playlist
+    Screen.Folder.createRoute() -> R.drawable.ic_shortcut_folder
+    Screen.Album.createRoute() -> R.drawable.ic_shortcut_album
+    Screen.Artist.createRoute() -> R.drawable.ic_shortcut_artist
     "category/folder" -> R.drawable.ic_shortcut_folder
     "category/genre" -> R.drawable.ic_shortcut_tag
     "category/year" -> R.drawable.ic_shortcut_calendar
@@ -174,6 +174,10 @@ private fun shortcutIconForRoute(route: String): Int = when (route) {
 }
 
 private fun shortcutIconForRoutePrefix(route: String): Int = when {
+    route == Screen.Album.baseRoute || route.startsWith("${Screen.Album.baseRoute}?") -> R.drawable.ic_shortcut_album
+    route == Screen.Artist.baseRoute || route.startsWith("${Screen.Artist.baseRoute}?") -> R.drawable.ic_shortcut_artist
+    route == Screen.Folder.baseRoute || route.startsWith("${Screen.Folder.baseRoute}?") -> R.drawable.ic_shortcut_folder
+    route == Screen.Playlists.baseRoute || route.startsWith("${Screen.Playlists.baseRoute}?") -> R.drawable.ic_shortcut_playlist
     route.startsWith("album/") -> R.drawable.ic_shortcut_album
     route.startsWith("artist/") -> R.drawable.ic_shortcut_artist
     route.startsWith("folder/") -> R.drawable.ic_shortcut_folder

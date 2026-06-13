@@ -106,6 +106,7 @@ import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.openSongSpectrumWithAspectPro
 import com.ella.music.ui.components.shareLocalSong
+import com.ella.music.ui.components.toFastIndexLetters
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Dispatchers
@@ -149,6 +150,15 @@ fun LibraryScreen(
     val settingsManager = remember(context) { SettingsManager.getInstance(context) }
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
+    val appWallpaperEnabled by settingsManager.appWallpaperEnabled.collectAsState(initial = false)
+    val appWallpaperUri by settingsManager.appWallpaperUri.collectAsState(initial = "")
+    val pageBackground = ellaPageBackground()
+    val wallpaperVisible = appWallpaperEnabled && appWallpaperUri.isNotBlank()
+    val searchBarColor = if (wallpaperVisible) {
+        MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f)
+    } else {
+        MiuixTheme.colorScheme.surfaceContainerHigh
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     var searchExpanded by remember { mutableStateOf(false) }
@@ -274,13 +284,11 @@ fun LibraryScreen(
         }
         value = if (query.isBlank()) base else mainViewModel.filterSongsBySearchSnapshot(base, query)
     }
-    // initialValue must stay O(1): it is re-evaluated on every recomposition of this screen
-    // (it's a plain argument expression), even though produceState only uses it on first
-    // composition. Running the real sort here would re-sort all songs on the main thread on
-    // every recomposition. Wrap the filtered list unsorted as a cheap placeholder and let the
-    // background block below produce the actually sorted result.
+    // Keep initialValue O(1) and avoid rendering the full unsorted list before the background
+    // sort completes. Large libraries can otherwise allocate several 60k-entry helper
+    // collections twice while switching into this screen.
     val sortedResult by produceState<HomeSortedSongs?>(
-        initialValue = HomeSortedSongs(filteredSongs, emptyMap()),
+        initialValue = null,
         filteredSongs,
         sortMode
     ) {
@@ -288,13 +296,21 @@ fun LibraryScreen(
     }
     val sortedSongs = sortedResult?.songs.orEmpty()
     val sortKeysBySongId = sortedResult?.sortKeysBySongId.orEmpty()
-    val visibleSongIds = remember(sortedSongs) { sortedSongs.map { it.id }.toSet() }
-    val sortedSongIndexById = remember(sortedSongs) {
-        buildMap {
-            sortedSongs.forEachIndexed { index, song -> put(song.id, index) }
+    val visibleSongIds = remember(selectionMode, sortedSongs) {
+        if (selectionMode) sortedSongs.mapTo(mutableSetOf()) { it.id } else emptySet()
+    }
+    val sortedSongIndexById = remember(selectionMode, sortedSongs) {
+        if (!selectionMode) {
+            emptyMap()
+        } else {
+            buildMap {
+                sortedSongs.forEachIndexed { index, song -> put(song.id, index) }
+            }
         }
     }
-    val selectedVisibleCount = remember(selectedIds, visibleSongIds) { selectedIds.count { it in visibleSongIds } }
+    val selectedVisibleCount = remember(selectionMode, selectedIds, visibleSongIds) {
+        if (selectionMode) selectedIds.count { it in visibleSongIds } else 0
+    }
     val rangeSelectionAvailable = remember(sortedSongIndexById, selectedIds, rangeAnchorId, rangeTargetId) {
         val anchor = rangeAnchorId
         val target = rangeTargetId
@@ -372,13 +388,13 @@ fun LibraryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ellaPageBackground())
+            .background(pageBackground)
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Box {
             EllaSmallTopAppBar(
                 title = "",
-                color = ellaPageBackground(),
+                color = pageBackground,
                 titleStartPadding = if (!selectionMode && songs.isNotEmpty()) 156.dp else 20.dp,
                 titleEndPadding = if (selectionMode) 170.dp else 152.dp,
                 navigationIcon = {
@@ -566,7 +582,8 @@ fun LibraryScreen(
                 placeholder = stringResource(R.string.library_search_placeholder),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                containerColor = searchBarColor
             )
         }
 
@@ -620,8 +637,9 @@ fun LibraryScreen(
             val listState = rememberLazyListState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
             var handledLocateRequest by remember { mutableStateOf(locateCurrentSongRequest) }
-            val currentSongIndex = remember(sortedSongIndexById, currentSong?.id) {
-                currentSong?.id?.let { sortedSongIndexById[it] } ?: -1
+            val currentSongIndex = remember(sortedSongs, currentSong?.id) {
+                val id = currentSong?.id ?: return@remember -1
+                sortedSongs.indexOfFirst { it.id == id }
             }
             val showLocateCurrentSongButton by remember(currentSongIndex, selectionMode) {
                 derivedStateOf {
@@ -645,17 +663,23 @@ fun LibraryScreen(
             // Compute the per-song index letter once and reuse it for both the bar labels and the
             // scroll targets. Building this inline on every recomposition was O(n) main-thread work
             // that scaled badly for large libraries (1k–10k+ songs).
-            val fastIndexLetters = remember(sortedSongs, sortKeysBySongId) {
-                sortedSongs.map { song -> song.indexLetter(sortKeysBySongId[song.id]) }
-            }
-            val fastIndexTargets = remember(fastIndexLetters) {
-                buildMap {
-                    fastIndexLetters.forEachIndexed { index, letter -> putIfAbsent(letter, index) }
+            val showFastIndexBar = sortMode == HomeSortMode.Title && sortedSongs.size > 30
+            val fastIndexData = remember(showFastIndexBar, sortedSongs, sortKeysBySongId) {
+                if (!showFastIndexBar) {
+                    FastIndexData.Empty
+                } else {
+                    val targets = LinkedHashMap<String, Int>()
+                    sortedSongs.forEachIndexed { index, song ->
+                        targets.putIfAbsent(song.indexLetter(sortKeysBySongId[song.id]), index)
+                    }
+                    FastIndexData(
+                        letters = targets.keys.toList().toFastIndexLetters(),
+                        targets = targets
+                    )
                 }
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                val showFastIndexBar = sortMode == HomeSortMode.Title && sortedSongs.size > 30
                 val showScrollIndicator = sortedSongs.size > 30 && !showFastIndexBar
                 // Inset rows so the song "more" button clears the side index bar (matches Lyrico)
                 // and is no longer easy to mis-tap.
@@ -746,13 +770,13 @@ fun LibraryScreen(
 
                 if (showFastIndexBar) {
                     FastIndexBar(
-                        letters = fastIndexLetters,
+                        letters = fastIndexData.letters,
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
                             .padding(end = 2.dp),
                         onLetterClick = { letter ->
-                            val index = fastIndexTargets[letter]
+                            val index = fastIndexData.targets[letter]
                             if (index != null) {
                                 fastScrollJob?.cancel()
                                 fastScrollJob = scope.launch {
@@ -933,5 +957,14 @@ fun LibraryScreen(
                 onDismiss = { aiInterpretationSong = null }
             )
         }
+    }
+}
+
+private data class FastIndexData(
+    val letters: List<String>,
+    val targets: Map<String, Int>
+) {
+    companion object {
+        val Empty = FastIndexData(emptyList(), emptyMap())
     }
 }

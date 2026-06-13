@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -12,6 +14,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.ella.music.data.SettingsManager
 import com.ella.music.ui.about.AboutScreen
 import com.ella.music.ui.about.UpdateScreen
 import com.ella.music.ui.analytics.AnalyticsScreen
@@ -64,15 +67,24 @@ sealed class Screen(val route: String) {
             return if (params.isEmpty()) baseRoute else "$baseRoute?${params.joinToString("&")}"
         }
     }
-    data object Album : Screen("album")
-    data object Artist : Screen("artist")
+    data object Album : Screen("album?fromDock={fromDock}") {
+        const val baseRoute = "album"
+        fun createRoute(fromDock: Boolean = false) = "$baseRoute?fromDock=$fromDock"
+    }
+    data object Artist : Screen("artist?fromDock={fromDock}") {
+        const val baseRoute = "artist"
+        fun createRoute(fromDock: Boolean = false) = "$baseRoute?fromDock=$fromDock"
+    }
     data object AlbumDetail : Screen("album/{albumId}") {
         fun createRoute(albumId: Long) = "album/$albumId"
     }
     data object ArtistDetail : Screen("artist/{artistName}") {
         fun createRoute(artistName: String) = "artist/${java.net.URLEncoder.encode(artistName, "UTF-8")}"
     }
-    data object Folder : Screen("folder")
+    data object Folder : Screen("folder?fromDock={fromDock}") {
+        const val baseRoute = "folder"
+        fun createRoute(fromDock: Boolean = false) = "$baseRoute?fromDock=$fromDock"
+    }
     data object ScanSettings : Screen("scan_settings")
     data object MetadataCategory : Screen("category/{type}") {
         fun createRoute(type: String) = "category/${java.net.URLEncoder.encode(type, "UTF-8")}"
@@ -81,7 +93,10 @@ sealed class Screen(val route: String) {
         fun createRoute(type: String, name: String) =
             "category/${java.net.URLEncoder.encode(type, "UTF-8")}/${java.net.URLEncoder.encode(name, "UTF-8")}"
     }
-    data object Playlists : Screen("playlists")
+    data object Playlists : Screen("playlists?fromDock={fromDock}") {
+        const val baseRoute = "playlists"
+        fun createRoute(fromDock: Boolean = false) = "$baseRoute?fromDock=$fromDock"
+    }
     data object PlaylistDetail : Screen("playlist/{playlistId}") {
         fun createRoute(playlistId: String) = "playlist/${java.net.URLEncoder.encode(playlistId, "UTF-8")}"
     }
@@ -119,6 +134,11 @@ fun AppNavigation(
     modifier: Modifier = Modifier,
     onNavigateToPlayer: () -> Unit = {}
 ) {
+    val bottomDockItems by mainViewModel.settingsManager.bottomDockItems.collectAsState(
+        initial = SettingsManager.DEFAULT_BOTTOM_DOCK_ITEMS.split(',')
+    )
+    fun isDockItem(itemId: String): Boolean = itemId in bottomDockItems
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,
@@ -151,10 +171,10 @@ fun AppNavigation(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 onNavigateToLibrary = { navigateTopLevel(Screen.Library.route) },
-                onNavigateToArtist = { navController.navigate(Screen.Artist.route) },
-                onNavigateToAlbum = { navController.navigate(Screen.Album.route) },
-                onNavigateToFolder = { navController.navigate(Screen.Folder.route) },
-                onNavigateToPlaylists = { navController.navigate(Screen.Playlists.route) },
+                onNavigateToArtist = { navController.navigate(Screen.Artist.createRoute()) },
+                onNavigateToAlbum = { navController.navigate(Screen.Album.createRoute()) },
+                onNavigateToFolder = { navController.navigate(Screen.Folder.createRoute()) },
+                onNavigateToPlaylists = { navController.navigate(Screen.Playlists.createRoute()) },
                 onNavigateToLxOnline = { navController.navigate(Screen.LxOnline.route) },
                 onNavigateToWebDav = { navController.navigate(Screen.WebDav.route) },
                 onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) },
@@ -197,6 +217,7 @@ fun AppNavigation(
                 playerViewModel = playerViewModel,
                 initialFilterType = backStackEntry.arguments?.getString("type"),
                 initialQuery = backStackEntry.arguments?.getString("keyword"),
+                showBackButton = false,
                 onBack = { navController.popBackStack() },
                 onNavigateToAlbum = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },
                 onNavigateToArtist = { artistName -> navController.navigate(Screen.ArtistDetail.createRoute(artistName)) },
@@ -204,10 +225,15 @@ fun AppNavigation(
             )
         }
 
-        composable(Screen.Album.route) {
+        composable(
+            route = Screen.Album.route,
+            arguments = listOf(navArgument("fromDock") { type = NavType.BoolType; defaultValue = false })
+        ) { backStackEntry ->
+            val fromDock = backStackEntry.arguments?.getBoolean("fromDock") == true
             AlbumScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
+                showBackButton = !(fromDock && isDockItem(SettingsManager.BOTTOM_DOCK_ITEM_ALBUM)),
                 onBack = { navController.popBackStack() },
                 onAlbumClick = { albumId ->
                     navController.navigate(Screen.AlbumDetail.createRoute(albumId))
@@ -215,10 +241,15 @@ fun AppNavigation(
             )
         }
 
-        composable(Screen.Artist.route) {
+        composable(
+            route = Screen.Artist.route,
+            arguments = listOf(navArgument("fromDock") { type = NavType.BoolType; defaultValue = false })
+        ) { backStackEntry ->
+            val fromDock = backStackEntry.arguments?.getBoolean("fromDock") == true
             ArtistListScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
+                showBackButton = !(fromDock && isDockItem(SettingsManager.BOTTOM_DOCK_ITEM_ARTIST)),
                 onBack = { navController.popBackStack() },
                 onArtistClick = { artistName ->
                     navController.navigate(Screen.ArtistDetail.createRoute(artistName))
@@ -249,10 +280,15 @@ fun AppNavigation(
             )
         }
 
-        composable(Screen.Folder.route) {
+        composable(
+            route = Screen.Folder.route,
+            arguments = listOf(navArgument("fromDock") { type = NavType.BoolType; defaultValue = false })
+        ) { backStackEntry ->
+            val fromDock = backStackEntry.arguments?.getBoolean("fromDock") == true
             FolderScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
+                showBackButton = !(fromDock && isDockItem(SettingsManager.BOTTOM_DOCK_ITEM_FOLDER)),
                 onBack = { navController.popBackStack() },
                 onNavigateToPlayer = onNavigateToPlayer,
                 onNavigateToLibraryAnalysis = { navController.navigate(Screen.LibraryAnalysis.route) },
@@ -323,10 +359,15 @@ fun AppNavigation(
             )
         }
 
-        composable(Screen.Playlists.route) {
+        composable(
+            route = Screen.Playlists.route,
+            arguments = listOf(navArgument("fromDock") { type = NavType.BoolType; defaultValue = false })
+        ) { backStackEntry ->
+            val fromDock = backStackEntry.arguments?.getBoolean("fromDock") == true
             PlaylistScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
+                showBackButton = !(fromDock && isDockItem(SettingsManager.BOTTOM_DOCK_ITEM_PLAYLISTS)),
                 onBack = { navController.popBackStack() },
                 onPlaylistClick = { playlistId ->
                     navController.navigate(Screen.PlaylistDetail.createRoute(playlistId))

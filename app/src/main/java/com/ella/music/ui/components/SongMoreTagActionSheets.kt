@@ -96,20 +96,64 @@ internal fun SongMoreTagActionSheets(
                 song = song,
                 mainViewModel = mainViewModel,
                 onDismiss = { onMetadataEditorSongChange(null) },
-                onSave = { tags ->
+                onSave = { tags, cover, coverChanged ->
                     scope.launch {
                         val result = mainViewModel.writeSongMetadata(song, tags)
                         if (result.isSuccess) {
-                            Toast.makeText(context, context.getString(R.string.song_more_metadata_saved), Toast.LENGTH_SHORT).show()
-                            onMetadataEditorSongChange(null)
+                            val coverResult = if (coverChanged) {
+                                mainViewModel.writeSongEmbeddedCover(song, cover)
+                            } else {
+                                Result.success(result.getOrNull())
+                            }
+                            if (coverResult.isSuccess) {
+                                Toast.makeText(context, context.getString(R.string.song_more_metadata_saved), Toast.LENGTH_SHORT).show()
+                                onMetadataEditorSongChange(null)
+                            } else {
+                                handleMetadataSaveError(
+                                    context = context,
+                                    error = coverResult.exceptionOrNull(),
+                                    onWritePermissionRequired = onWritePermissionRequired,
+                                    retry = {
+                                        val retryResult = mainViewModel.writeSongEmbeddedCover(song, cover)
+                                        if (retryResult.isSuccess) {
+                                            Toast.makeText(context, context.getString(R.string.song_more_metadata_saved), Toast.LENGTH_SHORT).show()
+                                            onMetadataEditorSongChange(null)
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                retryResult.exceptionOrNull()?.localizedMessage
+                                                    ?: context.getString(R.string.song_more_metadata_save_failed),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                )
+                            }
                         } else {
                             val error = result.exceptionOrNull()
-                            if (error is WritePermissionRequiredException) {
-                                onWritePermissionRequired(error) {
+                            handleMetadataSaveError(
+                                context = context,
+                                error = error,
+                                onWritePermissionRequired = onWritePermissionRequired,
+                                retry = {
                                     val retryResult = mainViewModel.writeSongMetadata(song, tags)
                                     if (retryResult.isSuccess) {
-                                        Toast.makeText(context, context.getString(R.string.song_more_metadata_saved), Toast.LENGTH_SHORT).show()
-                                        onMetadataEditorSongChange(null)
+                                        val coverResult = if (coverChanged) {
+                                            mainViewModel.writeSongEmbeddedCover(song, cover)
+                                        } else {
+                                            Result.success(retryResult.getOrNull())
+                                        }
+                                        if (coverResult.isSuccess) {
+                                            Toast.makeText(context, context.getString(R.string.song_more_metadata_saved), Toast.LENGTH_SHORT).show()
+                                            onMetadataEditorSongChange(null)
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                coverResult.exceptionOrNull()?.localizedMessage
+                                                    ?: context.getString(R.string.song_more_metadata_save_failed),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     } else {
                                         Toast.makeText(
                                             context,
@@ -119,17 +163,28 @@ internal fun SongMoreTagActionSheets(
                                         ).show()
                                     }
                                 }
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    error?.localizedMessage ?: context.getString(R.string.song_more_metadata_save_failed),
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                            )
                         }
                     }
                 }
             )
         }
+    }
+}
+
+private fun handleMetadataSaveError(
+    context: Context,
+    error: Throwable?,
+    onWritePermissionRequired: (WritePermissionRequiredException, suspend () -> Unit) -> Unit,
+    retry: suspend () -> Unit
+) {
+    if (error is WritePermissionRequiredException) {
+        onWritePermissionRequired(error, retry)
+    } else {
+        Toast.makeText(
+            context,
+            error?.localizedMessage ?: context.getString(R.string.song_more_metadata_save_failed),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }

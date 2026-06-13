@@ -1219,24 +1219,26 @@ class ExoPlayerManager(private val context: Context) {
         val saved = loadSavedQueue() ?: return
         if (saved.songs.isEmpty()) return
 
+        val requestedIndex = saved.index.coerceIn(saved.songs.indices)
+        val (queueSongs, safeIndex) = saved.songs.windowedForController(requestedIndex)
         playlist.clear()
-        playlist.addAll(saved.songs)
+        playlist.addAll(queueSongs)
         _playlist.value = playlist.toList()
 
-        val index = saved.index.coerceIn(0, playlist.lastIndex)
-        controller.setMediaItems(playlist.map(::songToMediaItem), index, saved.positionMs.coerceAtLeast(0L))
+        controller.setMediaItems(queueSongs.map(::songToMediaItem), safeIndex, saved.positionMs.coerceAtLeast(0L))
         controller.repeatMode = saved.repeatMode
         controller.shuffleModeEnabled = false
         controller.playbackParameters = PlaybackParameters(saved.speed.coerceIn(0.5f, 2f), saved.pitch.coerceIn(0.5f, 2f))
         controller.prepare()
 
-        _currentSong.value = playlist.getOrNull(index)
+        _currentSong.value = playlist.getOrNull(safeIndex)
         _currentPosition.value = saved.positionMs.coerceAtLeast(0L)
         _repeatMode.value = saved.repeatMode
         _shuffleEnabled.value = saved.shuffle
         persistAppShuffleEnabled(saved.shuffle)
         _playbackSpeed.value = saved.speed
         _playbackPitch.value = saved.pitch
+        if (saved.songs.size > MAX_CONTROLLER_QUEUE) savePlaybackQueue(force = true)
     }
 
     private fun savePlaybackQueue(force: Boolean = false) {

@@ -89,6 +89,7 @@ import com.ella.music.data.model.albumIdentityId
 fun AlbumScreen(
     mainViewModel: MainViewModel,
     playerViewModel: PlayerViewModel,
+    showBackButton: Boolean = true,
     onBack: () -> Unit,
     onAlbumClick: (Long) -> Unit
 ) {
@@ -204,13 +205,15 @@ fun AlbumScreen(
                 title = stringResource(R.string.tab_album),
                 color = ellaPageBackground(),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Back,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
+                    if (showBackButton) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 },
                 actions = {

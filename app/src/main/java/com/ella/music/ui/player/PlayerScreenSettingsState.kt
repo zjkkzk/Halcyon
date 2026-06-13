@@ -27,6 +27,9 @@ internal data class PlayerScreenSettings(
     val immersiveAlbumCover: Boolean = true,
     val playerBackgroundEnabled: Boolean = false,
     val playerBackgroundUri: String = "",
+    val playerBackgroundOpacity: Int = 100,
+    val playerBackgroundDim: Int = 26,
+    val beautifulLyricsBackground: Boolean = false,
     val hiResLogoEnabled: Boolean = false,
     val hiResLogoUri: String = "",
     val lyricShareCustomInfo: String = "",
@@ -50,6 +53,23 @@ private data class PlayerSettingsGroupB(
     val immersiveAlbumCover: Boolean,
     val playerBackgroundEnabled: Boolean,
     val playerBackgroundUri: String,
+    val playerBackgroundOpacity: Int,
+    val playerBackgroundDim: Int,
+    val beautifulLyricsBackground: Boolean,
+    val hiResLogoEnabled: Boolean,
+    val hiResLogoUri: String
+)
+
+private data class PlayerSettingsGroupBBase(
+    val immersiveAlbumCover: Boolean,
+    val playerBackgroundEnabled: Boolean,
+    val playerBackgroundUri: String,
+    val playerBackgroundOpacity: Int,
+    val playerBackgroundDim: Int
+)
+
+private data class PlayerSettingsGroupBExtra(
+    val beautifulLyricsBackground: Boolean,
     val hiResLogoEnabled: Boolean,
     val hiResLogoUri: String
 )
@@ -79,14 +99,33 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
         ) { tapSeek, showTotal, lyricSource, visualizer, dynamicCover ->
             PlayerSettingsGroupA(tapSeek, showTotal, lyricSource, visualizer, dynamicCover)
         }
-        val groupB = combine(
+        val groupBBase = combine(
             settingsManager.playerImmersiveCover,
             settingsManager.playerBackgroundEnabled,
             settingsManager.playerBackgroundUri,
+            settingsManager.playerBackgroundOpacity,
+            settingsManager.playerBackgroundDim
+        ) { immersive, bgEnabled, bgUri, bgOpacity, bgDim ->
+            PlayerSettingsGroupBBase(immersive, bgEnabled, bgUri, bgOpacity, bgDim)
+        }
+        val groupBExtra = combine(
+            settingsManager.playerBeautifulLyricsBackground,
             settingsManager.hiResLogoEnabled,
             settingsManager.hiResLogoUri
-        ) { immersive, bgEnabled, bgUri, hiResEnabled, hiResUri ->
-            PlayerSettingsGroupB(immersive, bgEnabled, bgUri, hiResEnabled, hiResUri)
+        ) { beautifulLyrics, hiResEnabled, hiResUri ->
+            PlayerSettingsGroupBExtra(beautifulLyrics, hiResEnabled, hiResUri)
+        }
+        val groupB = combine(groupBBase, groupBExtra) { base, extra ->
+            PlayerSettingsGroupB(
+                immersiveAlbumCover = base.immersiveAlbumCover,
+                playerBackgroundEnabled = base.playerBackgroundEnabled,
+                playerBackgroundUri = base.playerBackgroundUri,
+                playerBackgroundOpacity = base.playerBackgroundOpacity,
+                playerBackgroundDim = base.playerBackgroundDim,
+                beautifulLyricsBackground = extra.beautifulLyricsBackground,
+                hiResLogoEnabled = extra.hiResLogoEnabled,
+                hiResLogoUri = extra.hiResLogoUri
+            )
         }
         val groupC = combine(
             settingsManager.lyricShareCustomInfo,
@@ -113,6 +152,9 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 immersiveAlbumCover = b.immersiveAlbumCover,
                 playerBackgroundEnabled = b.playerBackgroundEnabled,
                 playerBackgroundUri = b.playerBackgroundUri,
+                playerBackgroundOpacity = b.playerBackgroundOpacity,
+                playerBackgroundDim = b.playerBackgroundDim,
+                beautifulLyricsBackground = b.beautifulLyricsBackground,
                 hiResLogoEnabled = b.hiResLogoEnabled,
                 hiResLogoUri = b.hiResLogoUri,
                 lyricShareCustomInfo = c.lyricShareCustomInfo,

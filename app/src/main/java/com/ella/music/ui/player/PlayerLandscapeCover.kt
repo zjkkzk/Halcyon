@@ -70,6 +70,9 @@ internal fun LandscapeCoverPlayerPage(
     flowEffectMode: Int,
     dynamicFlowEnabled: Boolean,
     customBackgroundUri: String,
+    customBackgroundOpacity: Float,
+    customBackgroundDim: Float,
+    beautifulLyricsBackground: Boolean,
     onDynamicCoverFailed: (String) -> Unit,
     isFavorite: Boolean,
     onToggleMenu: () -> Unit,
@@ -104,6 +107,9 @@ internal fun LandscapeCoverPlayerPage(
             dynamicFlowEnabled = dynamicFlowEnabled,
             visualizerEnabled = visualizerEnabled,
             customBackgroundUri = customBackgroundUri,
+            customBackgroundOpacity = customBackgroundOpacity,
+            customBackgroundDim = customBackgroundDim,
+            beautifulLyricsBackground = beautifulLyricsBackground,
             modifier = Modifier.fillMaxSize()
         )
         Row(

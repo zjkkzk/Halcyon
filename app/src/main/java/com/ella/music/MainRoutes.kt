@@ -38,10 +38,10 @@ internal fun String?.toCurrentTabRoute(): String? {
         this == Screen.Home.route -> Screen.Home.route
         this == Screen.Library.route -> Screen.Library.route
         this.isSearchRoute() -> Screen.LibrarySearch.createRoute()
-        this == Screen.Playlists.route -> Screen.Playlists.route
-        this == Screen.Folder.route -> Screen.Folder.route
-        this == Screen.Artist.route -> Screen.Artist.route
-        this == Screen.Album.route -> Screen.Album.route
+        this.isTopLevelRoute(Screen.Playlists.baseRoute) -> Screen.Playlists.createRoute(fromDock = true)
+        this.isTopLevelRoute(Screen.Folder.baseRoute) -> Screen.Folder.createRoute(fromDock = true)
+        this.isTopLevelRoute(Screen.Artist.baseRoute) -> Screen.Artist.createRoute(fromDock = true)
+        this.isTopLevelRoute(Screen.Album.baseRoute) -> Screen.Album.createRoute(fromDock = true)
         else -> null
     }
 }
@@ -57,10 +57,10 @@ internal fun String?.isBottomDockRoute(): Boolean {
         this.isSearchRoute() -> true
         this == Screen.Home.route -> true
         this == Screen.Library.route -> true
-        this == Screen.Playlists.route -> true
-        this == Screen.Folder.route -> true
-        this == Screen.Artist.route -> true
-        this == Screen.Album.route -> true
+        this.isTopLevelRoute(Screen.Playlists.baseRoute) -> true
+        this.isTopLevelRoute(Screen.Folder.baseRoute) -> true
+        this.isTopLevelRoute(Screen.Artist.baseRoute) -> true
+        this.isTopLevelRoute(Screen.Album.baseRoute) -> true
         else -> false
     }
 }
@@ -68,9 +68,16 @@ internal fun String?.isBottomDockRoute(): Boolean {
 internal fun String?.matchesRoute(route: String): Boolean {
     return when {
         route.startsWith(Screen.LibrarySearch.baseRoute) -> this.isSearchRoute()
+        route.isTopLevelRoute(Screen.Playlists.baseRoute) -> this.isTopLevelRoute(Screen.Playlists.baseRoute)
+        route.isTopLevelRoute(Screen.Folder.baseRoute) -> this.isTopLevelRoute(Screen.Folder.baseRoute)
+        route.isTopLevelRoute(Screen.Artist.baseRoute) -> this.isTopLevelRoute(Screen.Artist.baseRoute)
+        route.isTopLevelRoute(Screen.Album.baseRoute) -> this.isTopLevelRoute(Screen.Album.baseRoute)
         else -> this == route
     }
 }
+
+private fun String?.isTopLevelRoute(baseRoute: String): Boolean =
+    this == baseRoute || this?.startsWith("$baseRoute?") == true
 
 internal fun String.isMusicSymbolOnly(): Boolean {
     val content = trim()

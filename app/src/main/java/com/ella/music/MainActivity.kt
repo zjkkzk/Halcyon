@@ -586,6 +586,8 @@ fun EllaApp(
     )
     val appWallpaperEnabled by settingsManager.appWallpaperEnabled.collectAsState(initial = false)
     val appWallpaperUri by settingsManager.appWallpaperUri.collectAsState(initial = "")
+    val appWallpaperOpacity by settingsManager.appWallpaperOpacity.collectAsState(initial = 100)
+    val appWallpaperDim by settingsManager.appWallpaperDim.collectAsState(initial = 30)
     val startupPosterEnabled by settingsManager.startupPosterEnabled.collectAsState(initial = false)
     val startupPosterUri by settingsManager.startupPosterUri.collectAsState(initial = "")
     val notificationPermissionPromptHandled by settingsManager.notificationPermissionPromptHandled.collectAsState(initial = false)
@@ -680,22 +682,22 @@ fun EllaApp(
             icon = MiuixIcons.Basic.Search
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_PLAYLISTS to BottomDockTab(
-            route = Screen.Playlists.route,
+            route = Screen.Playlists.createRoute(fromDock = true),
             label = stringResource(R.string.category_playlist),
             icon = MiuixIcons.Regular.Playlist
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_FOLDER to BottomDockTab(
-            route = Screen.Folder.route,
+            route = Screen.Folder.createRoute(fromDock = true),
             label = stringResource(R.string.category_folder),
             icon = MiuixIcons.Regular.Folder
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_ARTIST to BottomDockTab(
-            route = Screen.Artist.route,
+            route = Screen.Artist.createRoute(fromDock = true),
             label = stringResource(R.string.category_artist),
             icon = MiuixIcons.Regular.Music
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_ALBUM to BottomDockTab(
-            route = Screen.Album.route,
+            route = Screen.Album.createRoute(fromDock = true),
             label = stringResource(R.string.category_album),
             icon = MiuixIcons.Regular.Music
         )
@@ -755,35 +757,35 @@ fun EllaApp(
             }
         } else {
             if (wallpaperVisible) {
-                SafeCoverImage(
-                    model = Uri.parse(appWallpaperUri),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    sizePx = 1600,
-                    showDefaultPlaceholder = false
-                )
+                val wallpaperDimAlpha = appWallpaperDim.coerceIn(0, 80) / 100f
+                val wallpaperWash = if (isDarkTheme) ComposeColor.Black else ComposeColor.White
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = if (isDarkTheme) {
-                                    listOf(
-                                        ComposeColor.Black.copy(alpha = 0.32f),
-                                        ComposeColor.Black.copy(alpha = 0.22f),
-                                        ComposeColor.Black.copy(alpha = 0.40f)
+                        .graphicsLayer { alpha = appWallpaperOpacity.coerceIn(20, 100) / 100f }
+                ) {
+                    SafeCoverImage(
+                        model = Uri.parse(appWallpaperUri),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        sizePx = 1600,
+                        showDefaultPlaceholder = false
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        wallpaperWash.copy(alpha = wallpaperDimAlpha * 0.95f),
+                                        wallpaperWash.copy(alpha = wallpaperDimAlpha * 0.55f),
+                                        wallpaperWash.copy(alpha = (wallpaperDimAlpha * 1.15f).coerceAtMost(0.9f))
                                     )
-                                } else {
-                                    listOf(
-                                        ComposeColor.White.copy(alpha = 0.28f),
-                                        ComposeColor.White.copy(alpha = 0.18f),
-                                        ComposeColor.White.copy(alpha = 0.34f)
-                                    )
-                                }
+                                )
                             )
-                        )
-                )
+                    )
+                }
             }
             Box(
                 modifier = Modifier

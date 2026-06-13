@@ -1,19 +1,33 @@
 package com.ella.music.ui.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.ella.music.R
 import com.ella.music.data.BottomBarGlassEffect
 import com.ella.music.data.SettingsManager
+import com.ella.music.ui.components.EllaMiuixBottomSheet
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ColorPicker
+import top.yukonga.miuix.kmp.basic.ColorSpace
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
@@ -35,8 +49,15 @@ internal fun SettingsAppearanceSection() {
     val startupPosterUri by settingsManager.startupPosterUri.collectAsState(initial = "")
     val appWallpaperEnabled by settingsManager.appWallpaperEnabled.collectAsState(initial = false)
     val appWallpaperUri by settingsManager.appWallpaperUri.collectAsState(initial = "")
+    val appWallpaperOpacity by settingsManager.appWallpaperOpacity.collectAsState(initial = 100)
+    val appWallpaperDim by settingsManager.appWallpaperDim.collectAsState(initial = 30)
     val playerBackgroundEnabled by settingsManager.playerBackgroundEnabled.collectAsState(initial = false)
     val playerBackgroundUri by settingsManager.playerBackgroundUri.collectAsState(initial = "")
+    val playerBackgroundOpacity by settingsManager.playerBackgroundOpacity.collectAsState(initial = 100)
+    val playerBackgroundDim by settingsManager.playerBackgroundDim.collectAsState(initial = 26)
+    val beautifulLyricsBackground by settingsManager.playerBeautifulLyricsBackground.collectAsState(initial = false)
+    val homeCardColor by settingsManager.homeCardColor.collectAsState(initial = "")
+    val homeCardOpacity by settingsManager.homeCardOpacity.collectAsState(initial = 58)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val hiResLogoEnabled by settingsManager.hiResLogoEnabled.collectAsState(initial = false)
     val hiResLogoUri by settingsManager.hiResLogoUri.collectAsState(initial = "")
@@ -192,6 +213,7 @@ internal fun SettingsAppearanceSection() {
         onImagePersisted = settingsManager::setHiResLogoUri
     )
     val dynamicCoverPermissionLauncher = rememberDynamicCoverPermissionLauncher(settingsManager)
+    var showHomeCardColorPicker by remember { mutableStateOf(false) }
 
     SmallTitle(text = stringResource(R.string.settings_appearance))
 
@@ -336,6 +358,24 @@ internal fun SettingsAppearanceSection() {
                     }
                 )
             }
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_wallpaper_opacity),
+                summary = stringResource(R.string.settings_wallpaper_opacity_summary),
+                value = appWallpaperOpacity,
+                valueRange = 20..100,
+                valueText = "$appWallpaperOpacity%",
+                enabled = appWallpaperEnabled,
+                onValueChange = { scope.launch { settingsManager.setAppWallpaperOpacity(it) } }
+            )
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_wallpaper_dim),
+                summary = stringResource(R.string.settings_wallpaper_dim_summary),
+                value = appWallpaperDim,
+                valueRange = 0..80,
+                valueText = "$appWallpaperDim%",
+                enabled = appWallpaperEnabled,
+                onValueChange = { scope.launch { settingsManager.setAppWallpaperDim(it) } }
+            )
             SwitchPreference(
                 title = stringResource(R.string.settings_player_background),
                 summary = stringResource(R.string.settings_player_background_summary),
@@ -365,6 +405,45 @@ internal fun SettingsAppearanceSection() {
                     }
                 )
             }
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_player_background_opacity),
+                summary = stringResource(R.string.settings_player_background_opacity_summary),
+                value = playerBackgroundOpacity,
+                valueRange = 20..100,
+                valueText = "$playerBackgroundOpacity%",
+                enabled = playerBackgroundEnabled,
+                onValueChange = { scope.launch { settingsManager.setPlayerBackgroundOpacity(it) } }
+            )
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_player_background_dim),
+                summary = stringResource(R.string.settings_player_background_dim_summary),
+                value = playerBackgroundDim,
+                valueRange = 0..80,
+                valueText = "$playerBackgroundDim%",
+                enabled = playerBackgroundEnabled,
+                onValueChange = { scope.launch { settingsManager.setPlayerBackgroundDim(it) } }
+            )
+            SwitchPreference(
+                title = stringResource(R.string.settings_beautiful_lyrics_background),
+                summary = stringResource(R.string.settings_beautiful_lyrics_background_summary),
+                checked = beautifulLyricsBackground,
+                onCheckedChange = {
+                    scope.launch { settingsManager.setPlayerBeautifulLyricsBackground(it) }
+                }
+            )
+            ArrowPreference(
+                title = stringResource(R.string.settings_home_card_color),
+                summary = homeCardColor.ifBlank { stringResource(R.string.settings_home_card_color_default) },
+                onClick = { showHomeCardColorPicker = true }
+            )
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_home_card_opacity),
+                summary = stringResource(R.string.settings_home_card_opacity_summary),
+                value = homeCardOpacity,
+                valueRange = 20..100,
+                valueText = "$homeCardOpacity%",
+                onValueChange = { scope.launch { settingsManager.setHomeCardOpacity(it) } }
+            )
             WindowSpinnerPreference(
                 title = stringResource(R.string.settings_category_grid_columns),
                 summary = stringResource(
@@ -479,5 +558,58 @@ internal fun SettingsAppearanceSection() {
                 }
             )
         }
+    }
+
+    EllaMiuixBottomSheet(
+        show = showHomeCardColorPicker,
+        title = stringResource(R.string.settings_home_card_color),
+        onDismissRequest = { showHomeCardColorPicker = false }
+    ) {
+        val currentColor = remember(homeCardColor) { homeCardColor.parseSettingsColorOrNull() ?: Color(0xFF2B2B31) }
+        var pickerColor by remember(showHomeCardColorPicker, currentColor) { mutableStateOf(currentColor) }
+        Column(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            ColorPicker(
+                color = pickerColor,
+                onColorChanged = { pickerColor = it },
+                colorSpace = ColorSpace.HSV,
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    showHomeCardColorPicker = false
+                    scope.launch {
+                        settingsManager.setHomeCardColor("#%08X".format(pickerColor.toArgb()))
+                    }
+                },
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.common_confirm))
+            }
+            Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    showHomeCardColorPicker = false
+                    scope.launch { settingsManager.setHomeCardColor("") }
+                },
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.common_reset))
+            }
+        }
+    }
+}
+
+private fun String.parseSettingsColorOrNull(): Color? {
+    val hex = trim().removePrefix("#")
+    val value = hex.toLongOrNull(16) ?: return null
+    return when (hex.length) {
+        6 -> Color((0xFF000000 or value).toInt())
+        8 -> Color(value.toInt())
+        else -> null
     }
 }
