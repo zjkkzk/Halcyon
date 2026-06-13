@@ -10,24 +10,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,13 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.model.Song
+import com.ella.music.ui.components.CloverShape
+import com.ella.music.ui.components.CookieShape
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.requestPinnedEllaShortcut
-import com.ella.music.ui.player.PlayerPalette
-import com.ella.music.ui.player.loadPaletteCoverBitmap
+import com.ella.music.ui.effect.BgEffectBackground
 import com.ella.music.viewmodel.MainViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -179,74 +174,54 @@ internal fun DailyMixCard(
     onPlay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val coverSong = featuredSongs.firstOrNull() ?: songs.firstOrNull()
-    val fallbackAccent = Color(0xFF2B2F3A)
-    // Android-8 media-notification style: the cover sits on the right and a color sampled from it
-    // fills the left, where the text and play button live.
-    val accent by produceState(fallbackAccent, coverSong?.id) {
-        val s = coverSong
-        value = if (s != null) {
-            withContext(Dispatchers.IO) {
-                PlayerPalette.fromCoverBackground(loadPaletteCoverBitmap(context, s)).middle
-            }
-        } else {
-            fallbackAccent
-        }
-    }
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    val contentColor = if (isDark) Color.White else Color(0xFF15151A)
+    // Material 3 Expressive thumbnail shapes for the small covers, cycled across them.
+    val coverShapes = listOf(CircleShape, CookieShape, CloverShape)
     Card(
         modifier = modifier,
         cornerRadius = 18.dp,
         onClick = onPlay
     ) {
-        Box(
+        // HyperOS 3-style animated dynamic gradient (the About-page effect) as the card background.
+        BgEffectBackground(
+            dynamicBackground = true,
+            effectBackground = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(152.dp)
-                .background(accent)
+                .height(160.dp)
         ) {
-            coverSong?.let { song ->
+            featuredSongs.take(3).forEachIndexed { index, song ->
+                val coverSize = listOf(72, 60, 50).getOrElse(index) { 50 }.dp
                 SafeCoverImage(
                     model = mainViewModel.getAlbumArtUri(song.albumId),
                     contentDescription = null,
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .aspectRatio(1f),
-                    contentScale = ContentScale.Crop,
-                    sizePx = 256
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-14 - index * 30).dp, y = (16 + index * 18).dp)
+                        .size(coverSize)
+                        .clip(coverShapes[index % coverShapes.size]),
+                    sizePx = 192
                 )
             }
-            // Blend the cover's left edge into the sampled color so it reads as one surface.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(152.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            0.0f to accent,
-                            0.5f to accent,
-                            0.82f to Color.Transparent
-                        )
-                    )
-            )
+
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 150.dp)
+                    .padding(start = 20.dp, end = 140.dp)
             ) {
                 Text(
                     text = stringResource(R.string.home_daily_mix),
-                    fontSize = 28.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = contentColor
                 )
                 Text(
                     text = currentSongTitle?.let { stringResource(R.string.home_now_playing_song, it) }
                         ?: stringResource(R.string.home_random_song_count, songs.size),
                     fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = contentColor.copy(alpha = 0.78f),
                     lineHeight = 19.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -255,12 +230,12 @@ internal fun DailyMixCard(
                         .fillMaxWidth()
                         .padding(top = 6.dp)
                 )
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 IconButton(onClick = onPlay) {
                     Icon(
                         imageVector = MiuixIcons.Regular.Play,
                         contentDescription = stringResource(R.string.home_play_daily_mix),
-                        tint = Color.White,
+                        tint = contentColor,
                         modifier = Modifier.size(32.dp)
                     )
                 }

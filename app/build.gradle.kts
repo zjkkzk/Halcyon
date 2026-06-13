@@ -157,6 +157,8 @@ dependencies {
     // Installs the bundled baseline profile (src/main/baseline-prof.txt) so ART AOT-compiles
     // the startup/library paths at install time instead of JIT-compiling them on first launch.
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    // Material 3 Expressive shapes (cookie / scallop / clover) for the daily-mix cover thumbnails.
+    implementation("androidx.graphics:graphics-shapes:1.0.1")
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
