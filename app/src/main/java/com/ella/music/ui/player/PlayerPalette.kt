@@ -103,12 +103,16 @@ internal data class PlayerPalette(
             )
         }
 
-        /** A soft tinted-light background derived from the cover accent, with dark content. */
+        /**
+         * A tinted-light background derived from the cover accent, mirroring the dark gradient:
+         * keep a visible pastel of the cover (not near-white) that fades lighter toward the bottom,
+         * with dark content on top.
+         */
         private fun lightPalette(accent: Color): PlayerPalette = PlayerPalette(
-            top = accent.lighten(0.86f),
-            middle = accent.lighten(0.92f),
-            bottom = accent.lighten(0.97f),
-            accent = accent.darken(0.10f),
+            top = accent.lighten(0.55f),
+            middle = accent.lighten(0.72f),
+            bottom = accent.lighten(0.86f),
+            accent = accent.darken(0.18f),
             onBackground = LightContent,
             isLight = true
         )
