@@ -322,6 +322,7 @@ internal fun CoverPlayerPage(
                                 fontWeight = fontWeight,
                                 fontScale = fontScale,
                                 compact = compactWindow,
+                                contentColor = palette.onBackground,
                                 onLineClick = { onShowLyrics() },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -456,6 +457,7 @@ internal fun CoverPlayerPage(
                                 fontWeight = fontWeight,
                                 fontScale = fontScale,
                                 compact = compactWindow,
+                                contentColor = palette.onBackground,
                                 onLineClick = { onShowLyrics() },
                                 modifier = Modifier
                                     .fillMaxWidth()

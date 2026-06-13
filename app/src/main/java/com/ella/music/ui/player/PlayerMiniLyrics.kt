@@ -3,6 +3,7 @@ package com.ella.music.ui.player
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ella.music.data.model.LyricLine
@@ -50,6 +51,7 @@ internal fun MiniLyricsPreview(
     fontWeight: FontWeight = FontWeight.ExtraBold,
     fontScale: Float = 1f,
     compact: Boolean = false,
+    contentColor: Color = Color.White,
     onLineClick: (LyricLine) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -81,6 +83,7 @@ internal fun MiniLyricsPreview(
         secondaryTextSizeSp = secondarySizeSp,
         anchorOffsetRatio = -0.01f,
         topContentPadding = 0.dp,
+        contentColor = contentColor,
         onLineClick = onLineClick,
         nonCurrentLineBlurEnabled = false,
         nonCurrentLineBlurDistance = Int.MAX_VALUE,
