@@ -3,6 +3,10 @@ package com.ella.music.ui.player
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.text.font.FontFamily
@@ -69,12 +73,22 @@ internal fun PlayerLandscapeOverlayHost(
 
     ForceLandscapePlayerBars(onDismiss = onDismiss)
 
-    val landscapeDynamicCoverSource = if (dynamicCoverEnabled) {
-        song
-            ?.dynamicCoverSource(context)
-            ?.takeUnless { it.failureKey == dynamicCoverFailedPath }
-    } else {
-        null
+    // Resolve off the main thread (file scan + media probe) so opening the landscape player
+    // doesn't jank, even for songs without a dynamic cover.
+    val landscapeDynamicCoverSource by produceState<DynamicCoverSource?>(
+        initialValue = null,
+        dynamicCoverEnabled,
+        song?.id,
+        dynamicCoverFailedPath
+    ) {
+        val current = song
+        value = if (dynamicCoverEnabled && current != null) {
+            withContext(Dispatchers.IO) {
+                current.dynamicCoverSource(context)?.takeUnless { it.failureKey == dynamicCoverFailedPath }
+            }
+        } else {
+            null
+        }
     }
     LandscapeCoverPlaybackOverlay(
         song = song,

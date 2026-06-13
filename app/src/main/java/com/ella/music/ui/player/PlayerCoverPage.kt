@@ -21,6 +21,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -139,13 +143,26 @@ internal fun CoverPlayerPage(
     modifier: Modifier = Modifier
 ) {
     val bluetoothDeviceName = rememberBluetoothOutputName()
-    val dynamicCoverSource = if (dynamicCoverEnabled) {
-        song
-            ?.dynamicCoverSource(context)
-            ?.takeUnless { it.failureKey == dynamicCoverFailedPath }
-    } else {
-        null
+    // Resolving a dynamic cover scans many candidate files and probes media tracks; doing that in
+    // composition janked every song change (even when no cover exists). Resolve it off the main
+    // thread, only while the player page is shown.
+    val dynamicCoverSource by produceState<DynamicCoverSource?>(
+        initialValue = null,
+        dynamicCoverEnabled,
+        song?.id,
+        dynamicCoverFailedPath
+    ) {
+        val current = song
+        value = if (dynamicCoverEnabled && current != null) {
+            withContext(Dispatchers.IO) {
+                current.dynamicCoverSource(context)?.takeUnless { it.failureKey == dynamicCoverFailedPath }
+            }
+        } else {
+            null
+        }
     }
+    // Stable local so the null-checked usages below can smart-cast (delegated props can't).
+    val resolvedDynamicCover = dynamicCoverSource
 
     BoxWithConstraints(modifier = modifier) {
         val useWidePlayer = maxWidth > maxHeight && maxWidth >= 700.dp
@@ -229,11 +246,11 @@ internal fun CoverPlayerPage(
                             .aspectRatio(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (dynamicCoverSource != null) {
+                        if (resolvedDynamicCover != null) {
                             DynamicCoverVideo(
-                                source = dynamicCoverSource,
+                                source = resolvedDynamicCover,
                                 isPlaying = isPlaying,
-                                onPlaybackError = { onDynamicCoverFailed(dynamicCoverSource.failureKey) },
+                                onPlaybackError = { onDynamicCoverFailed(resolvedDynamicCover.failureKey) },
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
@@ -399,11 +416,11 @@ internal fun CoverPlayerPage(
                                 .clip(RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (dynamicCoverSource != null) {
+                            if (resolvedDynamicCover != null) {
                                 DynamicCoverVideo(
-                                    source = dynamicCoverSource,
+                                    source = resolvedDynamicCover,
                                     isPlaying = isPlaying,
-                                    onPlaybackError = { onDynamicCoverFailed(dynamicCoverSource.failureKey) },
+                                    onPlaybackError = { onDynamicCoverFailed(resolvedDynamicCover.failureKey) },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             } else {
