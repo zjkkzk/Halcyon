@@ -674,6 +674,26 @@ class PlaybackService : MediaLibraryService() {
         player: Player,
         private val previousButtonActionProvider: () -> Int
     ) : ForwardingPlayer(player) {
+        private var pendingRepeatOneRestore = false
+        private var pendingTargetIndex = -1
+
+        init {
+            addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    if (pendingRepeatOneRestore) {
+                        val currentIndex = currentMediaItemIndex
+                        if (currentIndex == pendingTargetIndex || mediaItemCount <= 1) {
+                            pendingRepeatOneRestore = false
+                            pendingTargetIndex = -1
+                            if (repeatMode != Player.REPEAT_MODE_ONE) {
+                                repeatMode = Player.REPEAT_MODE_ONE
+                            }
+                        }
+                    }
+                }
+            })
+        }
+
         override fun seekToNextMediaItem() {
             Log.d(TIMING_TAG, "skipNext command received mediaId=${currentMediaItem?.mediaId}")
             if (!seekAdjacentMediaItemInRepeatOne(1)) {
@@ -725,10 +745,11 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 Math.floorMod(index + offset, mediaItemCount)
             }
+            pendingRepeatOneRestore = true
+            pendingTargetIndex = targetIndex
             setRepeatMode(Player.REPEAT_MODE_ALL)
             seekToDefaultPosition(targetIndex)
             play()
-            setRepeatMode(Player.REPEAT_MODE_ONE)
             return true
         }
     }

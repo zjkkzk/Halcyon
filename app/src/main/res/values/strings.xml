@@ -716,6 +716,8 @@
     <string name="song_more_metadata_section_track">音轨信息</string>
     <string name="song_more_metadata_section_credits">创作信息</string>
     <string name="song_more_metadata_section_rating">评分</string>
+    <string name="song_more_metadata_section_lyrics">歌词</string>
+    <string name="song_more_metadata_no_lyrics">无内嵌歌词</string>
     <string name="song_more_metadata_section_custom_tags">自定义标签</string>
     <string name="song_more_metadata_add_custom_tag">添加自定义标签</string>
     <string name="song_more_metadata_disc_number">碟片号</string>

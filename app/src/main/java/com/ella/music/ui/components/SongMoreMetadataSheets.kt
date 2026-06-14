@@ -2,6 +2,7 @@ package com.ella.music.ui.components
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
@@ -102,7 +104,7 @@ internal fun SongMetadataEditorSheet(
     var comment by remember(tagInfo) { mutableStateOf(tagInfo?.comment.orEmpty()) }
     var rating by remember(tagInfo) { mutableStateOf(tagInfo?.rating ?: 0) }
     val currentCover by produceState<Any?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
-        value = withContext(Dispatchers.IO) { mainViewModel.getCoverArtBitmap(song) }
+        value = withContext(Dispatchers.IO) { mainViewModel.getCoverArtBitmap(song, 512) }
     }
     var selectedCover by remember(song.id) { mutableStateOf<AudioCoverInfo?>(null) }
     var selectedCoverPreview by remember(song.id) { mutableStateOf<Any?>(null) }
@@ -205,6 +207,31 @@ internal fun SongMetadataEditorSheet(
         MetadataField(stringResource(R.string.song_more_metadata_lyricist), lyricist) { lyricist = it }
         MetadataField(stringResource(R.string.song_more_metadata_copyright), copyright) { copyright = it }
         MetadataField(stringResource(R.string.song_more_metadata_comment), comment) { comment = it }
+
+        val embeddedLyrics = fullTagInfo?.lyrics
+        SectionHeader(stringResource(R.string.song_more_metadata_section_lyrics))
+        if (!embeddedLyrics.isNullOrBlank()) {
+            Text(
+                text = embeddedLyrics,
+                fontSize = 13.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                maxLines = 8,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MiuixTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .padding(10.dp)
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.song_more_metadata_no_lyrics),
+                fontSize = 13.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+            )
+        }
 
         SectionHeader(stringResource(R.string.song_more_metadata_section_rating))
         Row(

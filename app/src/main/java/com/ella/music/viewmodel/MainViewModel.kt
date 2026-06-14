@@ -240,6 +240,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song, 128, CoverUsage.ListThumbnail)
 
+    fun getCoverArtBitmap(song: Song, maxSize: Int) = repository.getCoverArtBitmap(song, maxSize, CoverUsage.ListThumbnail)
+
     fun getAlbumCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song, 512, CoverUsage.AlbumGrid)
 
     fun getLargeCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song, 1200, CoverUsage.Player)

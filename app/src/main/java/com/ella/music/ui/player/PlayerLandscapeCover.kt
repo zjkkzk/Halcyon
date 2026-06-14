@@ -181,7 +181,7 @@ internal fun LandscapeCoverPlayerPage(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -269,11 +269,12 @@ internal fun LandscapeCoverPlayerPage(
                 )
             }
             if (hasLyrics) {
-                Spacer(modifier = Modifier.width(64.dp))
+                Spacer(modifier = Modifier.width(48.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .weight(0.62f)
+                        .padding(start = 0.dp)
                 ) {
                     SmoothLyricView(
                         songId = song?.id ?: 0L,
