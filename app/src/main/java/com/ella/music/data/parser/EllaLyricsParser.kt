@@ -116,7 +116,7 @@ internal object EllaLyricsParser {
         if (indexes.isEmpty()) return false
         val (_, content) = rawLine.extractLrcAgent()
         val text = content.cleanLyricText()
-        if (text.isBlank() || text.isMusicSymbolOnly()) return false
+        if (text.isIgnorableLyricText()) return false
         indexes.forEach { index ->
             val line = getOrNull(index) ?: return@forEach
             this[index] = line.copy(
@@ -137,7 +137,7 @@ internal object EllaLyricsParser {
             val content = match.groupValues[1].trim()
             val words = parseEnhancedWords(content, 0L)
             val text = if (words.isNotEmpty()) words.joinLyricText() else content.cleanLyricText()
-            if (text.isBlank() || text.isMusicSymbolOnly()) return emptyList()
+            if (text.isIgnorableLyricText()) return emptyList()
             return listOf(
                 LyricLine(
                     timeMs = words.firstOrNull()?.startMs ?: 0L,
@@ -164,7 +164,7 @@ internal object EllaLyricsParser {
             val start = parseLrcTime(timeMatch.groupValues)
             val words = parseEnhancedWords(content, start)
             val text = if (words.isNotEmpty()) words.joinLyricText() else content.cleanLyricText()
-            if (text.isBlank() || text.isMusicSymbolOnly()) return@mapNotNull null
+            if (text.isIgnorableLyricText()) return@mapNotNull null
             if (embeddedBackground != null) {
                 return@mapNotNull LyricLine(
                     timeMs = words.firstOrNull()?.startMs ?: start,
@@ -275,6 +275,7 @@ internal object EllaLyricsParser {
                 val isBackground = attr != null && attr !in 0..5
                 val agent = if (attr == 2 || attr == 5 || attr == 8) "v2" else "v1"
                 val text = words.joinLyricText()
+                if (text.isIgnorableLyricText()) return@mapNotNull null
 
                 if (isBackground) {
                     LyricLine(
@@ -329,6 +330,7 @@ internal object EllaLyricsParser {
                 val words = mutableListOf<LyricWord>()
                 val rubyPronunciationWords = mutableListOf<LyricWord>()
                 val text = collectTtmlMainText(p, words, end, rubyPronunciationWords).cleanLyricText()
+                val displayText = text.takeUnless { it.isIgnorableLyricText() }.orEmpty()
                 val inlineTranslation = p.childrenElements()
                     .firstOrNull { it.hasRole("x-translation") && !it.hasRole("x-bg") }
                     ?.textContent
@@ -351,12 +353,12 @@ internal object EllaLyricsParser {
                     ?: rubyPronunciationWords.joinLyricText().takeIf { it.isNotBlank() }
                     ?: pronunciationWords.joinLyricText().takeIf { it.isNotBlank() }
 
-                if (text.isBlank() && bg == null) return@mapNotNull null
+                if (displayText.isBlank() && bg == null) return@mapNotNull null
 
                 LyricLine(
                     timeMs = start,
-                    text = text,
-                    words = words.toDisplayWords(text),
+                    text = displayText,
+                    words = if (displayText.isBlank()) emptyList() else words.toDisplayWords(displayText),
                     translation = inlineTranslation?.takeUsefulText() ?: translations[key]?.splitAppleTranslation()?.first,
                     pronunciation = pronunciation?.takeUsefulText(),
                     pronunciationWords = pronunciationWords.toDisplayWords(pronunciation.orEmpty()),
@@ -888,6 +890,11 @@ internal object EllaLyricsParser {
     fun isSplMetadataLine(line: String): Boolean =
         splMetadataPattern.matches(line.trim())
 
+    fun isPlaceholderOnlyLine(line: String): Boolean =
+        line.cleanLyricText()
+            .replace(Regex("""\s+"""), "")
+            .let { it == "//" || it == "／／" }
+
     private fun String.cleanTimedLyricText(): String =
         replace(timedWordMarkerPattern) { match ->
             val time = match.groupValues.getOrNull(1).orEmpty()
@@ -910,7 +917,10 @@ internal object EllaLyricsParser {
             .replace(Regex("""[ \t\r\n]+"""), " ")
 
     private fun String.takeUsefulText(): String? =
-        cleanLyricText().takeIf { it.isNotBlank() && !it.isMusicSymbolOnly() }
+        cleanLyricText().takeIf { !it.isIgnorableLyricText() }
+
+    private fun String.isIgnorableLyricText(): Boolean =
+        isBlank() || isMusicSymbolOnly() || isPlaceholderOnlyLine(this)
 
     private fun String.splitAppleTranslation(): Pair<String?, String?> {
         val text = cleanLyricText()

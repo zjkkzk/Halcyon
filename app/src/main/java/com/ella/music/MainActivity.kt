@@ -423,6 +423,30 @@ fun EllaApp(
     var showInitialScanPrompt by remember { mutableStateOf(false) }
     var showLocalPlaylistScanPrompt by remember { mutableStateOf(false) }
     var localPlaylistAutoScanHandled by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(isScanning) {
+        if (isScanning) {
+            Toast.makeText(context, context.getString(R.string.library_scan_started), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.scanSummaryEvents.collect { summary ->
+            Toast.makeText(
+                context,
+                context.getString(
+                    R.string.library_scan_finished_summary,
+                    summary.total,
+                    summary.added,
+                    summary.updated,
+                    summary.deleted,
+                    summary.failed
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     LaunchedEffect(currentProcessingIntent.value) {
         val activity = context as? Activity
         val shortcutAction = currentProcessingIntent.value?.getStringExtra(EXTRA_SHORTCUT_ACTION)

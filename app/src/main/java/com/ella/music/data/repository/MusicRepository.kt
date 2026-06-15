@@ -48,8 +48,11 @@ import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -77,6 +80,15 @@ enum class CoverUsage {
     Notification,
     ShareCard
 }
+
+data class MusicScanSummary(
+    val total: Int,
+    val added: Int = 0,
+    val updated: Int = 0,
+    val deleted: Int = 0,
+    val failed: Int = 0,
+    val fullRescan: Boolean = false
+)
 
 private sealed class CoverDataState {
     data object Found : CoverDataState()
@@ -161,6 +173,9 @@ class MusicRepository(private val context: Context) {
     private val _scanProgress = MutableStateFlow(0)
     val scanProgress: StateFlow<Int> = _scanProgress.asStateFlow()
 
+    private val _scanSummaryEvents = MutableSharedFlow<MusicScanSummary>(extraBufferCapacity = 1)
+    val scanSummaryEvents: SharedFlow<MusicScanSummary> = _scanSummaryEvents.asSharedFlow()
+
     private val lyricsCache = mutableMapOf<String, List<LyricLine>>()
     private val lyricFormatAvailabilityCache = mutableMapOf<String, LyricFormatAvailability>()
     private val audioInfoCache = mutableMapOf<Long, AudioInfo>()
@@ -195,20 +210,25 @@ class MusicRepository(private val context: Context) {
         _scanProgress.value = 0
         try {
             val mode = if (includeFolders.isEmpty()) "media_library" else "custom_folders"
+            val previousSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
             AppLogStore.info(
                 context,
                 "MusicScanner",
                 "Start scan mode=$mode minDuration=${minDurationMs}ms include=${includeFolders.size} exclude=${excludeFolders.size} fullRescan=$fullRescan deepRescan=$deepRescan",
                 AppLogType.LIBRARY
             )
-            val scannedSongs = if (fullRescan || deepRescan) {
-                scanner.scanAllSongs(
+            val scanResult = if (fullRescan || deepRescan) {
+                val scannedSongs = scanner.scanAllSongs(
                     minDurationMs = minDurationMs,
                     includeFolders = includeFolders,
                     excludeFolders = excludeFolders,
                     deepMetadata = true
                 ) { count -> _scanProgress.value = count }
                     .map { song -> song.withRepositoryTags() }
+                LibraryScanResult(
+                    songs = scannedSongs,
+                    summary = buildFullScanSummary(previousSongs, scannedSongs, fullRescan = true)
+                )
             } else {
                 synchronizeLibrary(
                     minDurationMs = minDurationMs,
@@ -216,9 +236,11 @@ class MusicRepository(private val context: Context) {
                     excludeFolders = excludeFolders
                 )
             }
+            val scannedSongs = scanResult.songs
             _songs.value = scannedSongs
             _albums.value = scannedSongs.toAlbums()
             saveLibraryCache(scannedSongs, _albums.value)
+            _scanSummaryEvents.tryEmit(scanResult.summary.copy(total = scannedSongs.size))
             AppLogStore.info(
                 context,
                 "MusicScanner",
@@ -278,6 +300,12 @@ class MusicRepository(private val context: Context) {
                 _songs.value = merged
                 _albums.value = merged.toAlbums()
                 saveLibraryCache(merged, _albums.value)
+                _scanSummaryEvents.tryEmit(
+                    MusicScanSummary(
+                        total = merged.size,
+                        added = usbSongs.size
+                    )
+                )
                 AppLogStore.info(
                     context,
                     "MusicScanner",
@@ -304,7 +332,7 @@ class MusicRepository(private val context: Context) {
         minDurationMs: Long,
         includeFolders: List<String>,
         excludeFolders: List<String>
-    ): List<Song> = withContext(Dispatchers.IO) {
+    ): LibraryScanResult = withContext(Dispatchers.IO) {
         val cachedSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
         val refreshedMediaStoreFiles = refreshRecentlyChangedLocalAudioFiles(cachedSongs, includeFolders, excludeFolders)
         if (refreshedMediaStoreFiles > 0) {
@@ -403,8 +431,45 @@ class MusicRepository(private val context: Context) {
             "MusicScanner",
             "Incremental scan finished total=${currentItems.size} added=$addedCount updated=$updatedCount reused=$reusedCount deleted=$deletedCount failed=$failedCount"
         )
-        mergedSongs
+        LibraryScanResult(
+            songs = mergedSongs,
+            summary = MusicScanSummary(
+                total = mergedSongs.size,
+                added = addedCount,
+                updated = updatedCount,
+                deleted = deletedCount,
+                failed = failedCount
+            )
+        )
     }
+
+    private fun buildFullScanSummary(
+        previousSongs: List<Song>,
+        scannedSongs: List<Song>,
+        fullRescan: Boolean
+    ): MusicScanSummary {
+        val previousByKey = previousSongs.associateBy { it.librarySyncKey() }
+        val scannedByKey = scannedSongs.associateBy { it.librarySyncKey() }
+        val added = scannedByKey.keys.count { it !in previousByKey }
+        val deleted = previousByKey.keys.count { it !in scannedByKey }
+        val updated = scannedByKey.count { (key, song) ->
+            val previous = previousByKey[key]
+            previous != null && previous.toLibrarySyncInfo() != song.toLibrarySyncInfo()
+        }
+        return MusicScanSummary(
+            total = scannedSongs.size,
+            added = added,
+            updated = updated,
+            deleted = deleted,
+            failed = 0,
+            fullRescan = fullRescan
+        )
+    }
+
+    private data class LibraryScanResult(
+        val songs: List<Song>,
+        val summary: MusicScanSummary
+    )
 
     private suspend fun refreshRecentlyChangedLocalAudioFiles(
         cachedSongs: List<Song>,
@@ -648,7 +713,7 @@ class MusicRepository(private val context: Context) {
         embedded.lines().forEach { line ->
             val trimmed = line.trim()
             if (ignoreSplMetadataLines && EllaLyricsParser.isSplMetadataLine(trimmed)) return@forEach
-            if (trimmed.isNotEmpty()) {
+            if (trimmed.isNotEmpty() && !EllaLyricsParser.isPlaceholderOnlyLine(trimmed)) {
                 result.add(LyricLine(timeMs = timeOffset, text = trimmed, words = emptyList()))
                 timeOffset += 3000L
             }

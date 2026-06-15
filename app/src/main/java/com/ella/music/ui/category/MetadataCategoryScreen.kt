@@ -96,6 +96,9 @@ import com.ella.music.ui.components.SortDropdownMenu
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.wallpaperContentOverlayColor
 import com.ella.music.ui.components.requestPinnedEllaShortcut
+import com.ella.music.ui.folder.FolderBlockDialog
+import com.ella.music.ui.folder.normalizeFolderPath
+import com.ella.music.ui.folder.toFolderSettingList
 import com.ella.music.ui.navigation.Screen
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Icon
@@ -115,6 +118,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -138,6 +142,8 @@ fun MetadataCategoryScreen(
     val sortMode = availableSortModes.getOrElse(sortIndex) { MetadataCategorySortMode.Name }
     val sortedItems = remember(items, sortMode) { items.sortedForCategory(sortMode) }
     val playlists by mainViewModel.playlists.collectAsState()
+    val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
+    val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
     val pinnedCategoryKeys by mainViewModel.settingsManager
         .pinnedKeysFlow("category:$type")
         .collectAsState(initial = emptyList())
@@ -156,6 +162,7 @@ fun MetadataCategoryScreen(
     var searchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var categoryMenuItem by remember { mutableStateOf<MetadataCategoryItem?>(null) }
+    var folderToBlock by remember { mutableStateOf<String?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
@@ -192,8 +199,9 @@ fun MetadataCategoryScreen(
                 LibrarySortUiState.metadataCategoryScrollPositions[categoryScrollKey] = position
             }
     }
-    BackHandler(enabled = sortExpanded || searchExpanded) {
+    BackHandler(enabled = sortExpanded || searchExpanded || folderToBlock != null) {
         when {
+            folderToBlock != null -> folderToBlock = null
             searchExpanded -> {
                 searchExpanded = false
                 searchQuery = ""
@@ -415,6 +423,12 @@ fun MetadataCategoryScreen(
                     }
                     categoryMenuItem = null
                 }
+                if (type == "folder") {
+                    CategorySheetItem(stringResource(R.string.folder_block_folder)) {
+                        folderToBlock = item.name.normalizeFolderPath()
+                        categoryMenuItem = null
+                    }
+                }
                 CategorySheetItem(stringResource(R.string.common_share)) {
                     val selectedSongs = mainViewModel.getSongsForMetadataCategory(type, item.name)
                     shareLocalSongs(context, selectedSongs)
@@ -467,6 +481,25 @@ fun MetadataCategoryScreen(
                 }
             }
         }
+    }
+
+    folderToBlock?.let { folderPath ->
+        FolderBlockDialog(
+            folderPath = folderPath,
+            onDismiss = { folderToBlock = null },
+            onBlock = {
+                scope.launch {
+                    val normalizedPath = folderPath.normalizeFolderPath()
+                    mainViewModel.settingsManager.setScanExcludeFolders(
+                        (blockedFolders + normalizedPath)
+                            .distinctBy { it.normalizeFolderPath().lowercase(Locale.ROOT) }
+                            .joinToString("；")
+                    )
+                    mainViewModel.scanMusic()
+                }
+                folderToBlock = null
+            }
+        )
     }
 
     playlistPickerSongs?.let { songs ->

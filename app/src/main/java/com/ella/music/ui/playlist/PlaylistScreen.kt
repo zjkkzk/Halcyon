@@ -630,7 +630,7 @@ fun PlaylistScreen(
                 onSelectAll = ::toggleSelectAllDisplayedPlaylists,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 118.dp)
+                    .padding(end = 22.dp, bottom = 176.dp)
             )
         }
     }

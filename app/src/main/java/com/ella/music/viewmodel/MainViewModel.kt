@@ -69,6 +69,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val isScanning: StateFlow<Boolean> = repository.isScanning
     val scanProgress: StateFlow<Int> = repository.scanProgress
+    val scanSummaryEvents = repository.scanSummaryEvents
     val playbackStats: StateFlow<List<SongPlaybackStats>> = playbackStatsStore.stats
     val playbackHistory: StateFlow<List<PlaybackHistoryEntry>> = playbackStatsStore.history
     val dailyListenMs: StateFlow<Map<String, Long>> = playbackStatsStore.dailyListenMs
