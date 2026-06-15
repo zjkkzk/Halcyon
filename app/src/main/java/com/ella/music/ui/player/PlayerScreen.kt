@@ -182,6 +182,7 @@ fun PlayerScreen(
     val playbackPitch by playerViewModel.playbackPitch.collectAsState()
     val audioSessionId by PlaybackAudioSession.audioSessionId.collectAsState()
     val audioVisualizerEnabled = playerSettings.audioVisualizerEnabled
+    val audioVisualizerOpacity = playerSettings.audioVisualizerOpacity / 100f
     val dynamicCoverEnabled = playerSettings.dynamicCoverEnabled
     val immersiveAlbumCover = playerSettings.immersiveAlbumCover
     val playerBackgroundEnabled = playerSettings.playerBackgroundEnabled
@@ -226,7 +227,8 @@ fun PlayerScreen(
         audioVisualizerEnabled = audioVisualizerEnabled,
         isPlaying = isPlaying,
         showLyrics = showLyrics,
-        landscapeExpanded = landscapeState.expanded
+        landscapeExpanded = landscapeState.expanded,
+        largeScreenDevice = isLargeScreenDevice
     )
     val effectiveAudioVisualizerEnabled = visualizerPermissionState.effectiveEnabled
     val setAudioVisualizerEnabled = visualizerPermissionState.setEnabled
@@ -469,10 +471,15 @@ fun PlayerScreen(
                         isCurrentSongFavorite = isCurrentSongFavorite,
                         audioSessionId = audioSessionId,
                         audioVisualizerEnabled = audioVisualizerEnabled,
+                        audioVisualizerOpacity = audioVisualizerOpacity,
+                        audioVisualizerOpacityPercent = playerSettings.audioVisualizerOpacity,
                         lyricOffsetMs = currentLyricOffsetMs,
                         metadataEditorId = metadataEditorId,
                         lyricTimingEditorId = lyricTimingEditorId,
                         onVisualizerEnabled = setAudioVisualizerEnabled,
+                        onVisualizerOpacityChange = {
+                            scope.launch { settingsManager.setAudioVisualizerOpacity(it) }
+                        },
                         onPlayerKeepScreenOnChange = {
                             scope.launch { settingsManager.setPlayerKeepScreenOn(it) }
                         },
@@ -530,6 +537,7 @@ fun PlayerScreen(
                         isCurrentSongFavorite = isCurrentSongFavorite,
                         audioSessionId = audioSessionId,
                         effectiveAudioVisualizerEnabled = effectiveAudioVisualizerEnabled,
+                        audioVisualizerOpacity = audioVisualizerOpacity,
                         playerViewModel = playerViewModel,
                         settingsManager = settingsManager,
                         scope = scope,
@@ -601,6 +609,7 @@ fun PlayerScreen(
                 playlist = playlist,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = effectiveAudioVisualizerEnabled,
+                visualizerOpacity = audioVisualizerOpacity,
                 coverSwipeEnabled = coverSwipeEnabled,
                 beautifulLyricsBackground = beautifulLyricsBackground,
                 flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,

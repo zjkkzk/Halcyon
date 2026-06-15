@@ -78,6 +78,7 @@ internal fun LandscapeCoverPlayerPage(
     playlist: List<Song>,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float,
     flowEffectMode: Int,
     dynamicFlowEnabled: Boolean,
     customBackgroundUri: String,
@@ -127,6 +128,7 @@ internal fun LandscapeCoverPlayerPage(
                 flowEffectMode = flowEffectMode,
                 dynamicFlowEnabled = dynamicFlowEnabled,
                 visualizerEnabled = visualizerEnabled,
+                visualizerOpacity = visualizerOpacity,
                 customBackgroundUri = customBackgroundUri,
                 customBackgroundOpacity = customBackgroundOpacity,
                 customBackgroundDim = customBackgroundDim,
@@ -348,6 +350,7 @@ internal fun LandscapeCoverPlayerPage(
             audioSessionId = audioSessionId,
             isPlaying = isPlaying,
             positionMs = currentPosition,
+            opacity = visualizerOpacity,
             accent = Color.White.copy(alpha = 0.72f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)

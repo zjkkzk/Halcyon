@@ -62,6 +62,7 @@ internal fun LandscapeLyricsOverlay(
     isPlaying: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float,
     beautifulLyricsBackground: Boolean,
     onLineClick: (LyricLine) -> Unit,
     onLineLongClick: (LyricLine) -> Unit,

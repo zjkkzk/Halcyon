@@ -314,7 +314,7 @@
     <string name="aspect_pro_open_failed">未能打开 Aspect Pro，请确认已安装</string>
 
     <string name="player_need_record_audio_permission">需要录音权限才能开启音频可视化</string>
-    <string name="player_visualizer_immersive_only">沉浸封面模式下才能使用可视化</string>
+    <string name="player_visualizer_immersive_only">沉浸封面或大屏横屏播放时才能使用可视化</string>
     <string name="player_no_artist_jump">这首歌没有可跳转的歌手信息</string>
     <string name="player_no_album_jump">这首歌没有可跳转的专辑信息</string>
     <string name="player_no_netease_jump">没有可跳转的网易云信息</string>
@@ -340,6 +340,8 @@
     <string name="player_no_equalizer">未找到系统均衡器</string>
     <string name="player_no_audio_session">当前没有可用的音频会话</string>
     <string name="player_visualizer_settings">可视化设置</string>
+    <string name="player_visualizer_opacity">可视化透明度</string>
+    <string name="player_visualizer_opacity_summary">调整播放器可视化波形与流光背景的显示透明度</string>
     <string name="player_match_dynamic_cover">匹配动态封面</string>
     <string name="player_dynamic_cover_downloading">正在下载动态封面…</string>
     <string name="player_dynamic_cover_downloaded">动态封面已保存</string>
@@ -1457,8 +1459,8 @@
     <string name="settings_lyric_plugin_sources_summary">管理用于本地歌曲单曲匹配歌词的 Lyrico 插件源</string>
     <string name="settings_lyric_plugin_sources_empty">还没有导入歌词源插件</string>
     <string name="settings_lyric_line_blacklist">过滤歌词单行黑名单</string>
-    <string name="settings_lyric_line_blacklist_summary">已添加 %1$d 条规则；命中的整行歌词不会显示或发送到外部词幕</string>
-    <string name="settings_lyric_line_blacklist_editor_hint">每行一个关键词，例如：作词：、作曲：、录音室：</string>
+    <string name="settings_lyric_line_blacklist_summary">已添加 %1$d 条规则；支持正则表达式，命中的整行歌词不会显示或发送到外部词幕</string>
+    <string name="settings_lyric_line_blacklist_editor_hint">每行一条正则或关键词，例如：^(作词|作曲|录音室)：</string>
     <string name="settings_lyric_plugin_import_later">右上角可导入 Lyrico 插件 zip；导入后会出现在这里并参与单曲歌词匹配。</string>
     <string name="settings_lyric_plugin_import">导入插件</string>
     <string name="settings_lyric_plugin_import_success">已导入 %1$s</string>

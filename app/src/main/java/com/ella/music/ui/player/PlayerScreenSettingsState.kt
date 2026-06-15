@@ -23,6 +23,7 @@ internal data class PlayerScreenSettings(
     val playerShowTotalDuration: Boolean = false,
     val lyricSourceMode: Int = SettingsManager.LYRIC_SOURCE_AUTO,
     val audioVisualizerEnabled: Boolean = false,
+    val audioVisualizerOpacity: Int = 100,
     val dynamicCoverEnabled: Boolean = false,
     val immersiveAlbumCover: Boolean = true,
     val playerBackgroundEnabled: Boolean = false,
@@ -50,7 +51,13 @@ private data class PlayerSettingsGroupA(
     val playerShowTotalDuration: Boolean,
     val lyricSourceMode: Int,
     val audioVisualizerEnabled: Boolean,
+    val audioVisualizerOpacity: Int,
     val dynamicCoverEnabled: Boolean
+)
+
+private data class PlayerSettingsVisualizer(
+    val enabled: Boolean,
+    val opacity: Int
 )
 
 private data class PlayerSettingsGroupB(
@@ -113,14 +120,20 @@ private data class PlayerSettingsGroupD(
 @Composable
 internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): PlayerScreenSettings {
     val flow: Flow<PlayerScreenSettings> = remember(settingsManager) {
+        val visualizer = combine(
+            settingsManager.audioVisualizerEnabled,
+            settingsManager.audioVisualizerOpacity
+        ) { enabled, opacity ->
+            PlayerSettingsVisualizer(enabled, opacity)
+        }
         val groupA = combine(
             settingsManager.playerTapSeekEnabled,
             settingsManager.playerShowTotalDuration,
             settingsManager.lyricSourceMode,
-            settingsManager.audioVisualizerEnabled,
+            visualizer,
             settingsManager.dynamicCoverEnabled
-        ) { tapSeek, showTotal, lyricSource, visualizer, dynamicCover ->
-            PlayerSettingsGroupA(tapSeek, showTotal, lyricSource, visualizer, dynamicCover)
+        ) { tapSeek, showTotal, lyricSource, visualizerState, dynamicCover ->
+            PlayerSettingsGroupA(tapSeek, showTotal, lyricSource, visualizerState.enabled, visualizerState.opacity, dynamicCover)
         }
         val groupBBase = combine(
             settingsManager.playerImmersiveCover,
@@ -192,6 +205,7 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 playerShowTotalDuration = a.playerShowTotalDuration,
                 lyricSourceMode = a.lyricSourceMode,
                 audioVisualizerEnabled = a.audioVisualizerEnabled,
+                audioVisualizerOpacity = a.audioVisualizerOpacity,
                 dynamicCoverEnabled = a.dynamicCoverEnabled,
                 immersiveAlbumCover = b.immersiveAlbumCover,
                 playerBackgroundEnabled = b.playerBackgroundEnabled,

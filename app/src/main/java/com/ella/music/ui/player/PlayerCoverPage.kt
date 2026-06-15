@@ -99,10 +99,13 @@ internal fun CoverPlayerPage(
     isFavorite: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float,
+    visualizerOpacityPercent: Int,
     lyricOffsetMs: Long,
     metadataEditorId: String,
     lyricTimingEditorId: String,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onVisualizerOpacityChange: (Int) -> Unit,
     onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     onDynamicCoverFailed: (String) -> Unit,
     onMatchDynamicCover: () -> Unit,
@@ -252,6 +255,7 @@ internal fun CoverPlayerPage(
                 playlist = playlist,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = visualizerEnabled,
+                visualizerOpacity = visualizerOpacity,
                 onDynamicCoverFailed = onDynamicCoverFailed,
                 isFavorite = isFavorite,
                 onToggleMenu = onToggleMenu,
@@ -437,6 +441,7 @@ internal fun CoverPlayerPage(
                                 audioSessionId = audioSessionId,
                                 isPlaying = isPlaying,
                                 positionMs = currentPosition,
+                                opacity = visualizerOpacity,
                                 accent = Color.White.copy(alpha = 0.86f),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -591,7 +596,8 @@ internal fun CoverPlayerPage(
             playbackSpeed = playbackSpeed,
             playbackPitch = playbackPitch,
             visualizerEnabled = visualizerEnabled,
-            visualizerAvailable = immersiveAlbumCover,
+            visualizerAvailable = immersiveAlbumCover || showPlayerKeepScreenOnAction,
+            visualizerOpacity = visualizerOpacityPercent,
             lyricOffsetMs = lyricOffsetMs,
             metadataEditorId = metadataEditorId,
             lyricTimingEditorId = lyricTimingEditorId,
@@ -628,6 +634,7 @@ internal fun CoverPlayerPage(
             onPitch = onPitch,
             onLyricOffset = onLyricOffset,
             onVisualizerEnabled = onVisualizerEnabled,
+            onVisualizerOpacityChange = onVisualizerOpacityChange,
             onPlayerKeepScreenOnChange = onPlayerKeepScreenOnChange,
             initialPage = actionMenuInitialPage
         )

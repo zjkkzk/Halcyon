@@ -36,6 +36,7 @@ internal fun LandscapeCoverModeBackground(
     flowEffectMode: Int,
     dynamicFlowEnabled: Boolean,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float = 1f,
     customBackgroundUri: String,
     customBackgroundOpacity: Float = 1f,
     customBackgroundDim: Float = 0.26f,
@@ -61,11 +62,14 @@ internal fun LandscapeCoverModeBackground(
             )
         } else {
             val animate = dynamicFlowEnabled && !isPlaying && !visualizerEnabled
+            val flowAlpha = if (visualizerEnabled) visualizerOpacity.coerceIn(0f, 1f) else 1f
             PlayerFlowBackground(
                 palette = palette,
                 flowEffectMode = flowEffectMode,
                 animate = animate,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = flowAlpha }
             )
             FluidLyricBackground(
                 palette = palette,
@@ -73,7 +77,9 @@ internal fun LandscapeCoverModeBackground(
                 isPlaying = isPlaying,
                 flowEffectMode = flowEffectMode,
                 animate = animate,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = flowAlpha }
             )
         }
     }

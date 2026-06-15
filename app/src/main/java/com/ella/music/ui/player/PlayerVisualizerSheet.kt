@@ -22,13 +22,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun VisualizerSheetContent(
     enabled: Boolean,
+    opacity: Int,
     onBack: () -> Unit,
-    onEnabledChange: (Boolean) -> Unit
+    onEnabledChange: (Boolean) -> Unit,
+    onOpacityChange: (Int) -> Unit
 ) {
     HalfSheetTitle(title = stringResource(R.string.player_visualizer_settings), onBack = onBack)
     Spacer(modifier = Modifier.height(22.dp))
@@ -68,6 +71,17 @@ internal fun VisualizerSheetContent(
             )
         }
     }
+    Spacer(modifier = Modifier.height(14.dp))
+    SliderPreference(
+        title = stringResource(R.string.player_visualizer_opacity),
+        summary = stringResource(R.string.player_visualizer_opacity_summary),
+        valueText = "$opacity%",
+        value = opacity.coerceIn(20, 100).toFloat(),
+        valueRange = 20f..100f,
+        steps = 15,
+        showKeyPoints = false,
+        onValueChange = { onOpacityChange(it.toInt().coerceIn(20, 100)) }
+    )
     Spacer(modifier = Modifier.height(20.dp))
     Text(
         text = stringResource(R.string.player_visualizer_permission_summary),

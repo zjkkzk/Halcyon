@@ -66,6 +66,7 @@ internal fun LyricsPlayerPage(
     isFavorite: Boolean,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float,
     onLineClick: (LyricLine) -> Unit,
     onLineDoubleClick: () -> Unit,
     onLineLongClick: (LyricLine) -> Unit,
@@ -192,6 +193,7 @@ internal fun LyricsPlayerPage(
             audioSessionId = audioSessionId,
             isPlaying = isPlaying,
             positionMs = currentPositionMs,
+            opacity = visualizerOpacity,
             accent = Color.White.copy(alpha = 0.86f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)

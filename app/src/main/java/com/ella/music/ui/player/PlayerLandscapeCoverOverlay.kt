@@ -77,6 +77,7 @@ internal fun LandscapeCoverPlaybackOverlay(
     playlist: List<Song>,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    visualizerOpacity: Float,
     coverSwipeEnabled: Boolean,
     flowEffectMode: Int,
     beautifulLyricsBackground: Boolean,
@@ -161,6 +162,7 @@ internal fun LandscapeCoverPlaybackOverlay(
             flowEffectMode = flowEffectMode,
             dynamicFlowEnabled = false,
             visualizerEnabled = visualizerEnabled,
+            visualizerOpacity = visualizerOpacity,
             customBackgroundUri = "",
             beautifulLyricsBackground = beautifulLyricsBackground,
             modifier = Modifier.fillMaxSize()

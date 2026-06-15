@@ -134,7 +134,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var superLyricPronunciationEnabled = false
     private var lyricSourceMode = SettingsManager.LYRIC_SOURCE_AUTO
     private var lyricOffsetOverrides = emptyMap<String, Long>()
-    private var lyricLineBlacklist = emptyList<String>()
+    private var lyricBlacklistRules = emptyList<LyricBlacklistRule>()
     private var appliedDecoderMode: Int? = null
     private var appliedAudioFocusDisabled: Boolean? = null
     private var appliedLyricSourceMode: Int? = null
@@ -524,7 +524,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             var initialized = false
             settingsManager.lyricLineBlacklist.distinctUntilChanged().collect { rules ->
-                lyricLineBlacklist = rules
+                lyricBlacklistRules = rules.map(::LyricBlacklistRule)
                 if (!initialized) {
                     initialized = true
                     applyCurrentLyricOffset(notifyExternal = false)
@@ -868,16 +868,26 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun List<LyricLine>.filterBlacklistedLyricLines(): List<LyricLine> {
-        val rules = lyricLineBlacklist
+        val rules = lyricBlacklistRules
         if (isEmpty() || rules.isEmpty()) return this
         return filterNot { line ->
             rules.any { rule ->
-                line.text.contains(rule, ignoreCase = true) ||
-                    line.translation?.contains(rule, ignoreCase = true) == true ||
-                    line.pronunciation?.contains(rule, ignoreCase = true) == true ||
-                    line.backgroundText?.contains(rule, ignoreCase = true) == true ||
-                    line.backgroundTranslation?.contains(rule, ignoreCase = true) == true
+                rule.matches(line.text) ||
+                    rule.matches(line.translation) ||
+                    rule.matches(line.pronunciation) ||
+                    rule.matches(line.backgroundText) ||
+                    rule.matches(line.backgroundTranslation)
             }
+        }
+    }
+
+    private class LyricBlacklistRule(rawRule: String) {
+        private val raw = rawRule.trim()
+        private val regex = runCatching { Regex(raw, RegexOption.IGNORE_CASE) }.getOrNull()
+
+        fun matches(text: String?): Boolean {
+            if (raw.isEmpty() || text.isNullOrBlank()) return false
+            return regex?.containsMatchIn(text) ?: text.contains(raw, ignoreCase = true)
         }
     }
 

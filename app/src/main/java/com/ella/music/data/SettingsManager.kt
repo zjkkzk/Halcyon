@@ -124,6 +124,7 @@ class SettingsManager(private val context: Context) {
         val KEY_HIDE_SYSTEM_BARS = booleanPreferencesKey("hide_system_bars")
         val KEY_PLAYER_DYNAMIC_FLOW_ENABLED = booleanPreferencesKey("player_dynamic_flow_enabled")
         val KEY_AUDIO_VISUALIZER_ENABLED = booleanPreferencesKey("audio_visualizer_enabled")
+        val KEY_AUDIO_VISUALIZER_OPACITY = intPreferencesKey("audio_visualizer_opacity")
         val KEY_EQ_ENABLED = booleanPreferencesKey("audio_eq_enabled")
         val KEY_EQ_PRESET = intPreferencesKey("audio_eq_preset")
         val KEY_EQ_BANDS = stringPreferencesKey("audio_eq_bands")
@@ -520,6 +521,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_PLAYER_DYNAMIC_FLOW_ENABLED] ?: false }
     val audioVisualizerEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_AUDIO_VISUALIZER_ENABLED] ?: false }
+    val audioVisualizerOpacity: Flow<Int> =
+        context.dataStore.data.map { it[KEY_AUDIO_VISUALIZER_OPACITY]?.coerceIn(20, 100) ?: 100 }
 
     val eqEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_EQ_ENABLED] ?: false }
@@ -1081,6 +1084,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setAudioVisualizerEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_AUDIO_VISUALIZER_ENABLED] = enabled }
+    }
+
+    suspend fun setAudioVisualizerOpacity(opacity: Int) {
+        context.dataStore.edit { it[KEY_AUDIO_VISUALIZER_OPACITY] = opacity.coerceIn(20, 100) }
     }
 
     suspend fun setEqEnabled(enabled: Boolean) {
@@ -1844,6 +1851,7 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_APP_WALLPAPER_CONTENT_OVERLAY)
             setInt(KEY_PLAYER_BACKGROUND_OPACITY)
             setInt(KEY_PLAYER_BACKGROUND_DIM)
+            setInt(KEY_AUDIO_VISUALIZER_OPACITY)
             setInt(KEY_HOME_CARD_OPACITY)
             setString(KEY_HOME_ONLINE_TILE_ORDER)
             setString(KEY_HOME_HIDDEN_ONLINE_TILES)

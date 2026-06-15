@@ -18,6 +18,7 @@ internal fun PlayerCoverActionSheet(
     playbackPitch: Float,
     visualizerEnabled: Boolean,
     visualizerAvailable: Boolean,
+    visualizerOpacity: Int,
     lyricOffsetMs: Long,
     metadataEditorId: String,
     lyricTimingEditorId: String,
@@ -54,6 +55,7 @@ internal fun PlayerCoverActionSheet(
     onPitch: (Float) -> Unit,
     onLyricOffset: (Long) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onVisualizerOpacityChange: (Int) -> Unit,
     onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     initialPage: PlayerActionSheetPage
 ) {
@@ -74,6 +76,7 @@ internal fun PlayerCoverActionSheet(
             pitch = playbackPitch,
             visualizerEnabled = visualizerEnabled,
             visualizerAvailable = visualizerAvailable,
+            visualizerOpacity = visualizerOpacity,
             lyricOffsetMs = lyricOffsetMs,
             metadataEditorId = metadataEditorId,
             lyricTimingEditorId = lyricTimingEditorId,
@@ -110,6 +113,7 @@ internal fun PlayerCoverActionSheet(
             onPitch = onPitch,
             onLyricOffset = onLyricOffset,
             onVisualizerEnabled = onVisualizerEnabled,
+            onVisualizerOpacityChange = onVisualizerOpacityChange,
             onPlayerKeepScreenOnChange = onPlayerKeepScreenOnChange,
             initialPage = initialPage
         )

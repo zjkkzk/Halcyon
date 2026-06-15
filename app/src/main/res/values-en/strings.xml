@@ -309,7 +309,7 @@
     <string name="aspect_pro_open_failed">Could not open Aspect Pro. Make sure it is installed</string>
 
     <string name="player_need_record_audio_permission">Audio recording permission is required to enable visualization</string>
-    <string name="player_visualizer_immersive_only">Visualization is only available in immersive cover mode</string>
+    <string name="player_visualizer_immersive_only">Visualization is available in immersive cover mode or landscape playback on large-screen devices</string>
     <string name="player_no_artist_jump">This song has no artist information to open</string>
     <string name="player_no_album_jump">This song has no album information to open</string>
     <string name="player_no_netease_jump">No NetEase Cloud Music information available</string>
@@ -335,6 +335,8 @@
     <string name="player_no_equalizer">No system equalizer found</string>
     <string name="player_no_audio_session">No audio session is available right now</string>
     <string name="player_visualizer_settings">Visualizer settings</string>
+    <string name="player_visualizer_opacity">Visualizer opacity</string>
+    <string name="player_visualizer_opacity_summary">Adjust the opacity of the player visualizer waveform and flowing background</string>
     <string name="player_match_dynamic_cover">Match dynamic cover</string>
     <string name="player_dynamic_cover_downloading">Downloading dynamic cover…</string>
     <string name="player_dynamic_cover_downloaded">Dynamic cover saved</string>
@@ -1424,8 +1426,8 @@
     <string name="settings_lyric_plugin_sources_summary">Manage Lyrico plugin sources used to match lyrics for local songs</string>
     <string name="settings_lyric_plugin_sources_empty">No lyric source plugins imported yet</string>
     <string name="settings_lyric_line_blacklist">Filtered lyric-line blacklist</string>
-    <string name="settings_lyric_line_blacklist_summary">%1$d rule(s) added; matching whole lyric lines are hidden and not sent to external lyric outputs</string>
-    <string name="settings_lyric_line_blacklist_editor_hint">One keyword per line, for example: Lyrics by, Composer, Studio</string>
+    <string name="settings_lyric_line_blacklist_summary">%1$d rule(s) added; regular expressions are supported, and matching whole lyric lines are hidden and not sent to external lyric outputs</string>
+    <string name="settings_lyric_line_blacklist_editor_hint">One regex or keyword per line, for example: ^(Lyrics by|Composer|Studio)</string>
     <string name="settings_lyric_plugin_import">Import plugin</string>
     <string name="settings_lyric_plugin_import_success">Imported %1$s</string>
     <string name="settings_lyric_plugin_import_failed">Plugin import failed</string>

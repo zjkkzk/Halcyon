@@ -29,6 +29,7 @@ internal fun AudioVisualizer(
     audioSessionId: Int,
     isPlaying: Boolean,
     positionMs: Long,
+    opacity: Float = 1f,
     accent: Color,
     modifier: Modifier = Modifier
 ) {
@@ -74,7 +75,7 @@ internal fun AudioVisualizer(
         }
     }
 
-    Canvas(modifier = modifier.graphicsLayer { alpha = if (isPlaying) 1f else 0.42f }) {
+    Canvas(modifier = modifier.graphicsLayer { alpha = (if (isPlaying) 1f else 0.42f) * opacity.coerceIn(0f, 1f) }) {
         val barCount = 64
         drawBetterLyricsSpectrumCurve(
             levels = List(barCount) { index -> levels.getOrNull(index) ?: 0.04f },

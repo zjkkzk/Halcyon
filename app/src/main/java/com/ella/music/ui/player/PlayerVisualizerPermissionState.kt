@@ -31,7 +31,8 @@ internal fun rememberPlayerVisualizerPermissionState(
     audioVisualizerEnabled: Boolean,
     isPlaying: Boolean,
     showLyrics: Boolean,
-    landscapeExpanded: Boolean
+    landscapeExpanded: Boolean,
+    largeScreenDevice: Boolean
 ): PlayerVisualizerPermissionState {
     var hasVisualizerPermission by remember {
         mutableStateOf(
@@ -54,14 +55,15 @@ internal fun rememberPlayerVisualizerPermissionState(
         }
     }
 
+    val visualizerSurfaceAvailable = immersiveAlbumCover || (largeScreenDevice && landscapeExpanded)
     return PlayerVisualizerPermissionState(
-        effectiveEnabled = immersiveAlbumCover &&
+        effectiveEnabled = visualizerSurfaceAvailable &&
             audioVisualizerEnabled &&
             hasVisualizerPermission &&
             isPlaying &&
             (!showLyrics || landscapeExpanded),
         setEnabled = { enabled ->
-            if (enabled && !immersiveAlbumCover) {
+            if (enabled && !visualizerSurfaceAvailable) {
                 Toast.makeText(
                     context,
                     context.getString(R.string.player_visualizer_immersive_only),

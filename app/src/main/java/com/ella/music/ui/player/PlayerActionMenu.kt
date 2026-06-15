@@ -25,6 +25,7 @@ internal fun PlayerActionMenu(
     pitch: Float,
     visualizerEnabled: Boolean,
     visualizerAvailable: Boolean,
+    visualizerOpacity: Int,
     lyricOffsetMs: Long,
     metadataEditorId: String,
     lyricTimingEditorId: String,
@@ -61,6 +62,7 @@ internal fun PlayerActionMenu(
     onPitch: (Float) -> Unit,
     onLyricOffset: (Long) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onVisualizerOpacityChange: (Int) -> Unit,
     onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     initialPage: PlayerActionSheetPage = PlayerActionSheetPage.Main,
     modifier: Modifier = Modifier
@@ -160,8 +162,10 @@ internal fun PlayerActionMenu(
             PlayerActionSheetPage.Visualizer -> {
                 VisualizerSheetContent(
                     enabled = visualizerEnabled,
+                    opacity = visualizerOpacity,
                     onBack = { page = PlayerActionSheetPage.Main },
-                    onEnabledChange = onVisualizerEnabled
+                    onEnabledChange = onVisualizerEnabled,
+                    onOpacityChange = onVisualizerOpacityChange
                 )
             }
         }
