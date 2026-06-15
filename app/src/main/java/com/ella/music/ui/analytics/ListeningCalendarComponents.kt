@@ -39,6 +39,7 @@ import com.ella.music.data.model.Song
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
@@ -303,14 +304,15 @@ private fun ListeningTimelineRow(
     onSongMore: (Song) -> Unit
 ) {
     val song = entry.song
+    val canPlaySong = remember(song) { song?.isPlayableCalendarSong() == true }
     val coverBitmap by produceState<Bitmap?>(initialValue = null, song?.id, entry.entry.playedAt) {
         value = withContext(Dispatchers.IO) {
-            song?.let(mainViewModel::getCoverArtBitmap)
+            song?.takeIf { canPlaySong }?.let(mainViewModel::getCoverArtBitmap)
         }
     }
     val audioInfo by produceState<AudioInfo?>(initialValue = null, song?.id) {
         value = withContext(Dispatchers.IO) {
-            song?.let(mainViewModel::getAudioInfo)
+            song?.takeIf { canPlaySong }?.let(mainViewModel::getAudioInfo)
         }
     }
     val axisDotColor = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.82f)
@@ -354,7 +356,7 @@ private fun ListeningTimelineRow(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    song?.let { playerViewModel.playSong(it) }
+                    song?.takeIf { canPlaySong }?.let { playerViewModel.playSong(it) }
                 }
             ) {
                 Row(
@@ -419,7 +421,7 @@ private fun ListeningTimelineRow(
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (song != null) {
+                        if (song != null && canPlaySong) {
                             Box(
                                 modifier = Modifier
                                     .clip(CircleShape)
@@ -438,4 +440,10 @@ private fun ListeningTimelineRow(
             }
         }
     }
+}
+
+private fun Song.isPlayableCalendarSong(): Boolean {
+    if (onlineSource.isNotBlank()) return path.isNotBlank()
+    if (path.startsWith("content://", ignoreCase = true)) return true
+    return path.isNotBlank() && File(path).exists()
 }
