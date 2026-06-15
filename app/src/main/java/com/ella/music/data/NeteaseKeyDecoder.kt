@@ -20,6 +20,7 @@ data class NeteaseKeyInfo(
     val hasDecodedContent: Boolean
         get() = decodedJson.isNotBlank() ||
             musicId.isNotBlank() ||
+            aliases.any { it.isNotBlank() } ||
             albumId.isNotBlank() ||
             artists.any { it.id.isNotBlank() } ||
             comment.isNotBlank()

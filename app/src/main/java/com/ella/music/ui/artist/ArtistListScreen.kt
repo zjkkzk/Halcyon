@@ -62,6 +62,7 @@ import com.ella.music.ui.components.shareLocalSongs
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
@@ -80,6 +81,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -189,6 +192,8 @@ fun ArtistListScreen(
     var sortExpanded by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedArtistKeys by remember { mutableStateOf(setOf<String>()) }
+    var rangeAnchorArtistKey by remember { mutableStateOf<String?>(null) }
+    var rangeTargetArtistKey by remember { mutableStateOf<String?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var artistMenuTarget by remember { mutableStateOf<Artist?>(null) }
@@ -257,11 +262,30 @@ fun ArtistListScreen(
     fun finishSelectionMode() {
         selectionMode = false
         selectedArtistKeys = emptySet()
+        rangeAnchorArtistKey = null
+        rangeTargetArtistKey = null
+    }
+    fun updateRangeAnchorsForManualSelection(artistKey: String, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorArtistKey == null -> rangeAnchorArtistKey = artistKey
+                rangeAnchorArtistKey == artistKey -> Unit
+                else -> rangeTargetArtistKey = artistKey
+            }
+        } else {
+            if (rangeTargetArtistKey == artistKey) rangeTargetArtistKey = null
+            if (rangeAnchorArtistKey == artistKey) {
+                rangeAnchorArtistKey = rangeTargetArtistKey ?: selectedArtistKeys.firstOrNull { it != artistKey }
+                rangeTargetArtistKey = null
+            }
+        }
     }
     fun toggleArtistSelection(artist: Artist) {
         val key = artist.name.tagIdentityKey()
-        val next = if (key in selectedArtistKeys) selectedArtistKeys - key else selectedArtistKeys + key
+        val selecting = key !in selectedArtistKeys
+        val next = if (selecting) selectedArtistKeys + key else selectedArtistKeys - key
         selectedArtistKeys = next
+        updateRangeAnchorsForManualSelection(key, selecting)
         if (next.isEmpty()) selectionMode = false
     }
     fun selectedArtistSongs(): List<Song> {
@@ -271,6 +295,50 @@ fun ArtistListScreen(
             else splitArtistNames(song.artist)
             names.any { it.tagIdentityKey() in selectedArtistKeys }
         }.distinctBy { it.id }
+    }
+    val artistIndexByKey = remember(filteredArtists) {
+        buildMap {
+            filteredArtists.forEachIndexed { index, artist -> put(artist.name.tagIdentityKey(), index) }
+        }
+    }
+    val selectedVisibleArtistCount = remember(selectedArtistKeys, filteredArtists) {
+        filteredArtists.count { it.name.tagIdentityKey() in selectedArtistKeys }
+    }
+    val rangeSelectionAvailable = remember(artistIndexByKey, selectedArtistKeys, rangeAnchorArtistKey, rangeTargetArtistKey) {
+        val anchor = rangeAnchorArtistKey
+        val target = rangeTargetArtistKey
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedArtistKeys &&
+            target in selectedArtistKeys &&
+            anchor in artistIndexByKey &&
+            target in artistIndexByKey
+    }
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorArtistKey ?: return
+        val target = rangeTargetArtistKey ?: return
+        val anchorIndex = artistIndexByKey[anchor] ?: return
+        val targetIndex = artistIndexByKey[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedArtistKeys = selectedArtistKeys + bounds.map { filteredArtists[it].name.tagIdentityKey() }
+        rangeAnchorArtistKey = target
+        rangeTargetArtistKey = null
+    }
+    fun toggleSelectAllVisibleArtists() {
+        if (filteredArtists.isEmpty()) return
+        val keys = filteredArtists.mapTo(mutableSetOf()) { it.name.tagIdentityKey() }
+        if (keys.all { it in selectedArtistKeys }) {
+            selectedArtistKeys = selectedArtistKeys - keys
+            rangeAnchorArtistKey = null
+            rangeTargetArtistKey = null
+        } else {
+            selectedArtistKeys = selectedArtistKeys + keys
+            rangeAnchorArtistKey = filteredArtists.firstOrNull()?.name?.tagIdentityKey()
+            rangeTargetArtistKey = filteredArtists.lastOrNull()?.name?.tagIdentityKey()
+        }
+        selectionMode = true
     }
 
     BackHandler(enabled = selectionMode || searchExpanded || sortExpanded) {
@@ -283,6 +351,13 @@ fun ArtistListScreen(
             sortExpanded -> sortExpanded = false
         }
     }
+    LaunchedEffect(selectionMode, filteredArtists) {
+        if (!selectionMode) return@LaunchedEffect
+        val visibleKeys = filteredArtists.mapTo(mutableSetOf()) { it.name.tagIdentityKey() }
+        selectedArtistKeys = selectedArtistKeys.filterTo(mutableSetOf()) { it in visibleKeys }
+        if (rangeAnchorArtistKey !in visibleKeys) rangeAnchorArtistKey = selectedArtistKeys.firstOrNull()
+        if (rangeTargetArtistKey !in visibleKeys) rangeTargetArtistKey = null
+    }
 
     Column(
         modifier = Modifier
@@ -292,7 +367,11 @@ fun ArtistListScreen(
     ) {
         Box {
             EllaSmallTopAppBar(
-                title = if (selectionMode) stringResource(R.string.library_selected_count, selectedArtistKeys.size) else stringResource(R.string.category_artist),
+                title = if (selectionMode) {
+                    stringResource(R.string.library_selected_fraction, selectedArtistKeys.size, filteredArtists.size)
+                } else {
+                    stringResource(R.string.category_artist)
+                },
                 color = ellaPageBackground(),
                 navigationIcon = {
                     if (showBackButton || selectionMode) {
@@ -310,6 +389,20 @@ fun ArtistListScreen(
                     if (selectionMode) {
                         IconButton(onClick = {
                             val selectedSongs = selectedArtistSongs()
+                            if (selectedSongs.isNotEmpty()) {
+                                playerViewModel.playNext(selectedSongs)
+                                finishSelectionMode()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Play,
+                                contentDescription = stringResource(R.string.song_more_play_next),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        IconButton(onClick = {
+                            val selectedSongs = selectedArtistSongs()
                             if (selectedSongs.isNotEmpty()) playlistPickerSongs = selectedSongs
                         }) {
                             Icon(
@@ -319,10 +412,23 @@ fun ArtistListScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
+                        IconButton(onClick = {
+                            val selectedSongs = selectedArtistSongs()
+                            if (selectedSongs.isNotEmpty()) pendingDeleteSongs = selectedSongs
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Delete,
+                                contentDescription = stringResource(R.string.common_delete),
+                                tint = androidx.compose.ui.graphics.Color(0xFFE5484D),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     } else {
                         IconButton(onClick = {
                             selectionMode = true
-                            selectedArtistKeys = filteredArtists.mapTo(mutableSetOf()) { it.name.tagIdentityKey() }
+                            selectedArtistKeys = emptySet()
+                            rangeAnchorArtistKey = null
+                            rangeTargetArtistKey = null
                         }) {
                             Icon(
                                 imageVector = MiuixIcons.Regular.SelectAll,
@@ -339,7 +445,6 @@ fun ArtistListScreen(
                                     onClick = {
                                         LibrarySortUiState.artistListSortIndex = mode.ordinal
                                         scope.launch { mainViewModel.settingsManager.setArtistListSortIndex(mode.ordinal) }
-                                        scrollToTopRequest++
                                     }
                                 )
                             }
@@ -380,7 +485,6 @@ fun ArtistListScreen(
                             .clickable {
                                 LibrarySortUiState.artistListSortIndex = mode.ordinal
                                 scope.launch { mainViewModel.settingsManager.setArtistListSortIndex(mode.ordinal) }
-                                scrollToTopRequest++
                                 sortExpanded = false
                             }
                             .padding(vertical = 10.dp)
@@ -416,14 +520,6 @@ fun ArtistListScreen(
                 initialFirstVisibleItemScrollOffset = savedArtistScroll.second
             )
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
-            var skipInitialReset by remember { mutableStateOf(true) }
-            LaunchedEffect(sortMode, searchQuery) {
-                if (skipInitialReset) {
-                    skipInitialReset = false
-                } else {
-                    listState.scrollToItem(0)
-                }
-            }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
             }
@@ -512,6 +608,16 @@ fun ArtistListScreen(
                             .fillMaxHeight()
                     )
                 }
+                FloatingSelectionControls(
+                    visible = selectionMode && filteredArtists.isNotEmpty(),
+                    rangeEnabled = rangeSelectionAvailable,
+                    allSelected = filteredArtists.isNotEmpty() && selectedVisibleArtistCount == filteredArtists.size,
+                    onRangeSelect = ::applyRangeSelection,
+                    onSelectAll = ::toggleSelectAllVisibleArtists,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 22.dp, bottom = 118.dp)
+                )
             }
         }
     }

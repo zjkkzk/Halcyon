@@ -20,6 +20,7 @@ internal object EllaLyricsParser {
     private val lyricifySyllablePattern = Regex("""(.*?)\((\d+),(\d+)\)""")
     private val lyricifyAttributePattern = Regex("""^\[(\d+)]""")
     private val timestampOnlyPattern = Regex("""\d+(?::\d{1,2}){1,2}(?:[.:]\d{1,6})?""")
+    private val unknownTtmlAgentIdPattern = Regex("""v\d+|agent\d+""", RegexOption.IGNORE_CASE)
 
     fun parse(
         content: String,
@@ -322,7 +323,9 @@ internal object EllaLyricsParser {
                 val start = p.attr("begin").parseTtmlTime() ?: return@mapNotNull null
                 val end = p.attr("end").parseTtmlTime()
                 val key = p.attr("itunes:key").ifBlank { p.attr("key") }
-                val agent = p.attr("ttm:agent").ifBlank { p.attr("agent") }
+                val rawAgent = p.attr("ttm:agent").ifBlank { p.attr("agent") }
+                val agentIds = rawAgent.toTtmlAgentIds()
+                val displayAgentName = agentIds.resolveTtmlAgentNames(agentInfo)
                 val words = mutableListOf<LyricWord>()
                 val rubyPronunciationWords = mutableListOf<LyricWord>()
                 val text = collectTtmlMainText(p, words, end, rubyPronunciationWords).cleanLyricText()
@@ -357,8 +360,8 @@ internal object EllaLyricsParser {
                     translation = inlineTranslation?.takeUsefulText() ?: translations[key]?.splitAppleTranslation()?.first,
                     pronunciation = pronunciation?.takeUsefulText(),
                     pronunciationWords = pronunciationWords.toDisplayWords(pronunciation.orEmpty()),
-                    agent = agent,
-                    agentName = agentInfo[agent]?.name,
+                    agent = agentIds.firstOrNull() ?: rawAgent.takeIf(String::isNotBlank),
+                    agentName = displayAgentName,
                     backgroundText = bg?.text,
                     backgroundWords = bg?.words.orEmpty().toDisplayWords(bg?.text.orEmpty()),
                     backgroundTranslation = bg?.translation,
@@ -434,6 +437,23 @@ internal object EllaLyricsParser {
             .toMap()
     }
 
+    private fun String.toTtmlAgentIds(): List<String> =
+        split(Regex("""[\s,;]+"""))
+            .map { it.trim().trimStart('#') }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+    private fun List<String>.resolveTtmlAgentNames(agentInfo: Map<String, TtmlAgentInfo>): String? {
+        val names = mapNotNull { id ->
+            agentInfo[id]?.name
+                ?: id.takeUnless { unknownTtmlAgentIdPattern.matches(it) }
+        }
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.isMusicSymbolOnly() }
+            .distinct()
+        return names.takeIf { it.isNotEmpty() }?.joinToString("/")
+    }
+
     /**
      * Assign each TTML line a display side (left = "v1", right = "v2") from its agent type, per the
      * AMLL convention:
@@ -458,7 +478,7 @@ internal object EllaLyricsParser {
                 else -> {
                     val resolved = when {
                         prevSoloSide == null -> "v1"
-                        id == prevSoloId -> prevSoloSide!!
+                        id == prevSoloId -> prevSoloSide
                         else -> if (prevSoloSide == "v1") "v2" else "v1"
                     }
                     prevSoloId = id

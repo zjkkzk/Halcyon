@@ -90,6 +90,7 @@ import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixSheetActions
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.LazyListScrollIndicator
@@ -117,6 +118,7 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Music
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -163,11 +165,40 @@ fun MetadataCategoryDetailScreen(
     var actionSong by remember { mutableStateOf<com.ella.music.data.model.Song?>(null) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var rangeAnchorId by remember { mutableStateOf<Long?>(null) }
+    var rangeTargetId by remember { mutableStateOf<Long?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var pendingSystemDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForMetadataDetail(sortMode) }
+    fun clearSelection() {
+        selectedIds = emptySet()
+        rangeAnchorId = null
+        rangeTargetId = null
+        selectionMode = false
+    }
+    fun updateRangeAnchorsForManualSelection(songId: Long, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorId == null -> rangeAnchorId = songId
+                rangeAnchorId == songId -> Unit
+                else -> rangeTargetId = songId
+            }
+        } else {
+            if (rangeTargetId == songId) rangeTargetId = null
+            if (rangeAnchorId == songId) {
+                rangeAnchorId = rangeTargetId ?: selectedIds.firstOrNull { it != songId }
+                rangeTargetId = null
+            }
+        }
+    }
+    fun toggleSongSelection(songId: Long) {
+        val selecting = songId !in selectedIds
+        selectedIds = if (selecting) selectedIds + songId else selectedIds - songId
+        updateRangeAnchorsForManualSelection(songId, selecting)
+        if (selectedIds.isEmpty()) selectionMode = false
+    }
     val showAlbumTab = type == "genre" || type == "year" || type == "composer" || type == "lyricist"
     val shouldBuildAlbumTabContent = showAlbumTab && selectedTab == MetadataDetailTab.Albums
     val detailAlbums = remember(songs, libraryAlbums, shouldBuildAlbumTabContent) {
@@ -231,8 +262,7 @@ fun MetadataCategoryDetailScreen(
         if (result.resultCode == Activity.RESULT_OK && songsToDelete.isNotEmpty()) {
             mainViewModel.removeSongsFromLibrary(songsToDelete)
             Toast.makeText(context, context.getString(R.string.library_deleted_songs, songsToDelete.size), Toast.LENGTH_SHORT).show()
-            selectedIds = emptySet()
-            selectionMode = false
+            clearSelection()
         } else if (songsToDelete.isNotEmpty()) {
             Toast.makeText(context, context.getString(R.string.library_delete_cancelled), Toast.LENGTH_SHORT).show()
         }
@@ -243,8 +273,7 @@ fun MetadataCategoryDetailScreen(
             val result = mainViewModel.deleteSongsResult(songsToDelete)
             if (result.isSuccess) {
                 Toast.makeText(context, context.getString(R.string.library_deleted_songs, songsToDelete.size), Toast.LENGTH_SHORT).show()
-                selectedIds = emptySet()
-                selectionMode = false
+                clearSelection()
                 return@launch
             }
             val error = result.exceptionOrNull()
@@ -260,6 +289,45 @@ fun MetadataCategoryDetailScreen(
         buildMap {
             sortedSongs.forEachIndexed { index, song -> put(song.id, index) }
         }
+    }
+    val selectedVisibleCount = remember(selectedIds, sortedSongs) {
+        sortedSongs.count { it.id in selectedIds }
+    }
+    val rangeSelectionAvailable = remember(sortedSongIndexById, selectedIds, rangeAnchorId, rangeTargetId) {
+        val anchor = rangeAnchorId
+        val target = rangeTargetId
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedIds &&
+            target in selectedIds &&
+            anchor in sortedSongIndexById &&
+            target in sortedSongIndexById
+    }
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorId ?: return
+        val target = rangeTargetId ?: return
+        val anchorIndex = sortedSongIndexById[anchor] ?: return
+        val targetIndex = sortedSongIndexById[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedIds = selectedIds + bounds.map { sortedSongs[it].id }
+        rangeAnchorId = target
+        rangeTargetId = null
+    }
+    fun toggleSelectAllVisibleSongs() {
+        if (sortedSongs.isEmpty()) return
+        val ids = sortedSongs.mapTo(mutableSetOf()) { it.id }
+        if (ids.all { it in selectedIds }) {
+            selectedIds = selectedIds - ids
+            rangeAnchorId = null
+            rangeTargetId = null
+        } else {
+            selectedIds = selectedIds + ids
+            rangeAnchorId = sortedSongs.firstOrNull()?.id
+            rangeTargetId = sortedSongs.lastOrNull()?.id
+        }
+        selectionMode = true
     }
     val currentSongItemIndex = remember(sortedSongIndexById, currentSong?.id, selectedTab, selectionMode) {
         if (selectedTab != MetadataDetailTab.Songs || selectionMode) return@remember -1
@@ -279,17 +347,22 @@ fun MetadataCategoryDetailScreen(
     BackHandler(enabled = selectionMode || sortExpanded) {
         when {
             selectionMode -> {
-                selectedIds = emptySet()
-                selectionMode = false
+                clearSelection()
             }
             sortExpanded -> sortExpanded = false
         }
     }
     LaunchedEffect(selectedTab) {
         if (selectedTab != MetadataDetailTab.Songs && selectionMode) {
-            selectedIds = emptySet()
-            selectionMode = false
+            clearSelection()
         }
+    }
+    LaunchedEffect(selectionMode, sortedSongs) {
+        if (!selectionMode) return@LaunchedEffect
+        val visibleIds = sortedSongs.mapTo(mutableSetOf()) { it.id }
+        selectedIds = selectedIds.filterTo(mutableSetOf()) { it in visibleIds }
+        if (rangeAnchorId !in visibleIds) rangeAnchorId = selectedIds.firstOrNull()
+        if (rangeTargetId !in visibleIds) rangeTargetId = null
     }
     LaunchedEffect(type, sortIndex) {
         if (type == "folder" && sortIndex == MetadataDetailSongSortMode.AlbumTrack.ordinal) {
@@ -325,7 +398,7 @@ fun MetadataCategoryDetailScreen(
                 title = pageTitle,
                 color = pageBackground,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { if (selectionMode) clearSelection() else onBack() }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Back,
                             contentDescription = stringResource(R.string.common_back),
@@ -336,6 +409,23 @@ fun MetadataCategoryDetailScreen(
                 },
                 actions = {
                     if (selectionMode) {
+                        IconButton(onClick = {
+                            val selectedSongs = sortedSongs.filter { it.id in selectedIds }
+                            if (selectedSongs.isEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                            } else {
+                                playerViewModel.playNext(selectedSongs)
+                                Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
+                                clearSelection()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Play,
+                                contentDescription = stringResource(R.string.song_more_play_next),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         IconButton(onClick = {
                             val selectedSongs = sortedSongs.filter { it.id in selectedIds }
                             if (selectedSongs.isEmpty()) {
@@ -370,7 +460,9 @@ fun MetadataCategoryDetailScreen(
                         if (selectedTab == MetadataDetailTab.Songs) {
                             IconButton(onClick = {
                                 selectionMode = true
-                                selectedIds = sortedSongs.map { it.id }.toSet()
+                                selectedIds = emptySet()
+                                rangeAnchorId = null
+                                rangeTargetId = null
                             }) {
                                 Icon(
                                     imageVector = MiuixIcons.Regular.SelectAll,
@@ -387,7 +479,6 @@ fun MetadataCategoryDetailScreen(
                                     selected = albumSortMode == mode,
                                     onClick = {
                                         scope.launch { mainViewModel.settingsManager.setMetadataCategoryDetailAlbumSortIndex(type, mode.ordinal) }
-                                        scope.launch { listState.animateScrollToItem(0) }
                                     }
                                 )
                             }
@@ -400,7 +491,6 @@ fun MetadataCategoryDetailScreen(
                                         selected = sortMode == mode,
                                         onClick = {
                                             scope.launch { mainViewModel.settingsManager.setMetadataCategoryDetailSongSortIndex(type, mode.ordinal) }
-                                            scope.launch { listState.animateScrollToItem(0) }
                                         }
                                     )
                                 }
@@ -440,7 +530,6 @@ fun MetadataCategoryDetailScreen(
                                 .clickable {
                                     sortExpanded = false
                                     scope.launch { mainViewModel.settingsManager.setMetadataCategoryDetailAlbumSortIndex(type, mode.ordinal) }
-                                    scope.launch { listState.animateScrollToItem(0) }
                                 }
                                 .padding(vertical = 10.dp)
                         )
@@ -459,7 +548,6 @@ fun MetadataCategoryDetailScreen(
                             .clickable {
                                 sortExpanded = false
                                 scope.launch { mainViewModel.settingsManager.setMetadataCategoryDetailSongSortIndex(type, mode.ordinal) }
-                                scope.launch { listState.animateScrollToItem(0) }
                             }
                             .padding(vertical = 10.dp)
                     )
@@ -476,7 +564,7 @@ fun MetadataCategoryDetailScreen(
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         val summaryText = if (selectionMode) {
-                            stringResource(R.string.category_selected_count, selectedIds.size)
+                            stringResource(R.string.library_selected_fraction, selectedIds.size, sortedSongs.size)
                         } else if (selectedTab == MetadataDetailTab.Albums) {
                             stringResource(R.string.category_album_summary, sortedAlbums.size, type.categoryTitle(), albumSortMode.label())
                         } else {
@@ -573,10 +661,11 @@ fun MetadataCategoryDetailScreen(
                             onLongClick = {
                                 selectionMode = true
                                 selectedIds = selectedIds + song.id
+                                updateRangeAnchorsForManualSelection(song.id, selectedNow = true)
                             },
                             onClick = {
                                 if (selectionMode) {
-                                    selectedIds = if (selected) selectedIds - song.id else selectedIds + song.id
+                                    toggleSongSelection(song.id)
                                 } else {
                                     playerViewModel.setPlaylist(sortedSongs, index)
                                     if (openPlayerOnPlay) onNavigateToPlayer()
@@ -624,6 +713,16 @@ fun MetadataCategoryDetailScreen(
                     .align(Alignment.BottomEnd)
                     .padding(end = 22.dp, bottom = 118.dp)
             )
+            FloatingSelectionControls(
+                visible = selectionMode && selectedTab == MetadataDetailTab.Songs && sortedSongs.isNotEmpty(),
+                rangeEnabled = rangeSelectionAvailable,
+                allSelected = sortedSongs.isNotEmpty() && selectedVisibleCount == sortedSongs.size,
+                onRangeSelect = ::applyRangeSelection,
+                onSelectAll = ::toggleSelectAllVisibleSongs,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 22.dp, bottom = 118.dp)
+            )
 
             SongMoreActionHost(
                 actionSong = actionSong,
@@ -656,8 +755,7 @@ fun MetadataCategoryDetailScreen(
                             }
                             Toast.makeText(context, context.getString(R.string.player_added_to_playlists, selectedPlaylists.size), Toast.LENGTH_SHORT).show()
                             playlistPickerSongs = null
-                            selectedIds = emptySet()
-                            selectionMode = false
+                            clearSelection()
                         }
                     )
                 }
@@ -672,8 +770,7 @@ fun MetadataCategoryDetailScreen(
                             if (playlist != null) {
                                 mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
                                 Toast.makeText(context, context.getString(R.string.player_added_to_playlist_named, playlist.name), Toast.LENGTH_SHORT).show()
-                                selectedIds = emptySet()
-                                selectionMode = false
+                                clearSelection()
                             }
                         }
                         createPlaylistSongs = null

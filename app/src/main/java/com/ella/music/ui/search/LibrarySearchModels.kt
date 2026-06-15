@@ -11,23 +11,42 @@ import org.json.JSONObject
 internal enum class SearchFilter {
     All,
     Songs,
-    Albums,
     Artists,
-    Duplicates;
+    Albums,
+    Playlists,
+    Folders,
+    Composers,
+    Lyricists,
+    Lyrics,
+    Genres,
+    Years;
 
     companion object {
         fun fromRouteType(type: String?): SearchFilter {
             return when (type?.trim()?.lowercase()) {
                 null, "", "all" -> All
                 "song", "songs" -> Songs
-                "album", "albums" -> Albums
                 "artist", "artists" -> Artists
-                "duplicate", "duplicates" -> Duplicates
+                "album", "albums" -> Albums
+                "playlist", "playlists" -> Playlists
+                "folder", "folders" -> Folders
+                "composer", "composers" -> Composers
+                "lyricist", "lyricists" -> Lyricists
+                "lyric", "lyrics" -> Lyrics
+                "genre", "genres" -> Genres
+                "year", "years" -> Years
+                "duplicate", "duplicates" -> Songs
                 else -> All
             }
         }
     }
 }
+
+internal val SearchFilter.acceptsSongResults: Boolean
+    get() = this in listOf(SearchFilter.All, SearchFilter.Songs, SearchFilter.Lyrics)
+
+internal val SearchFilter.supportsDuplicateFilter: Boolean
+    get() = this in listOf(SearchFilter.All, SearchFilter.Songs)
 
 internal data class ArtistSearchResult(
     val artist: Artist,

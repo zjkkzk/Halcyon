@@ -715,6 +715,17 @@
     <string name="library_search_songs">Bài hát</string>
     <string name="library_search_albums">Album</string>
     <string name="library_search_artists">nghệ sĩ</string>
+    <string name="library_search_playlists">Danh sách phát</string>
+    <string name="library_search_folders">Thư mục</string>
+    <string name="library_search_composers">Nhạc sĩ</string>
+    <string name="library_search_lyricists">Người viết lời</string>
+    <string name="library_search_lyrics">Lời bài hát</string>
+    <string name="library_search_genres">Thể loại</string>
+    <string name="library_search_years">Năm</string>
+    <string name="library_search_clear_history_title">Xóa lịch sử tìm kiếm</string>
+    <string name="library_search_clear_history_message">Xóa toàn bộ lịch sử tìm kiếm? Không thể hoàn tác.</string>
+    <string name="library_search_playlist_summary">%1$d bài hát</string>
+    <string name="library_search_category_summary">%1$d bài hát · %2$d album</string>
     <string name="library_search_empty_hint">Tìm kiếm thư viện nhạc hoặc tìm nhanh các bài hát trùng lặp</string>
     <string name="library_search_no_results">Không có kết quả phù hợp</string>
     <string name="library_search_no_duplicates">Không tìm thấy bài hát trùng lặp có cùng tiêu đề và album</string>

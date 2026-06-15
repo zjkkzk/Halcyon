@@ -715,6 +715,17 @@
     <string name="library_search_songs">Titel</string>
     <string name="library_search_albums">Alben</string>
     <string name="library_search_artists">Künstler</string>
+    <string name="library_search_playlists">Wiedergabelisten</string>
+    <string name="library_search_folders">Ordner</string>
+    <string name="library_search_composers">Komponisten</string>
+    <string name="library_search_lyricists">Texter</string>
+    <string name="library_search_lyrics">Liedtexte</string>
+    <string name="library_search_genres">Genres</string>
+    <string name="library_search_years">Jahre</string>
+    <string name="library_search_clear_history_title">Suchverlauf löschen</string>
+    <string name="library_search_clear_history_message">Gesamten Suchverlauf löschen? Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="library_search_playlist_summary">%1$d Titel</string>
+    <string name="library_search_category_summary">%1$d Titel · %2$d Alben</string>
     <string name="library_search_empty_hint">Musikmediathek durchsuchen oder doppelte Titel schnell finden</string>
     <string name="library_search_no_results">Keine passenden Ergebnisse</string>
     <string name="library_search_no_duplicates">Keine doppelten Titel mit gleichem Titel und Album gefunden</string>

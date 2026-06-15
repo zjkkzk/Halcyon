@@ -715,6 +715,17 @@
     <string name="library_search_songs">Songs</string>
     <string name="library_search_albums">Albums</string>
     <string name="library_search_artists">Artists</string>
+    <string name="library_search_playlists">เพลย์ลิสต์</string>
+    <string name="library_search_folders">โฟลเดอร์</string>
+    <string name="library_search_composers">ผู้แต่งเพลง</string>
+    <string name="library_search_lyricists">ผู้แต่งเนื้อร้อง</string>
+    <string name="library_search_lyrics">เนื้อเพลง</string>
+    <string name="library_search_genres">แนวเพลง</string>
+    <string name="library_search_years">ปี</string>
+    <string name="library_search_clear_history_title">ล้างประวัติการค้นหา</string>
+    <string name="library_search_clear_history_message">ล้างประวัติการค้นหาทั้งหมดหรือไม่? การดำเนินการนี้ไม่สามารถยกเลิกได้</string>
+    <string name="library_search_playlist_summary">%1$d เพลง</string>
+    <string name="library_search_category_summary">%1$d เพลง · %2$d อัลบั้ม</string>
     <string name="library_search_empty_hint">Search the music library, or quickly find duplicate songs</string>
     <string name="library_search_no_results">No matching results</string>
     <string name="library_search_no_duplicates">No duplicate songs with the same title and album were found</string>

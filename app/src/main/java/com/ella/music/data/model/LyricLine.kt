@@ -24,6 +24,29 @@ data class LyricWord(
     val endMs: Long
 )
 
+fun LyricLine.primaryEndMs(
+    nextLineStartMs: Long? = null,
+    fallbackDurationMs: Long = 4_000L
+): Long {
+    if (text.isBlank() && !backgroundText.isNullOrBlank()) {
+        return (backgroundEndMs
+            ?: backgroundWords.maxOfOrNull { it.endMs }
+            ?: endMs
+            ?: nextLineStartMs
+            ?: (timeMs + fallbackDurationMs))
+            .coerceAtLeast(timeMs + 1L)
+    }
+
+    val mainEnd = words.maxOfOrNull { it.endMs } ?: endMs
+    val cappedEnd = when {
+        nextLineStartMs == null -> mainEnd
+        mainEnd == null -> nextLineStartMs
+        mainEnd > nextLineStartMs -> nextLineStartMs
+        else -> mainEnd
+    }
+    return (cappedEnd ?: timeMs + fallbackDurationMs).coerceAtLeast(timeMs + 1L)
+}
+
 fun List<LyricLine>.shiftedBy(offsetMs: Long): List<LyricLine> {
     if (offsetMs == 0L || isEmpty()) return this
     fun Long.shift() = (this + offsetMs).coerceAtLeast(0L)

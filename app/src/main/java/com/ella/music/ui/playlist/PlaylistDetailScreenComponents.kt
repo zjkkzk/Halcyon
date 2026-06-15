@@ -37,6 +37,7 @@ import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.icon.extended.Sort
@@ -50,6 +51,7 @@ internal fun PlaylistDetailTopBar(
     showExport: Boolean,
     sortItems: List<SortDropdownItem>,
     onNavigationClick: () -> Unit,
+    onPlayNextSelectedClick: () -> Unit,
     onAddSelectedClick: () -> Unit,
     onRemoveSelectedClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -69,6 +71,14 @@ internal fun PlaylistDetailTopBar(
         },
         actions = {
             if (selectionMode) {
+                IconButton(onClick = onPlayNextSelectedClick) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Play,
+                        contentDescription = stringResource(R.string.song_more_play_next),
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 IconButton(onClick = onAddSelectedClick) {
                     Icon(
                         imageVector = MiuixIcons.Regular.Add,

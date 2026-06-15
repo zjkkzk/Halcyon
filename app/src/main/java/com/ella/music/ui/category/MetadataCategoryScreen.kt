@@ -186,14 +186,6 @@ fun MetadataCategoryScreen(
         initialFirstVisibleItemScrollOffset = savedCategoryScroll.second
     )
     val scope = rememberCoroutineScope()
-    var skipInitialCategoryReset by remember(type) { mutableStateOf(true) }
-    LaunchedEffect(type, sortMode, searchQuery, safeGridColumns) {
-        if (skipInitialCategoryReset) {
-            skipInitialCategoryReset = false
-        } else {
-            gridState.scrollToItem(0)
-        }
-    }
     LaunchedEffect(categoryScrollKey, gridState) {
         snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
             .collect { position ->
@@ -246,7 +238,6 @@ fun MetadataCategoryScreen(
                                 selected = sortMode == mode,
                                 onClick = {
                                     scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
-                                    scope.launch { gridState.scrollToItem(0) }
                                 }
                             )
                         }
@@ -310,7 +301,6 @@ fun MetadataCategoryScreen(
                             .clickable {
                                 sortExpanded = false
                                 scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
-                                scope.launch { gridState.scrollToItem(0) }
                             }
                             .padding(vertical = 10.dp)
                     )
@@ -329,7 +319,7 @@ fun MetadataCategoryScreen(
         } else {
             // A-Z index bar for the single-column person categories (composer/lyricist) when
             // sorted by name, mirroring the artists list.
-            val showCategoryIndexBar = (type == "composer" || type == "lyricist") &&
+            val showCategoryIndexBar = (type == "composer" || type == "lyricist" || type == "folder") &&
                 sortMode == MetadataCategorySortMode.Name &&
                 displayedItems.size > 30
             val categoryIndexLetters = remember(displayedItems, showCategoryIndexBar) {
@@ -380,7 +370,7 @@ fun MetadataCategoryScreen(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
-                            .padding(end = 2.dp),
+                            .padding(end = 0.dp),
                         onLetterClick = { letter ->
                             val index = categoryIndexTargets[letter]
                             if (index != null) {

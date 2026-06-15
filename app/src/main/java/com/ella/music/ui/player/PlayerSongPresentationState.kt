@@ -59,8 +59,16 @@ internal fun rememberPlayerSongPresentationState(
     val tagInfo by produceState<SongTagInfo?>(initialValue = null, song?.id, song?.dateModified, song?.fileSize) {
         value = withContext(Dispatchers.IO) { song?.let(playerViewModel::getSongTagInfo) }
     }
-    val annotation = tagInfo?.displayComment.orEmpty()
     val neteaseInfo = remember(tagInfo?.neteaseKey) { decodeNeteaseKey(tagInfo?.neteaseKey.orEmpty()) }
+    val annotation = remember(tagInfo?.displayComment, neteaseInfo?.aliases) {
+        neteaseInfo
+            ?.aliases
+            .orEmpty()
+            .mapNotNull { it.trim().takeIf(String::isNotBlank) }
+            .distinct()
+            .joinToString(" · ")
+            .ifBlank { tagInfo?.displayComment.orEmpty() }
+    }
 
     return PlayerSongPresentationState(
         embeddedCover = embeddedCover,

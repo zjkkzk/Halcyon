@@ -715,6 +715,17 @@
     <string name="library_search_songs">곡</string>
     <string name="library_search_albums">앨범</string>
     <string name="library_search_artists">아티스트</string>
+    <string name="library_search_playlists">플레이리스트</string>
+    <string name="library_search_folders">폴더</string>
+    <string name="library_search_composers">작곡가</string>
+    <string name="library_search_lyricists">작사가</string>
+    <string name="library_search_lyrics">가사</string>
+    <string name="library_search_genres">장르</string>
+    <string name="library_search_years">연도</string>
+    <string name="library_search_clear_history_title">검색 기록 지우기</string>
+    <string name="library_search_clear_history_message">모든 검색 기록을 지울까요? 이 작업은 되돌릴 수 없습니다.</string>
+    <string name="library_search_playlist_summary">%1$d곡</string>
+    <string name="library_search_category_summary">%1$d곡 · 앨범 %2$d개</string>
     <string name="library_search_empty_hint">음악 라이브러리를 검색하거나 중복된 곡을 빠르게 찾으세요</string>
     <string name="library_search_no_results">일치하는 결과가 없습니다</string>
     <string name="library_search_no_duplicates">동일한 제목과 앨범을 가진 중복 곡을 찾을 수 없습니다</string>

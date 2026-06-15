@@ -714,6 +714,17 @@
     <string name="library_search_songs">Песни</string>
     <string name="library_search_albums">Альбомы</string>
     <string name="library_search_artists">Художники</string>
+    <string name="library_search_playlists">Плейлисты</string>
+    <string name="library_search_folders">Папки</string>
+    <string name="library_search_composers">Композиторы</string>
+    <string name="library_search_lyricists">Авторы текстов</string>
+    <string name="library_search_lyrics">Тексты песен</string>
+    <string name="library_search_genres">Жанры</string>
+    <string name="library_search_years">Годы</string>
+    <string name="library_search_clear_history_title">Очистить историю поиска</string>
+    <string name="library_search_clear_history_message">Очистить всю историю поиска? Это действие нельзя отменить.</string>
+    <string name="library_search_playlist_summary">%1$d песен</string>
+    <string name="library_search_category_summary">%1$d песен · %2$d альбомов</string>
     <string name="library_search_empty_hint">Выполняйте поиск в музыкальной библиотеке или быстро находите повторяющиеся песни.</string>
     <string name="library_search_no_results">Нет соответствующих результатов</string>
     <string name="library_search_no_duplicates">Повторяющихся песен с таким же названием и альбомом не обнаружено.</string>

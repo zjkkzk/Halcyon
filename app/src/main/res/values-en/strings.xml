@@ -697,6 +697,8 @@
     <string name="song_more_metadata_section_lyrics">Lyrics</string>
     <string name="song_more_metadata_lyrics">Embedded lyrics</string>
     <string name="song_more_metadata_no_lyrics">No embedded lyrics</string>
+    <string name="song_more_metadata_ttml_lyrics">TTML lyrics</string>
+    <string name="song_more_metadata_no_ttml_lyrics">No TTML lyrics</string>
     <string name="song_more_metadata_section_custom_tags">Custom tags</string>
     <string name="song_more_metadata_add_custom_tag">Add custom tag</string>
     <string name="song_more_metadata_disc_number">Disc number</string>
@@ -737,6 +739,17 @@
     <string name="library_search_songs">Songs</string>
     <string name="library_search_albums">Albums</string>
     <string name="library_search_artists">Artists</string>
+    <string name="library_search_playlists">Playlists</string>
+    <string name="library_search_folders">Folders</string>
+    <string name="library_search_composers">Composers</string>
+    <string name="library_search_lyricists">Lyricists</string>
+    <string name="library_search_lyrics">Lyrics</string>
+    <string name="library_search_genres">Genres</string>
+    <string name="library_search_years">Years</string>
+    <string name="library_search_clear_history_title">Clear search history</string>
+    <string name="library_search_clear_history_message">Clear all search history? This cannot be undone.</string>
+    <string name="library_search_playlist_summary">%1$d songs</string>
+    <string name="library_search_category_summary">%1$d songs · %2$d albums</string>
     <string name="library_search_empty_hint">Search the music library, or quickly find duplicate songs</string>
     <string name="library_search_no_results">No matching results</string>
     <string name="library_search_no_duplicates">No duplicate songs with the same title and album were found</string>

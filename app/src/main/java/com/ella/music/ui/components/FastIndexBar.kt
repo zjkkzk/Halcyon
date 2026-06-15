@@ -91,7 +91,7 @@ fun FastIndexBar(
 
     BoxWithConstraints(
         modifier = modifier
-            .width(42.dp)
+            .width(28.dp)
             .fillMaxHeight()
             .onSizeChanged { heightPx = it.height.coerceAtLeast(1) }
             .pointerInput(indexLetters, heightPx, contentHeightPx) {
@@ -110,7 +110,7 @@ fun FastIndexBar(
                     lastSelectedLetter = null
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.CenterEnd
     ) {
         val cellSize = if (indexLetters.isEmpty()) {
             10.dp
@@ -163,7 +163,7 @@ fun FastIndexBar(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .offset(x = (-38).dp)
+                    .offset(x = (-46).dp)
                     .size(50.dp)
                     .alpha(bubbleAlpha)
                     .clip(CircleShape)
@@ -322,7 +322,7 @@ private fun ScrollIndicator(
         modifier = modifier
             .width(24.dp)
             .fillMaxHeight()
-            .padding(horizontal = 4.dp, vertical = 28.dp)
+            .padding(start = 16.dp, end = 2.dp, top = 28.dp, bottom = 28.dp)
             .onSizeChanged { trackHeightPx = it.height.coerceAtLeast(1) }
             .pointerInput(totalCount, visibleCount, maxFirst, trackHeightPx) {
                 if (currentOnDragToIndex == null) return@pointerInput
@@ -354,14 +354,6 @@ private fun ScrollIndicator(
                             }
 
                             val down = awaitFirstDown(requireUnconsumed = false)
-                            if (!visible && !dragging) {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull() ?: break
-                                    if (change.changedToUpIgnoreConsumed() || !change.pressed) break
-                                }
-                                return@awaitEachGesture
-                            }
                             dragging = true
                             visible = true
                             down.consume()

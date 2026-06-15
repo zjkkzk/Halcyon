@@ -156,7 +156,6 @@ fun FolderScreen(
                                 onClick = {
                                     LibrarySortUiState.folderListSortIndex = mode.ordinal
                                     scope.launch { mainViewModel.settingsManager.setFolderListSortIndex(mode.ordinal) }
-                                    scrollToTopRequest++
                                 }
                             )
                         }
@@ -225,7 +224,6 @@ fun FolderScreen(
                                 onClick = {
                                     LibrarySortUiState.folderListSortIndex = mode.ordinal
                                     scope.launch { mainViewModel.settingsManager.setFolderListSortIndex(mode.ordinal) }
-                                    scrollToTopRequest++
                                     sortExpanded = false
                                 }
                             )
@@ -325,14 +323,6 @@ fun FolderScreen(
                 initialFirstVisibleItemIndex = savedFolderScroll.first,
                 initialFirstVisibleItemScrollOffset = savedFolderScroll.second
             )
-            var skipInitialReset by remember { mutableStateOf(true) }
-            LaunchedEffect(folderSortMode, searchQuery) {
-                if (skipInitialReset) {
-                    skipInitialReset = false
-                } else {
-                    listState.scrollToItem(0)
-                }
-            }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
             }

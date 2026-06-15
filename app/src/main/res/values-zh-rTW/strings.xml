@@ -715,6 +715,17 @@
     <string name="library_search_songs">歌曲</string>
     <string name="library_search_albums">專輯</string>
     <string name="library_search_artists">藝人</string>
+    <string name="library_search_playlists">歌單</string>
+    <string name="library_search_folders">資料夾</string>
+    <string name="library_search_composers">作曲家</string>
+    <string name="library_search_lyricists">作詞家</string>
+    <string name="library_search_lyrics">歌詞</string>
+    <string name="library_search_genres">曲風</string>
+    <string name="library_search_years">年份</string>
+    <string name="library_search_clear_history_title">清除搜尋記錄</string>
+    <string name="library_search_clear_history_message">要清除所有搜尋記錄嗎？此操作無法復原。</string>
+    <string name="library_search_playlist_summary">%1$d 首歌曲</string>
+    <string name="library_search_category_summary">%1$d 首歌曲 · %2$d 張專輯</string>
     <string name="library_search_empty_hint">搜尋音樂庫，或快速尋找重複歌曲</string>
     <string name="library_search_no_results">沒有符合結果</string>
     <string name="library_search_no_duplicates">沒有找到同歌曲名、同專輯的重複歌曲</string>

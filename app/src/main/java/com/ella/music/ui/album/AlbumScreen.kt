@@ -62,6 +62,7 @@ import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
@@ -79,6 +80,8 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -102,6 +105,8 @@ fun AlbumScreen(
     var sortExpanded by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedAlbumIds by remember { mutableStateOf(setOf<Long>()) }
+    var rangeAnchorAlbumId by remember { mutableStateOf<Long?>(null) }
+    var rangeTargetAlbumId by remember { mutableStateOf<Long?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var albumMenuTarget by remember { mutableStateOf<Album?>(null) }
@@ -167,15 +172,78 @@ fun AlbumScreen(
     fun finishSelectionMode() {
         selectionMode = false
         selectedAlbumIds = emptySet()
+        rangeAnchorAlbumId = null
+        rangeTargetAlbumId = null
+    }
+    fun updateRangeAnchorsForManualSelection(albumId: Long, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorAlbumId == null -> rangeAnchorAlbumId = albumId
+                rangeAnchorAlbumId == albumId -> Unit
+                else -> rangeTargetAlbumId = albumId
+            }
+        } else {
+            if (rangeTargetAlbumId == albumId) rangeTargetAlbumId = null
+            if (rangeAnchorAlbumId == albumId) {
+                rangeAnchorAlbumId = rangeTargetAlbumId ?: selectedAlbumIds.firstOrNull { it != albumId }
+                rangeTargetAlbumId = null
+            }
+        }
     }
     fun toggleAlbumSelection(album: Album) {
-        val next = if (album.id in selectedAlbumIds) selectedAlbumIds - album.id else selectedAlbumIds + album.id
+        val selecting = album.id !in selectedAlbumIds
+        val next = if (selecting) selectedAlbumIds + album.id else selectedAlbumIds - album.id
         selectedAlbumIds = next
+        updateRangeAnchorsForManualSelection(album.id, selecting)
         if (next.isEmpty()) selectionMode = false
     }
     fun selectedAlbumSongs(): List<Song> {
         if (selectedAlbumIds.isEmpty()) return emptyList()
         return songs.filter { song -> song.albumIdentityId() in selectedAlbumIds }.distinctBy { it.id }
+    }
+    val albumIndexById = remember(sortedAlbums) {
+        buildMap {
+            sortedAlbums.forEachIndexed { index, album -> put(album.id, index) }
+        }
+    }
+    val selectedVisibleAlbumCount = remember(selectedAlbumIds, sortedAlbums) {
+        sortedAlbums.count { it.id in selectedAlbumIds }
+    }
+    val rangeSelectionAvailable = remember(albumIndexById, selectedAlbumIds, rangeAnchorAlbumId, rangeTargetAlbumId) {
+        val anchor = rangeAnchorAlbumId
+        val target = rangeTargetAlbumId
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedAlbumIds &&
+            target in selectedAlbumIds &&
+            anchor in albumIndexById &&
+            target in albumIndexById
+    }
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorAlbumId ?: return
+        val target = rangeTargetAlbumId ?: return
+        val anchorIndex = albumIndexById[anchor] ?: return
+        val targetIndex = albumIndexById[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedAlbumIds = selectedAlbumIds + bounds.map { sortedAlbums[it].id }
+        rangeAnchorAlbumId = target
+        rangeTargetAlbumId = null
+    }
+    fun toggleSelectAllVisibleAlbums() {
+        if (sortedAlbums.isEmpty()) return
+        val ids = sortedAlbums.mapTo(mutableSetOf()) { it.id }
+        if (ids.all { it in selectedAlbumIds }) {
+            selectedAlbumIds = selectedAlbumIds - ids
+            rangeAnchorAlbumId = null
+            rangeTargetAlbumId = null
+        } else {
+            selectedAlbumIds = selectedAlbumIds + ids
+            rangeAnchorAlbumId = sortedAlbums.firstOrNull()?.id
+            rangeTargetAlbumId = sortedAlbums.lastOrNull()?.id
+        }
+        selectionMode = true
     }
 
     BackHandler(enabled = selectionMode || searchExpanded || sortExpanded) {
@@ -187,6 +255,13 @@ fun AlbumScreen(
             }
             sortExpanded -> sortExpanded = false
         }
+    }
+    LaunchedEffect(selectionMode, sortedAlbums) {
+        if (!selectionMode) return@LaunchedEffect
+        val visibleIds = sortedAlbums.mapTo(mutableSetOf()) { it.id }
+        selectedAlbumIds = selectedAlbumIds.filterTo(mutableSetOf()) { it in visibleIds }
+        if (rangeAnchorAlbumId !in visibleIds) rangeAnchorAlbumId = selectedAlbumIds.firstOrNull()
+        if (rangeTargetAlbumId !in visibleIds) rangeTargetAlbumId = null
     }
 
     LaunchedEffect(Unit) {
@@ -202,7 +277,11 @@ fun AlbumScreen(
     ) {
         Box {
             EllaSmallTopAppBar(
-                title = stringResource(R.string.tab_album),
+                title = if (selectionMode) {
+                    stringResource(R.string.library_selected_fraction, selectedAlbumIds.size, sortedAlbums.size)
+                } else {
+                    stringResource(R.string.tab_album)
+                },
                 color = ellaPageBackground(),
                 navigationIcon = {
                     if (showBackButton) {
@@ -220,6 +299,20 @@ fun AlbumScreen(
                     if (selectionMode) {
                         IconButton(onClick = {
                             val selectedSongs = selectedAlbumSongs()
+                            if (selectedSongs.isNotEmpty()) {
+                                playerViewModel.playNext(selectedSongs)
+                                finishSelectionMode()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Play,
+                                contentDescription = stringResource(R.string.song_more_play_next),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        IconButton(onClick = {
+                            val selectedSongs = selectedAlbumSongs()
                             if (selectedSongs.isNotEmpty()) playlistPickerSongs = selectedSongs
                         }) {
                             Icon(
@@ -229,10 +322,23 @@ fun AlbumScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
+                        IconButton(onClick = {
+                            val selectedSongs = selectedAlbumSongs()
+                            if (selectedSongs.isNotEmpty()) pendingDeleteSongs = selectedSongs
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Delete,
+                                contentDescription = stringResource(R.string.common_delete),
+                                tint = androidx.compose.ui.graphics.Color(0xFFE5484D),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     } else {
                     IconButton(onClick = {
                         selectionMode = true
-                        selectedAlbumIds = sortedAlbums.mapTo(mutableSetOf()) { it.id }
+                        selectedAlbumIds = emptySet()
+                        rangeAnchorAlbumId = null
+                        rangeTargetAlbumId = null
                     }) {
                         Icon(
                             imageVector = MiuixIcons.Regular.SelectAll,
@@ -249,7 +355,6 @@ fun AlbumScreen(
                                 onClick = {
                                     LibrarySortUiState.albumListSortIndex = mode.ordinal
                                     scope.launch { mainViewModel.settingsManager.setAlbumListSortIndex(mode.ordinal) }
-                                    scrollToTopRequest++
                                 }
                             )
                         }
@@ -291,7 +396,6 @@ fun AlbumScreen(
                             .clickable {
                                 LibrarySortUiState.albumListSortIndex = mode.ordinal
                                 scope.launch { mainViewModel.settingsManager.setAlbumListSortIndex(mode.ordinal) }
-                                scrollToTopRequest++
                                 sortExpanded = false
                             }
                             .padding(vertical = 10.dp),
@@ -341,14 +445,6 @@ fun AlbumScreen(
                 initialFirstVisibleItemScrollOffset = savedAlbumScroll.second
             )
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
-            var skipInitialReset by remember { mutableStateOf(true) }
-            LaunchedEffect(sortMode, searchQuery, safeGridColumns) {
-                if (skipInitialReset) {
-                    skipInitialReset = false
-                } else {
-                    gridState.scrollToItem(0)
-                }
-            }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) gridState.animateScrollToItem(0)
             }
@@ -446,6 +542,16 @@ fun AlbumScreen(
                             .fillMaxHeight()
                     )
                 }
+                FloatingSelectionControls(
+                    visible = selectionMode && sortedAlbums.isNotEmpty(),
+                    rangeEnabled = rangeSelectionAvailable,
+                    allSelected = sortedAlbums.isNotEmpty() && selectedVisibleAlbumCount == sortedAlbums.size,
+                    onRangeSelect = ::applyRangeSelection,
+                    onSelectAll = ::toggleSelectAllVisibleAlbums,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 22.dp, bottom = 118.dp)
+                )
             }
         }
     }

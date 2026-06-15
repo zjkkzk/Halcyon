@@ -715,6 +715,17 @@
     <string name="library_search_songs">Lagu</string>
     <string name="library_search_albums">Album</string>
     <string name="library_search_artists">Artis</string>
+    <string name="library_search_playlists">Daftar putar</string>
+    <string name="library_search_folders">Folder</string>
+    <string name="library_search_composers">Komposer</string>
+    <string name="library_search_lyricists">Penulis lirik</string>
+    <string name="library_search_lyrics">Lirik</string>
+    <string name="library_search_genres">Genre</string>
+    <string name="library_search_years">Tahun</string>
+    <string name="library_search_clear_history_title">Hapus riwayat pencarian</string>
+    <string name="library_search_clear_history_message">Hapus seluruh riwayat pencarian? Tindakan ini tidak dapat dibatalkan.</string>
+    <string name="library_search_playlist_summary">%1$d lagu</string>
+    <string name="library_search_category_summary">%1$d lagu · %2$d album</string>
     <string name="library_search_empty_hint">Cari di pustaka musik, atau temukan lagu duplikat dengan cepat</string>
     <string name="library_search_no_results">Tidak ada hasil yang cocok</string>
     <string name="library_search_no_duplicates">Tidak ditemukan lagu duplikat dengan judul dan album yang sama</string>

@@ -45,6 +45,7 @@ import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
@@ -109,6 +110,8 @@ fun PlaylistDetailScreen(
     var manualOrder by remember(playlist?.id) { mutableStateOf(songs) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedSongKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var rangeAnchorSongKey by remember { mutableStateOf<String?>(null) }
+    var rangeTargetSongKey by remember { mutableStateOf<String?>(null) }
     val sortedSongs = remember(songs, sortMode) { songs.sortedForPlaylistDetail(sortMode) }
     LaunchedEffect(playlist?.id, songs) {
         manualOrder = songs
@@ -146,18 +149,41 @@ fun PlaylistDetailScreen(
     fun finishSelectionMode() {
         selectionMode = false
         selectedSongKeys = emptySet()
+        rangeAnchorSongKey = null
+        rangeTargetSongKey = null
+    }
+    fun updateRangeAnchorsForManualSelection(songKey: String, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorSongKey == null -> rangeAnchorSongKey = songKey
+                rangeAnchorSongKey == songKey -> Unit
+                else -> rangeTargetSongKey = songKey
+            }
+        } else {
+            if (rangeTargetSongKey == songKey) rangeTargetSongKey = null
+            if (rangeAnchorSongKey == songKey) {
+                rangeAnchorSongKey = rangeTargetSongKey ?: selectedSongKeys.firstOrNull { it != songKey }
+                rangeTargetSongKey = null
+            }
+        }
     }
     fun toggleSelection(song: Song) {
         val key = song.playlistIdentityKey()
-        val next = if (key in selectedSongKeys) selectedSongKeys - key else selectedSongKeys + key
+        val selecting = key !in selectedSongKeys
+        val next = if (selecting) selectedSongKeys + key else selectedSongKeys - key
         selectedSongKeys = next
+        updateRangeAnchorsForManualSelection(key, selecting)
         if (next.isEmpty()) selectionMode = false
     }
     fun selectAllDisplayedSongs() {
         val displayedKeys = displayedSongs.mapTo(mutableSetOf()) { it.playlistIdentityKey() }
         selectedSongKeys = if (displayedKeys.isNotEmpty() && displayedKeys.all { it in selectedSongKeys }) {
+            rangeAnchorSongKey = null
+            rangeTargetSongKey = null
             emptySet()
         } else {
+            rangeAnchorSongKey = displayedSongs.firstOrNull()?.playlistIdentityKey()
+            rangeTargetSongKey = displayedSongs.lastOrNull()?.playlistIdentityKey()
             displayedKeys
         }
         selectionMode = true
@@ -179,6 +205,36 @@ fun PlaylistDetailScreen(
             displayedSongs.forEachIndexed { index, song -> put(song.playlistIdentityKey(), index) }
         }
     }
+    val selectedVisibleSongCount = remember(displayedSongs, selectedSongKeys) {
+        displayedSongs.count { it.playlistIdentityKey() in selectedSongKeys }
+    }
+    val rangeSelectionAvailable = remember(
+        displayedSongIndexByKey,
+        selectedSongKeys,
+        rangeAnchorSongKey,
+        rangeTargetSongKey
+    ) {
+        val anchor = rangeAnchorSongKey
+        val target = rangeTargetSongKey
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedSongKeys &&
+            target in selectedSongKeys &&
+            anchor in displayedSongIndexByKey &&
+            target in displayedSongIndexByKey
+    }
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorSongKey ?: return
+        val target = rangeTargetSongKey ?: return
+        val anchorIndex = displayedSongIndexByKey[anchor] ?: return
+        val targetIndex = displayedSongIndexByKey[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedSongKeys = selectedSongKeys + bounds.map { displayedSongs[it].playlistIdentityKey() }
+        rangeAnchorSongKey = target
+        rangeTargetSongKey = null
+    }
     val currentSongItemIndex = remember(displayedSongIndexByKey, currentSong?.playlistIdentityKey()) {
         (currentSong?.playlistIdentityKey()?.let { displayedSongIndexByKey[it] } ?: -1)
             .takeIf { it >= 0 }
@@ -189,6 +245,13 @@ fun PlaylistDetailScreen(
         sortedSongs.firstOrNull()?.let { song ->
             song.coverUrl.takeIf { it.isNotBlank() } ?: mainViewModel.getAlbumArtUri(song.albumId)
         }
+    }
+    LaunchedEffect(selectionMode, displayedSongs) {
+        if (!selectionMode) return@LaunchedEffect
+        val displayedKeys = displayedSongs.mapTo(mutableSetOf()) { it.playlistIdentityKey() }
+        selectedSongKeys = selectedSongKeys.filterTo(mutableSetOf()) { it in displayedKeys }
+        if (rangeAnchorSongKey !in displayedKeys) rangeAnchorSongKey = selectedSongKeys.firstOrNull()
+        if (rangeTargetSongKey !in displayedKeys) rangeTargetSongKey = null
     }
     var showExportFormatSheet by remember { mutableStateOf(false) }
     var pendingM3uExportFormat by remember { mutableStateOf<PlaylistExportFormat?>(null) }
@@ -232,7 +295,7 @@ fun PlaylistDetailScreen(
         Box {
             PlaylistDetailTopBar(
                 title = when {
-                    selectionMode -> stringResource(R.string.library_selected_count, selectedSongKeys.size)
+                    selectionMode -> stringResource(R.string.library_selected_fraction, selectedSongKeys.size, displayedSongs.size)
                     playlist == null -> stringResource(R.string.playlist_title)
                     listState.firstVisibleItemIndex > 0 -> playlist.name
                     else -> stringResource(R.string.playlist_title)
@@ -252,6 +315,16 @@ fun PlaylistDetailScreen(
                 },
                 onNavigationClick = {
                     if (selectionMode) finishSelectionMode() else onBack()
+                },
+                onPlayNextSelectedClick = {
+                    val selected = selectedDisplayedSongs()
+                    if (selected.isEmpty()) {
+                        Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                    } else {
+                        playerViewModel.playNext(selected)
+                        Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
+                        finishSelectionMode()
+                    }
                 },
                 onAddSelectedClick = {
                     val selected = selectedDisplayedSongs()
@@ -395,7 +468,9 @@ fun PlaylistDetailScreen(
                             },
                             onLongClick = {
                                 selectionMode = true
-                                selectedSongKeys = selectedSongKeys + song.playlistIdentityKey()
+                                val songKey = song.playlistIdentityKey()
+                                selectedSongKeys = selectedSongKeys + songKey
+                                updateRangeAnchorsForManualSelection(songKey, selectedNow = true)
                             },
                             onPlayNext = { playerViewModel.playNext(song) },
                             onRemove = if (playlist.isFiveStarRating) null else {
@@ -432,9 +507,12 @@ fun PlaylistDetailScreen(
                     .padding(end = 22.dp, bottom = 118.dp)
             )
 
-            PlaylistDetailSelectAllFloatingButton(
+            FloatingSelectionControls(
                 visible = selectionMode && displayedSongs.isNotEmpty(),
-                onClick = { selectAllDisplayedSongs() },
+                rangeEnabled = rangeSelectionAvailable,
+                allSelected = displayedSongs.isNotEmpty() && selectedVisibleSongCount == displayedSongs.size,
+                onRangeSelect = ::applyRangeSelection,
+                onSelectAll = ::selectAllDisplayedSongs,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 22.dp, bottom = 118.dp)

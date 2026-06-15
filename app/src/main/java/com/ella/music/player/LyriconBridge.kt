@@ -5,6 +5,7 @@ import android.util.Log
 import com.ella.music.R
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.Song
+import com.ella.music.data.model.primaryEndMs
 import io.github.proify.lyricon.lyric.model.LyricWord
 import io.github.proify.lyricon.lyric.model.RichLyricLine
 import io.github.proify.lyricon.provider.LyriconFactory
@@ -104,7 +105,7 @@ class LyriconBridge(private val context: Context) {
         }
 
         try {
-            val richLyrics = lyrics.map { line ->
+            val richLyrics = lyrics.mapIndexed { index, line ->
                 val words = line.words.withLineSpacing(line.text).map { word ->
                     LyricWord(
                         text = word.text,
@@ -120,12 +121,10 @@ class LyriconBridge(private val context: Context) {
                     )
                 }
 
-                val nextLineTime = line.endMs
-                    ?: lyrics
-                        .filter { it.timeMs > line.timeMs }
-                        .minByOrNull { it.timeMs }
-                        ?.timeMs
-                    ?: song.duration
+                val nextLineTime = line.primaryEndMs(
+                    nextLineStartMs = lyrics.getOrNull(index + 1)?.timeMs,
+                    fallbackDurationMs = 3_000L
+                )
 
                 RichLyricLine(
                     begin = line.timeMs,
@@ -162,7 +161,7 @@ class LyriconBridge(private val context: Context) {
         val p = provider ?: return
 
         try {
-            val richLyrics = lyrics.map { line ->
+            val richLyrics = lyrics.mapIndexed { index, line ->
                 val words = line.words.withLineSpacing(line.text).map { word ->
                     LyricWord(
                         text = word.text,
@@ -178,12 +177,10 @@ class LyriconBridge(private val context: Context) {
                     )
                 }
 
-                val nextLineTime = line.endMs
-                    ?: lyrics
-                        .filter { it.timeMs > line.timeMs }
-                        .minByOrNull { it.timeMs }
-                        ?.timeMs
-                    ?: song.duration
+                val nextLineTime = line.primaryEndMs(
+                    nextLineStartMs = lyrics.getOrNull(index + 1)?.timeMs,
+                    fallbackDurationMs = 3_000L
+                )
 
                 RichLyricLine(
                     begin = line.timeMs,

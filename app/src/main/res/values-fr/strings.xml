@@ -715,6 +715,17 @@
     <string name="library_search_songs">Titres</string>
     <string name="library_search_albums">Albums</string>
     <string name="library_search_artists">Artistes</string>
+    <string name="library_search_playlists">Listes de lecture</string>
+    <string name="library_search_folders">Dossiers</string>
+    <string name="library_search_composers">Compositeurs</string>
+    <string name="library_search_lyricists">Paroliers</string>
+    <string name="library_search_lyrics">Paroles</string>
+    <string name="library_search_genres">Genres</string>
+    <string name="library_search_years">Années</string>
+    <string name="library_search_clear_history_title">Effacer l\'historique de recherche</string>
+    <string name="library_search_clear_history_message">Effacer tout l\'historique de recherche ? Cette action est irréversible.</string>
+    <string name="library_search_playlist_summary">%1$d titres</string>
+    <string name="library_search_category_summary">%1$d titres · %2$d albums</string>
     <string name="library_search_empty_hint">Rechercher dans la bibliothèque musicale ou trouver rapidement les titres en double</string>
     <string name="library_search_no_results">Aucun résultat correspondant</string>
     <string name="library_search_no_duplicates">Aucun titre en double avec le même titre et le même album n’a été trouvé</string>

@@ -714,6 +714,17 @@
     <string name="library_search_songs">Şarkılar</string>
     <string name="library_search_albums">Albümler</string>
     <string name="library_search_artists">Sanatçılar</string>
+    <string name="library_search_playlists">Çalma listeleri</string>
+    <string name="library_search_folders">Klasörler</string>
+    <string name="library_search_composers">Besteciler</string>
+    <string name="library_search_lyricists">Söz yazarları</string>
+    <string name="library_search_lyrics">Şarkı sözleri</string>
+    <string name="library_search_genres">Türler</string>
+    <string name="library_search_years">Yıllar</string>
+    <string name="library_search_clear_history_title">Arama geçmişini temizle</string>
+    <string name="library_search_clear_history_message">Tüm arama geçmişi temizlensin mi? Bu işlem geri alınamaz.</string>
+    <string name="library_search_playlist_summary">%1$d şarkı</string>
+    <string name="library_search_category_summary">%1$d şarkı · %2$d albüm</string>
     <string name="library_search_empty_hint">Müzik kitaplığında arama yapın veya aynı şarkıları hızla bulun</string>
     <string name="library_search_no_results">Eşleşen sonuç yok</string>
     <string name="library_search_no_duplicates">Aynı başlık ve albüme sahip yinelenen şarkı bulunamadı</string>

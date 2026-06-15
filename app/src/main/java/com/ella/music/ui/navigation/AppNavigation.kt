@@ -227,6 +227,10 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onNavigateToAlbum = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },
                 onNavigateToArtist = { artistName -> navController.navigate(Screen.ArtistDetail.createRoute(artistName)) },
+                onNavigateToPlaylist = { playlistId -> navController.navigate(Screen.PlaylistDetail.createRoute(playlistId)) },
+                onNavigateToMetadataCategory = { type, name ->
+                    navController.navigate(Screen.MetadataCategoryDetail.createRoute(type, name))
+                },
                 onNavigateToPlayer = onNavigateToPlayer
             )
         }

@@ -40,6 +40,7 @@ import com.ella.music.data.model.Song
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.model.matchesFullTagSearch
 import com.ella.music.ui.components.EllaSearchBar
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ellaPageBackground
@@ -62,26 +63,40 @@ fun LibrarySearchScreen(
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
+    onNavigateToPlaylist: (String) -> Unit,
+    onNavigateToMetadataCategory: (String, String) -> Unit,
     onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
     val songs by mainViewModel.songs.collectAsState()
     val albums by mainViewModel.albums.collectAsState()
+    val playlists by mainViewModel.playlists.collectAsState()
     val currentSong by playerViewModel.currentSong.collectAsState()
     val lyricSourceMode by mainViewModel.settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
     val showPlayNextInLists by mainViewModel.settingsManager.showPlayNextInLists.collectAsState(initial = false)
     var query by remember(initialQuery) { mutableStateOf(initialQuery.orEmpty()) }
     var filter by remember(initialFilterType) { mutableStateOf(SearchFilter.fromRouteType(initialFilterType)) }
+    var duplicatesOnly by remember { mutableStateOf(false) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
     var history by remember { mutableStateOf(loadSearchHistory(context)) }
+    var showClearHistoryConfirm by remember { mutableStateOf(false) }
 
     val trimmedQuery = query.trim()
     val duplicateSongs = remember(songs) { songs.duplicateTitleAlbumSongs() }
-    val immediateSongResults = remember(songs, trimmedQuery, filter, duplicateSongs) {
+    val duplicatesOnlyActive = duplicatesOnly && filter.supportsDuplicateFilter
+    val songSearchSource = remember(songs, duplicateSongs, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive) duplicateSongs else songs
+    }
+    val immediateSongResults = remember(songSearchSource, trimmedQuery, filter, duplicatesOnlyActive) {
         when {
-            filter == SearchFilter.Duplicates -> duplicateSongs.map { SongSearchResult(it) }
-            trimmedQuery.isBlank() || filter !in listOf(SearchFilter.All, SearchFilter.Songs) -> emptyList()
-            else -> songs
+            !filter.acceptsSongResults || filter == SearchFilter.Lyrics -> emptyList()
+            trimmedQuery.isBlank() && !duplicatesOnlyActive -> emptyList()
+            trimmedQuery.isBlank() -> songSearchSource
+                .asSequence()
+                .take(80)
+                .map { SongSearchResult(it) }
+                .toList()
+            else -> songSearchSource
                 .asSequence()
                 .filter { it.matchesFullTagSearch(trimmedQuery) }
                 .take(80)
@@ -89,25 +104,42 @@ fun LibrarySearchScreen(
                 .toList()
         }
     }
-    val cachedSongResults = remember(context, songs, trimmedQuery, filter) {
-        loadCachedSongSearchResults(context, songs, trimmedQuery, filter)
+    val cachedSongResults = remember(context, songs, trimmedQuery, filter, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive) emptyList() else loadCachedSongSearchResults(context, songs, trimmedQuery, filter)
     }
     val songResults by produceState(
         initialValue = cachedSongResults.ifEmpty { immediateSongResults },
-        songs,
+        songSearchSource,
         trimmedQuery,
         filter,
         duplicateSongs,
+        duplicatesOnlyActive,
         cachedSongResults,
         lyricSourceMode
     ) {
         value = cachedSongResults.ifEmpty { immediateSongResults }
-        if (trimmedQuery.isBlank() || filter !in listOf(SearchFilter.All, SearchFilter.Songs) || filter == SearchFilter.Duplicates) {
+        if (!filter.acceptsSongResults || trimmedQuery.isBlank()) {
+            return@produceState
+        }
+        if (filter == SearchFilter.Lyrics) {
+            val current = mutableListOf<SongSearchResult>()
+            for (song in songSearchSource) {
+                if (current.size >= 80) break
+                val snippet = mainViewModel.repository
+                    .getLyrics(song, lyricSourceMode)
+                    .firstMatchingLyricSnippet(trimmedQuery)
+                    ?: continue
+                current += SongSearchResult(song = song, lyricSnippet = snippet)
+                value = current.toList()
+            }
+            return@produceState
+        }
+        if (duplicatesOnlyActive) {
             return@produceState
         }
         val current = cachedSongResults.ifEmpty { immediateSongResults }.toMutableList()
         val seenKeys = current.map { it.song.searchIdentityKey() }.toMutableSet()
-        val remainingSongs = songs.filter { it.searchIdentityKey() !in seenKeys }
+        val remainingSongs = songSearchSource.filter { it.searchIdentityKey() !in seenKeys }
         val snapshotMatches = mainViewModel
             .filterSongsBySearchSnapshot(remainingSongs, trimmedQuery)
             .asSequence()
@@ -132,12 +164,12 @@ fun LibrarySearchScreen(
         }
         saveCachedSongSearchResults(context, trimmedQuery, filter, current)
     }
-    val albumResults = remember(albums, trimmedQuery, filter) {
-        if (filter !in listOf(SearchFilter.All, SearchFilter.Albums) || trimmedQuery.isBlank()) emptyList()
+    val albumResults = remember(albums, trimmedQuery, filter, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Albums) || trimmedQuery.isBlank()) emptyList()
         else albums.filter { it.matchesLibrarySearch(trimmedQuery) }.take(24)
     }
-    val artistResults = remember(songs, trimmedQuery, filter) {
-        if (filter !in listOf(SearchFilter.All, SearchFilter.Artists) || trimmedQuery.isBlank()) {
+    val artistResults = remember(songs, trimmedQuery, filter, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Artists) || trimmedQuery.isBlank()) {
             emptyList()
         } else {
             songs.asSequence()
@@ -158,6 +190,37 @@ fun LibrarySearchScreen(
                         participatedAlbumCount = artistSongs.map { it.albumIdentityId() }.distinct().size
                     )
                 }
+        }
+    }
+    val playlistResults = remember(playlists, trimmedQuery, filter, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Playlists) || trimmedQuery.isBlank()) {
+            emptyList()
+        } else {
+            playlists.filter { playlist ->
+                playlist.name.contains(trimmedQuery, ignoreCase = true) ||
+                    playlist.songs.any { song ->
+                        song.title.contains(trimmedQuery, ignoreCase = true) ||
+                            song.artist.contains(trimmedQuery, ignoreCase = true) ||
+                            song.album.contains(trimmedQuery, ignoreCase = true)
+                    }
+            }.take(24)
+        }
+    }
+    val categoryFilterType = when (filter) {
+        SearchFilter.Folders -> "folder"
+        SearchFilter.Composers -> "composer"
+        SearchFilter.Lyricists -> "lyricist"
+        SearchFilter.Genres -> "genre"
+        SearchFilter.Years -> "year"
+        else -> null
+    }
+    val categoryResults = remember(songs, trimmedQuery, filter, categoryFilterType, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || categoryFilterType == null || trimmedQuery.isBlank()) {
+            emptyList()
+        } else {
+            mainViewModel.getMetadataCategoryItems(categoryFilterType)
+                .filter { it.name.contains(trimmedQuery, ignoreCase = true) }
+                .take(24)
         }
     }
 
@@ -195,7 +258,6 @@ fun LibrarySearchScreen(
                 query = query,
                 onQueryChange = {
                     query = it
-                    if (filter == SearchFilter.Duplicates) filter = SearchFilter.All
                 },
                 onSearch = { commitSearch() },
                 placeholder = stringResource(R.string.library_search_page_placeholder),
@@ -211,49 +273,44 @@ fun LibrarySearchScreen(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SearchPill(
-                text = stringResource(R.string.library_search_all),
-                selected = filter == SearchFilter.All,
-                onClick = { filter = SearchFilter.All }
-            )
-            SearchPill(
-                text = stringResource(R.string.library_search_songs),
-                selected = filter == SearchFilter.Songs,
-                onClick = { filter = SearchFilter.Songs }
-            )
-            SearchPill(
-                text = stringResource(R.string.library_search_albums),
-                selected = filter == SearchFilter.Albums,
-                onClick = { filter = SearchFilter.Albums }
-            )
-            SearchPill(
-                text = stringResource(R.string.library_search_artists),
-                selected = filter == SearchFilter.Artists,
-                onClick = { filter = SearchFilter.Artists }
-            )
-            SearchPill(
-                text = stringResource(R.string.library_search_duplicates),
-                selected = filter == SearchFilter.Duplicates,
-                onClick = {
-                    filter = if (filter == SearchFilter.Duplicates) SearchFilter.All else SearchFilter.Duplicates
-                    if (filter == SearchFilter.Duplicates) query = ""
-                }
-            )
+            SearchFilter.entries.forEach { item ->
+                SearchPill(
+                    text = stringResource(item.labelRes()),
+                    selected = filter == item,
+                    onClick = {
+                        filter = item
+                        if (!item.supportsDuplicateFilter) duplicatesOnly = false
+                    }
+                )
+            }
+        }
+
+        if (filter.supportsDuplicateFilter) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                SearchPill(
+                    text = stringResource(R.string.library_search_duplicates),
+                    selected = duplicatesOnly,
+                    onClick = { duplicatesOnly = !duplicatesOnly }
+                )
+            }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 128.dp)
         ) {
-            if (trimmedQuery.isBlank() && filter != SearchFilter.Duplicates) {
+            if (trimmedQuery.isBlank() && !duplicatesOnlyActive) {
                 if (history.isNotEmpty()) {
                     item {
                         SearchSectionHeader(
                             text = stringResource(R.string.library_search_history),
                             actionText = stringResource(R.string.library_search_clear_history),
                             onActionClick = {
-                                history = emptyList()
-                                saveSearchHistory(context, emptyList())
+                                showClearHistoryConfirm = true
                             }
                         )
                     }
@@ -263,6 +320,7 @@ fun LibrarySearchScreen(
                             onClick = {
                                 query = item
                                 filter = SearchFilter.All
+                                duplicatesOnly = false
                             },
                             onDelete = {
                                 history = history - item
@@ -274,11 +332,16 @@ fun LibrarySearchScreen(
                     item { EmptySearchHint(stringResource(R.string.library_search_empty_hint)) }
                 }
             } else {
-                if (filter == SearchFilter.Duplicates) {
+                if (duplicatesOnlyActive) {
                     item { SearchSectionHeader(stringResource(R.string.library_search_duplicates)) }
                 }
                 if (songResults.isNotEmpty()) {
-                    item { SearchSectionHeader(stringResource(R.string.library_search_songs)) }
+                    item {
+                        SearchSectionHeader(
+                            if (filter == SearchFilter.Lyrics) stringResource(R.string.library_search_lyrics)
+                            else stringResource(R.string.library_search_songs)
+                        )
+                    }
                     items(songResults, key = { "${it.song.id}:${it.song.path}:${it.lyricSnippet.orEmpty()}" }) { result ->
                         Column {
                             SongItem(
@@ -334,10 +397,48 @@ fun LibrarySearchScreen(
                         )
                     }
                 }
-                if (songResults.isEmpty() && albumResults.isEmpty() && artistResults.isEmpty()) {
+                if (playlistResults.isNotEmpty()) {
+                    item { SearchSectionHeader(stringResource(R.string.library_search_playlists)) }
+                    items(playlistResults, key = { it.id }) { playlist ->
+                        val playlistSongs = remember(playlist, songs) { mainViewModel.playlistSongs(playlist) }
+                        val coverSong = playlistSongs.firstOrNull()
+                        PlaylistResultRow(
+                            playlist = playlist,
+                            coverModel = coverSong?.coverUrl?.takeIf { it.isNotBlank() }
+                                ?: coverSong?.albumId?.takeIf { it > 0L }?.let(mainViewModel::getAlbumArtUri),
+                            onClick = {
+                                commitSearch()
+                                onNavigateToPlaylist(playlist.id)
+                            }
+                        )
+                    }
+                }
+                if (categoryResults.isNotEmpty() && categoryFilterType != null) {
+                    item { SearchSectionHeader(stringResource(filter.labelRes())) }
+                    items(categoryResults, key = { "$categoryFilterType:${it.name}" }) { item ->
+                        MetadataCategoryResultRow(
+                            item = item,
+                            displayName = if (categoryFilterType == "folder") item.name.substringAfterLast('/').ifBlank { item.name } else item.name,
+                            coverModel = item.representativeSong?.coverUrl?.takeIf { it.isNotBlank() }
+                                ?: item.coverAlbumIds.firstOrNull()?.let(mainViewModel::getAlbumArtUri),
+                            roundCover = categoryFilterType in listOf("composer", "lyricist"),
+                            onClick = {
+                                commitSearch()
+                                onNavigateToMetadataCategory(categoryFilterType, item.name)
+                            }
+                        )
+                    }
+                }
+                if (
+                    songResults.isEmpty() &&
+                    albumResults.isEmpty() &&
+                    artistResults.isEmpty() &&
+                    playlistResults.isEmpty() &&
+                    categoryResults.isEmpty()
+                ) {
                     item {
                         EmptySearchHint(
-                            if (filter == SearchFilter.Duplicates) stringResource(R.string.library_search_no_duplicates)
+                            if (duplicatesOnlyActive) stringResource(R.string.library_search_no_duplicates)
                             else stringResource(R.string.library_search_no_results)
                         )
                     }
@@ -354,4 +455,31 @@ fun LibrarySearchScreen(
         onNavigateToAlbum = onNavigateToAlbum,
         onNavigateToArtist = onNavigateToArtist
     )
+
+    ConfirmDangerDialog(
+        show = showClearHistoryConfirm,
+        title = stringResource(R.string.library_search_clear_history_title),
+        message = stringResource(R.string.library_search_clear_history_message),
+        confirmText = stringResource(R.string.common_clear),
+        onDismiss = { showClearHistoryConfirm = false },
+        onConfirm = {
+            history = emptyList()
+            saveSearchHistory(context, emptyList())
+            showClearHistoryConfirm = false
+        }
+    )
+}
+
+private fun SearchFilter.labelRes(): Int = when (this) {
+    SearchFilter.All -> R.string.library_search_all
+    SearchFilter.Songs -> R.string.library_search_songs
+    SearchFilter.Artists -> R.string.library_search_artists
+    SearchFilter.Albums -> R.string.library_search_albums
+    SearchFilter.Playlists -> R.string.library_search_playlists
+    SearchFilter.Folders -> R.string.library_search_folders
+    SearchFilter.Composers -> R.string.library_search_composers
+    SearchFilter.Lyricists -> R.string.library_search_lyricists
+    SearchFilter.Lyrics -> R.string.library_search_lyrics
+    SearchFilter.Genres -> R.string.library_search_genres
+    SearchFilter.Years -> R.string.library_search_years
 }

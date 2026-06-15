@@ -41,6 +41,7 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.icon.extended.Sort
@@ -50,9 +51,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun PlaylistScreenTopBar(
     selectionMode: Boolean,
     selectedCount: Int,
+    totalCount: Int,
     showBackButton: Boolean,
     sortItems: List<SortDropdownItem>,
     onBackClick: () -> Unit,
+    onExportSelectedClick: () -> Unit,
+    onPlayNextSelectedClick: () -> Unit,
+    onAddSelectedToQueueClick: () -> Unit,
+    onAddSelectedToPlaylistClick: () -> Unit,
     onDeleteSelectedClick: () -> Unit,
     onSearchClick: () -> Unit,
     onImportClick: () -> Unit,
@@ -62,7 +68,7 @@ internal fun PlaylistScreenTopBar(
     Box {
         EllaSmallTopAppBar(
             title = if (selectionMode) {
-                stringResource(R.string.playlist_selected_count, selectedCount)
+                stringResource(R.string.library_selected_fraction, selectedCount, totalCount)
             } else {
                 stringResource(R.string.playlist_title)
             },
@@ -80,6 +86,38 @@ internal fun PlaylistScreenTopBar(
             },
             actions = {
                 if (selectionMode) {
+                    IconButton(onClick = onExportSelectedClick) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Share,
+                            contentDescription = stringResource(R.string.playlist_export_title),
+                            tint = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onPlayNextSelectedClick) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Play,
+                            contentDescription = stringResource(R.string.song_more_play_next),
+                            tint = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onAddSelectedToQueueClick) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Download,
+                            contentDescription = stringResource(R.string.common_add_to_queue),
+                            tint = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onAddSelectedToPlaylistClick) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Add,
+                            contentDescription = stringResource(R.string.song_more_add_to_playlist),
+                            tint = MiuixTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     IconButton(onClick = onDeleteSelectedClick) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Delete,

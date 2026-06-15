@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.LyricWord
+import com.ella.music.data.model.primaryEndMs
 import io.github.proify.lyricon.lyric.model.LyricWord as LyriconWord
 import io.github.proify.lyricon.lyric.model.RichLyricLine as LyriconRichLyricLine
 import io.github.proify.lyricon.lyric.model.Song as LyriconSong
@@ -67,15 +68,11 @@ internal fun List<LyricLine>.toLyriconSong(
     songArtist: String
 ): LyriconSong {
     val lines = mapIndexedNotNull { index, line ->
-        val end = line.endMs
-            ?: getOrNull(index + 1)?.timeMs
-            ?: line.words.maxOfOrNull { it.endMs }
-            ?: line.backgroundWords.maxOfOrNull { it.endMs }
-            ?: (line.timeMs + 4_000L)
+        val end = line.primaryEndMs(nextLineStartMs = getOrNull(index + 1)?.timeMs)
         if (line.text.isBlank() && line.backgroundText.isNullOrBlank()) return@mapIndexedNotNull null
         LyriconRichLyricLine(
             begin = line.timeMs,
-            end = end.coerceAtLeast(line.timeMs + 1L),
+            end = end,
             isAlignedRight = line.agent.equals("v2", ignoreCase = true),
             text = line.text.ifBlank { "♪" },
             words = line.words.toLyriconWords().ifEmpty { null },

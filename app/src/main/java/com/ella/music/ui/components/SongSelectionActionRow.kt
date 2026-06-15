@@ -1,11 +1,15 @@
 package com.ella.music.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,4 +68,58 @@ fun SongSelectionActionRow(
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         )
     }
+}
+
+@Composable
+fun FloatingSelectionControls(
+    visible: Boolean,
+    rangeEnabled: Boolean,
+    allSelected: Boolean,
+    onRangeSelect: () -> Unit,
+    onSelectAll: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            FloatingSelectionChip(
+                text = stringResource(R.string.library_range_select),
+                enabled = rangeEnabled,
+                onClick = onRangeSelect
+            )
+            FloatingSelectionChip(
+                text = stringResource(if (allSelected) R.string.common_deselect_all else R.string.common_select_all),
+                enabled = true,
+                onClick = onSelectAll
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingSelectionChip(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = if (enabled) {
+            MiuixTheme.colorScheme.onPrimary
+        } else {
+            MiuixTheme.colorScheme.onPrimary.copy(alpha = 0.42f)
+        },
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(MiuixTheme.colorScheme.primary.copy(alpha = if (enabled) 0.96f else 0.48f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    )
 }

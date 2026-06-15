@@ -29,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.model.Album
+import com.ella.music.data.model.UserPlaylist
 import com.ella.music.ui.components.SafeCoverImage
+import com.ella.music.viewmodel.MetadataCategoryItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -133,6 +135,33 @@ internal fun ArtistResultRow(result: ArtistSearchResult, coverModel: Any?, onCli
         subtitle = subtitle,
         coverModel = coverModel,
         roundCover = true,
+        onClick = onClick
+    )
+}
+
+@Composable
+internal fun PlaylistResultRow(playlist: UserPlaylist, coverModel: Any?, onClick: () -> Unit) {
+    SearchResultRow(
+        title = playlist.name,
+        subtitle = stringResource(R.string.library_search_playlist_summary, playlist.songs.size),
+        coverModel = coverModel,
+        onClick = onClick
+    )
+}
+
+@Composable
+internal fun MetadataCategoryResultRow(
+    item: MetadataCategoryItem,
+    displayName: String = item.name,
+    coverModel: Any?,
+    roundCover: Boolean = false,
+    onClick: () -> Unit
+) {
+    SearchResultRow(
+        title = displayName,
+        subtitle = stringResource(R.string.library_search_category_summary, item.songCount, item.albumCount),
+        coverModel = coverModel,
+        roundCover = roundCover,
         onClick = onClick
     )
 }

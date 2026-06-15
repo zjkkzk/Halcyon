@@ -89,10 +89,13 @@ import com.ella.music.ui.components.shareLocalSong
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.ArtworkUsage
+import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.rememberSongArtworkState
+import com.ella.music.ui.components.rememberSongDeleteRequester
 import com.ella.music.ui.components.wallpaperContentOverlayColor
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -106,7 +109,9 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.MapAlbum
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -144,6 +149,9 @@ fun ArtistScreen(
     var actionSong by remember { mutableStateOf<Song?>(null) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var rangeAnchorId by remember { mutableStateOf<Long?>(null) }
+    var rangeTargetId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var playlistPickerSong by remember { mutableStateOf<Song?>(null) }
     var createPlaylistSong by remember { mutableStateOf<Song?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
@@ -151,6 +159,7 @@ fun ArtistScreen(
     var tagEditorSong by remember { mutableStateOf<Song?>(null) }
     var songInfoSheetSong by remember { mutableStateOf<Song?>(null) }
     var aiInterpretationSong by remember { mutableStateOf<Song?>(null) }
+    val requestDeleteSongs = rememberSongDeleteRequester(mainViewModel)
 
     val artistSongs = remember(songs, artistName) {
         mainViewModel.getSongsForArtist(artistName)
@@ -223,13 +232,71 @@ fun ArtistScreen(
     fun finishSelectionMode() {
         selectionMode = false
         selectedIds = emptySet()
+        rangeAnchorId = null
+        rangeTargetId = null
+    }
+    fun updateRangeAnchorsForManualSelection(songId: Long, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorId == null -> rangeAnchorId = songId
+                rangeAnchorId == songId -> Unit
+                else -> rangeTargetId = songId
+            }
+        } else {
+            if (rangeTargetId == songId) rangeTargetId = null
+            if (rangeAnchorId == songId) {
+                rangeAnchorId = rangeTargetId ?: selectedIds.firstOrNull { it != songId }
+                rangeTargetId = null
+            }
+        }
     }
     fun toggleSelection(song: Song) {
-        val next = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
+        val selecting = song.id !in selectedIds
+        val next = if (selecting) selectedIds + song.id else selectedIds - song.id
         selectedIds = next
+        updateRangeAnchorsForManualSelection(song.id, selecting)
         if (next.isEmpty()) selectionMode = false
     }
     fun selectedSongs(): List<Song> = sortedArtistSongs.filter { it.id in selectedIds }
+    val selectedVisibleCount = remember(selectedIds, sortedArtistSongs) {
+        sortedArtistSongs.count { it.id in selectedIds }
+    }
+    val rangeSelectionAvailable = remember(sortedArtistSongIndexById, selectedIds, rangeAnchorId, rangeTargetId) {
+        val anchor = rangeAnchorId
+        val target = rangeTargetId
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedIds &&
+            target in selectedIds &&
+            anchor in sortedArtistSongIndexById &&
+            target in sortedArtistSongIndexById
+    }
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorId ?: return
+        val target = rangeTargetId ?: return
+        val anchorIndex = sortedArtistSongIndexById[anchor] ?: return
+        val targetIndex = sortedArtistSongIndexById[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedIds = selectedIds + bounds.map { sortedArtistSongs[it].id }
+        rangeAnchorId = target
+        rangeTargetId = null
+    }
+    fun toggleSelectAllVisibleSongs() {
+        if (sortedArtistSongs.isEmpty()) return
+        val ids = sortedArtistSongs.mapTo(mutableSetOf()) { it.id }
+        if (ids.all { it in selectedIds }) {
+            selectedIds = selectedIds - ids
+            rangeAnchorId = null
+            rangeTargetId = null
+        } else {
+            selectedIds = selectedIds + ids
+            rangeAnchorId = sortedArtistSongs.firstOrNull()?.id
+            rangeTargetId = sortedArtistSongs.lastOrNull()?.id
+        }
+        selectionMode = true
+    }
 
     BackHandler(enabled = selectionMode || sortExpanded) {
         if (selectionMode) finishSelectionMode() else sortExpanded = false
@@ -237,6 +304,13 @@ fun ArtistScreen(
 
     LaunchedEffect(selectedArtistTab) {
         if (selectedArtistTab != ArtistTab.Songs && selectionMode) finishSelectionMode()
+    }
+    LaunchedEffect(selectionMode, sortedArtistSongs) {
+        if (!selectionMode) return@LaunchedEffect
+        val visibleIds = sortedArtistSongs.mapTo(mutableSetOf()) { it.id }
+        selectedIds = selectedIds.filterTo(mutableSetOf()) { it in visibleIds }
+        if (rangeAnchorId !in visibleIds) rangeAnchorId = selectedIds.firstOrNull()
+        if (rangeTargetId !in visibleIds) rangeTargetId = null
     }
 
     LaunchedEffect(scrollToTopRequest) {
@@ -333,6 +407,7 @@ fun ArtistScreen(
                             onLongClick = {
                                 selectionMode = true
                                 selectedIds = selectedIds + song.id
+                                updateRangeAnchorsForManualSelection(song.id, selectedNow = true)
                             },
                             onPlayNext = { playerViewModel.playNext(song) },
                             onMore = { actionSong = song }
@@ -434,7 +509,9 @@ fun ArtistScreen(
                     if (selected.isNotEmpty()) playlistPickerSongs = selected
                 } else {
                     selectionMode = true
-                    selectedIds = sortedArtistSongs.mapTo(mutableSetOf()) { it.id }
+                    selectedIds = emptySet()
+                    rangeAnchorId = null
+                    rangeTargetId = null
                 }
             },
             modifier = Modifier
@@ -449,6 +526,48 @@ fun ArtistScreen(
                 tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
+        }
+
+        if (selectionMode) {
+            IconButton(
+                onClick = {
+                    val selected = selectedSongs()
+                    if (selected.isNotEmpty()) {
+                        playerViewModel.playNext(selected)
+                        finishSelectionMode()
+                    }
+                },
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(end = 104.dp, top = 8.dp)
+                    .size(48.dp)
+                    .align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Regular.Play,
+                    contentDescription = stringResource(R.string.song_more_play_next),
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(
+                onClick = {
+                    val selected = selectedSongs()
+                    if (selected.isNotEmpty()) pendingDeleteSongs = selected
+                },
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(end = 8.dp, top = 8.dp)
+                    .size(48.dp)
+                    .align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Regular.Delete,
+                    contentDescription = stringResource(R.string.common_delete),
+                    tint = Color(0xFFE5484D),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         if (!selectionMode) {
@@ -504,7 +623,7 @@ fun ArtistScreen(
 
         if (selectionMode) {
             Text(
-                text = stringResource(R.string.library_selected_count, selectedIds.size),
+                text = stringResource(R.string.library_selected_fraction, selectedIds.size, sortedArtistSongs.size),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -573,6 +692,16 @@ fun ArtistScreen(
             listState = listState,
             currentItemIndex = currentSongItemIndex,
             locateRequest = locateCurrentSongRequest,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 22.dp, bottom = 118.dp)
+        )
+        FloatingSelectionControls(
+            visible = selectionMode && selectedArtistTab == ArtistTab.Songs && sortedArtistSongs.isNotEmpty(),
+            rangeEnabled = rangeSelectionAvailable,
+            allSelected = sortedArtistSongs.isNotEmpty() && selectedVisibleCount == sortedArtistSongs.size,
+            onRangeSelect = ::applyRangeSelection,
+            onSelectAll = ::toggleSelectAllVisibleSongs,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 22.dp, bottom = 118.dp)
@@ -667,6 +796,19 @@ fun ArtistScreen(
                 }
             )
         }
+        ConfirmDangerDialog(
+            show = pendingDeleteSongs.isNotEmpty(),
+            title = stringResource(R.string.song_more_delete_song_title),
+            message = stringResource(R.string.library_delete_selected_message, pendingDeleteSongs.size),
+            confirmText = stringResource(R.string.song_more_delete_permanently),
+            onDismiss = { pendingDeleteSongs = emptyList() },
+            onConfirm = {
+                val songsToDelete = pendingDeleteSongs
+                pendingDeleteSongs = emptyList()
+                requestDeleteSongs(songsToDelete)
+                finishSelectionMode()
+            }
+        )
 
         tagEditorSong?.let { song ->
             EllaMiuixBottomSheet(

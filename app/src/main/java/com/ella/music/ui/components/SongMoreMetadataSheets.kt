@@ -100,7 +100,11 @@ internal fun SongMetadataEditorSheet(
     var lyricist by remember(tagInfo) { mutableStateOf(tagInfo?.lyricist.orEmpty()) }
     var copyright by remember(tagInfo) { mutableStateOf(tagInfo?.copyright.orEmpty()) }
     var comment by remember(tagInfo) { mutableStateOf(tagInfo?.comment.orEmpty()) }
-    var lyrics by remember(fullTagInfo) { mutableStateOf(fullTagInfo?.lyrics.orEmpty()) }
+    val initialLyrics = fullTagInfo.standardEmbeddedLyrics()
+    val initialTtmlLyrics = fullTagInfo.ttmlEmbeddedLyrics()
+    val initialTtmlLyricTagKey = fullTagInfo.ttmlEmbeddedLyricTagKey() ?: "TTMLLYRIC"
+    var lyrics by remember(initialLyrics) { mutableStateOf(initialLyrics) }
+    var ttmlLyrics by remember(initialTtmlLyrics) { mutableStateOf(initialTtmlLyrics) }
     var rating by remember(tagInfo) { mutableStateOf(tagInfo?.rating ?: 0) }
     val currentCover by produceState<Any?>(initialValue = null, song.id, song.dateModified, song.fileSize) {
         value = withContext(Dispatchers.IO) { mainViewModel.getMetadataEditorCoverArtBitmap(song) }
@@ -124,7 +128,7 @@ internal fun SongMetadataEditorSheet(
     }
     var customTags: MutableList<Pair<String, String>> by remember(fullTagInfo) {
         val initial: MutableList<Pair<String, String>> = fullTagInfo?.customTags
-            ?.filter { entry -> !AudioTagKeys.isReserved(entry.key) }
+            ?.filter { entry -> !AudioTagKeys.isReserved(entry.key) && !entry.key.isTtmlLyricTag() }
             ?.map { entry -> entry.key to entry.value.joinToString("; ") }
             ?.toMutableList()
             ?: mutableListOf()
@@ -217,6 +221,20 @@ internal fun SongMetadataEditorSheet(
         if (lyrics.isBlank()) {
             Text(
                 text = stringResource(R.string.song_more_metadata_no_lyrics),
+                fontSize = 12.sp,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp)
+            )
+        }
+        MetadataField(
+            label = stringResource(R.string.song_more_metadata_ttml_lyrics),
+            value = ttmlLyrics,
+            singleLine = false,
+            modifier = Modifier.height(170.dp)
+        ) { ttmlLyrics = it }
+        if (ttmlLyrics.isBlank()) {
+            Text(
+                text = stringResource(R.string.song_more_metadata_no_ttml_lyrics),
                 fontSize = 12.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.6f),
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp)
@@ -352,6 +370,9 @@ internal fun SongMetadataEditorSheet(
                         ctMap.getOrPut(pair.first) { mutableListOf() }.add(pair.second)
                     }
                 }
+                if (ttmlLyrics != initialTtmlLyrics) {
+                    ctMap.getOrPut(initialTtmlLyricTagKey) { mutableListOf() }.add(ttmlLyrics)
+                }
                 val tags = AudioTagInfo(
                     title = title.takeIf { v -> v != tagInfo?.title },
                     artist = artist.takeIf { v -> v != tagInfo?.artist },
@@ -365,7 +386,7 @@ internal fun SongMetadataEditorSheet(
                     lyricist = lyricist.takeIf { v -> v != tagInfo?.lyricist },
                     copyright = copyright.takeIf { v -> v != tagInfo?.copyright },
                     comment = comment.takeIf { v -> v != tagInfo?.comment },
-                    lyrics = lyrics.takeIf { v -> v != fullTagInfo?.lyrics.orEmpty() },
+                    lyrics = lyrics.takeIf { v -> v != initialLyrics },
                     rating = rating.takeIf { v -> v != tagInfo?.rating },
                     customTags = ctMap
                 )
@@ -387,6 +408,54 @@ private fun SectionHeader(title: String) {
         modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
     )
 }
+
+private val ttmlLyricTagKeys = setOf(
+    "TTML LYRICS",
+    "TTML LYRIC",
+    "TTMLLYRICS",
+    "TTMLLYRIC",
+    "TTML"
+)
+
+private val standardLyricTagKeys = listOf(
+    "SYNCEDLYRICS",
+    "UNSYNCEDLYRICS",
+    "UNSYNCED LYRICS",
+    "LYRICS",
+    "USLT",
+    "SYLT",
+    "©lyr",
+    "\u00a9lyr",
+    "LYRIC"
+)
+
+private fun AudioTagInfo?.standardEmbeddedLyrics(): String {
+    if (this == null) return ""
+    customTags.firstMatchingValue(standardLyricTagKeys)?.let { return it }
+    return lyrics.orEmpty().takeUnless { it.looksLikeTtmlLyrics() }.orEmpty()
+}
+
+private fun AudioTagInfo?.ttmlEmbeddedLyrics(): String {
+    if (this == null) return ""
+    customTags.firstMatchingValue(ttmlLyricTagKeys)?.let { return it }
+    return lyrics.orEmpty().takeIf { it.looksLikeTtmlLyrics() }.orEmpty()
+}
+
+private fun AudioTagInfo?.ttmlEmbeddedLyricTagKey(): String? =
+    this?.customTags?.keys?.firstOrNull { it.isTtmlLyricTag() }
+
+private fun Map<String, List<String>>.firstMatchingValue(keys: Iterable<String>): String? =
+    entries.firstNotNullOfOrNull { (key, values) ->
+        values.firstOrNull { value ->
+            keys.any { wanted -> key.equals(wanted, ignoreCase = true) } && value.isNotBlank()
+        }
+    }
+
+private fun String.isTtmlLyricTag(): Boolean =
+    ttmlLyricTagKeys.any { equals(it, ignoreCase = true) }
+
+private fun String.looksLikeTtmlLyrics(): Boolean =
+    contains("<tt", ignoreCase = true) && contains("</tt", ignoreCase = true)
 
 @Composable
 private fun MetadataField(

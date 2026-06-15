@@ -18,15 +18,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,9 +37,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
+import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.tagIdentityKey
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -49,10 +54,14 @@ fun AddToPlaylistSheet(
     onCreatePlaylist: () -> Unit,
     onPlaylistsConfirm: (List<UserPlaylist>, Boolean) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsManager = remember(context) { SettingsManager.getInstance(context) }
+    val savedAppendToEnd by settingsManager.addToPlaylistAppendToEnd.collectAsState(initial = false)
     var selectedIds by remember(playlists) { mutableStateOf(emptySet<String>()) }
     var query by remember { mutableStateOf("") }
-    var multiSelect by remember { mutableStateOf(songCount != null && songCount > 1) }
-    var appendToEnd by remember { mutableStateOf(false) }
+    var multiSelect by remember { mutableStateOf(false) }
+    var appendToEnd by remember(savedAppendToEnd) { mutableStateOf(savedAppendToEnd) }
     var sortMode by remember { mutableStateOf(AddPlaylistSortMode.Custom) }
     val sortedPlaylists = remember(playlists, sortMode) {
         playlists.sortedForAddToPlaylist(sortMode)
@@ -117,7 +126,10 @@ fun AddToPlaylistSheet(
             }
             AddPlaylistChip(
                 text = if (appendToEnd) stringResource(R.string.song_more_add_position_end) else stringResource(R.string.song_more_add_position_start),
-                onClick = { appendToEnd = !appendToEnd },
+                onClick = {
+                    appendToEnd = !appendToEnd
+                    scope.launch { settingsManager.setAddToPlaylistAppendToEnd(appendToEnd) }
+                },
                 modifier = Modifier.weight(1f)
             )
             AddPlaylistChip(

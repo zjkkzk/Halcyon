@@ -152,6 +152,7 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYLIST_CUSTOM_ORDER = stringPreferencesKey("playlist_custom_order")
         val KEY_SHOW_PLAY_NEXT_IN_LISTS = booleanPreferencesKey("show_play_next_in_lists")
         val KEY_PLAY_NEXT_MODE = intPreferencesKey("play_next_mode")
+        val KEY_ADD_TO_PLAYLIST_APPEND_TO_END = booleanPreferencesKey("add_to_playlist_append_to_end")
         val KEY_LYRIC_SHARE_CUSTOM_INFO = stringPreferencesKey("lyric_share_custom_info")
         val KEY_LYRIC_SHARE_USE_LYRIC_FONT = booleanPreferencesKey("lyric_share_use_lyric_font")
         val KEY_SHOW_ALBUM_ARTISTS = booleanPreferencesKey("show_album_artists")
@@ -696,6 +697,8 @@ class SettingsManager(private val context: Context) {
             .filter(String::isNotBlank)
     }
     val playlistDetailSongSortIndex: Flow<Int> = context.dataStore.data.map { it[KEY_SORT_PLAYLIST_DETAIL_SONG] ?: 2 }
+    val addToPlaylistAppendToEnd: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_ADD_TO_PLAYLIST_APPEND_TO_END] ?: false }
     val categoryGridColumns: Flow<Int> = context.dataStore.data.map {
         val tablet = context.resources.configuration.smallestScreenWidthDp >= 600
         if (tablet) {
@@ -1559,6 +1562,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setPlaylistDetailSongSortIndex(index: Int) {
         context.dataStore.edit { it[KEY_SORT_PLAYLIST_DETAIL_SONG] = index.coerceAtLeast(0) }
+    }
+
+    suspend fun setAddToPlaylistAppendToEnd(appendToEnd: Boolean) {
+        context.dataStore.edit { it[KEY_ADD_TO_PLAYLIST_APPEND_TO_END] = appendToEnd }
     }
 
     suspend fun setCategoryGridColumns(columns: Int) {
