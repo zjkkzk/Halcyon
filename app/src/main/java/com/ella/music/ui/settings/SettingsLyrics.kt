@@ -1,18 +1,28 @@
 package com.ella.music.ui.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
@@ -23,6 +33,12 @@ internal fun SettingsLyricsSection(
     onNavigateToLyricPluginSources: () -> Unit = {}
 ) {
     SmallTitle(text = stringResource(R.string.settings_lyrics))
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val lyricLineBlacklist by settingsManager.lyricLineBlacklist.collectAsState(initial = emptyList())
+    var showBlacklistSheet by remember { mutableStateOf(false) }
+    var blacklistDraft by remember(lyricLineBlacklist) { mutableStateOf(lyricLineBlacklist.joinToString("\n")) }
 
     SettingsCardGroup {
         Column {
@@ -32,10 +48,51 @@ internal fun SettingsLyricsSection(
                 onClick = onNavigateToLyricPluginSources
             )
             SettingsPlayerLyricAlignmentPreference()
+            ArrowPreference(
+                title = stringResource(R.string.settings_lyric_line_blacklist),
+                summary = stringResource(R.string.settings_lyric_line_blacklist_summary, lyricLineBlacklist.size),
+                onClick = {
+                    blacklistDraft = lyricLineBlacklist.joinToString("\n")
+                    showBlacklistSheet = true
+                }
+            )
             SettingsMiniLyricsControls()
             SettingsLyriconControls(playerViewModel = playerViewModel)
             SettingsDesktopLyricControls(playerViewModel = playerViewModel)
             SettingsLyricOutputControls(playerViewModel = playerViewModel)
+        }
+    }
+
+    EllaMiuixBottomSheet(
+        show = showBlacklistSheet,
+        title = stringResource(R.string.settings_lyric_line_blacklist),
+        onDismissRequest = { showBlacklistSheet = false }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+        ) {
+            EllaMiuixTextField(
+                value = blacklistDraft,
+                onValueChange = { blacklistDraft = it },
+                label = stringResource(R.string.settings_lyric_line_blacklist_editor_hint),
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                onClick = {
+                    showBlacklistSheet = false
+                    scope.launch {
+                        settingsManager.setLyricLineBlacklist(blacklistDraft.lineSequence().toList())
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp)
+            ) {
+                Text(text = stringResource(R.string.common_save))
+            }
         }
     }
 }

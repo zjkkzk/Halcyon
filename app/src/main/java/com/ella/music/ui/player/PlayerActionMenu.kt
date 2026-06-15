@@ -28,6 +28,8 @@ internal fun PlayerActionMenu(
     lyricOffsetMs: Long,
     metadataEditorId: String,
     lyricTimingEditorId: String,
+    showPlayerKeepScreenOnAction: Boolean,
+    playerKeepScreenOn: Boolean,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
     sleepTimerCustomMinutes: Int,
@@ -59,6 +61,7 @@ internal fun PlayerActionMenu(
     onPitch: (Float) -> Unit,
     onLyricOffset: (Long) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     initialPage: PlayerActionSheetPage = PlayerActionSheetPage.Main,
     modifier: Modifier = Modifier
 ) {
@@ -105,6 +108,18 @@ internal fun PlayerActionMenu(
                     PlayerActionMenuItem(stringResource(R.string.player_lyric_timing), onLyricTiming)
                     PlayerActionMenuItem(stringResource(R.string.player_match_online_lyrics), onMatchOnlineLyrics)
                     PlayerActionMenuItem(stringResource(R.string.player_lyric_offset), { page = PlayerActionSheetPage.LyricOffset })
+                    if (showPlayerKeepScreenOnAction) {
+                        PlayerActionMenuItem(
+                            stringResource(
+                                if (playerKeepScreenOn) {
+                                    R.string.player_disable_playback_keep_screen_on
+                                } else {
+                                    R.string.player_enable_playback_keep_screen_on
+                                }
+                            ),
+                            { onPlayerKeepScreenOnChange(!playerKeepScreenOn) }
+                        )
+                    }
                     if (song?.onlineSource == "kw" && song.path.startsWith("http")) {
                         PlayerActionMenuItem(stringResource(R.string.player_download_lx_song), onDownload)
                     }

@@ -134,6 +134,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var superLyricPronunciationEnabled = false
     private var lyricSourceMode = SettingsManager.LYRIC_SOURCE_AUTO
     private var lyricOffsetOverrides = emptyMap<String, Long>()
+    private var lyricLineBlacklist = emptyList<String>()
     private var appliedDecoderMode: Int? = null
     private var appliedAudioFocusDisabled: Boolean? = null
     private var appliedLyricSourceMode: Int? = null
@@ -165,6 +166,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         initReplayGain()
         initLyricSourceMode()
         initLyricParsingOptions()
+        initLyricLineBlacklist()
         initLyricOffsetOverrides()
         initBluetoothAutoPlay()
         initExternalPlaybackSync()
@@ -518,6 +520,21 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun initLyricLineBlacklist() {
+        viewModelScope.launch {
+            var initialized = false
+            settingsManager.lyricLineBlacklist.distinctUntilChanged().collect { rules ->
+                lyricLineBlacklist = rules
+                if (!initialized) {
+                    initialized = true
+                    applyCurrentLyricOffset(notifyExternal = false)
+                    return@collect
+                }
+                applyCurrentLyricOffset(notifyExternal = true)
+            }
+        }
+    }
+
     private fun initExternalPlaybackSync() {
         viewModelScope.launch {
             PlaybackService.externalPlaybackChangeEvent.collect { snapshot ->
@@ -810,13 +827,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         if (song == null) {
             _currentLyricOffsetMs.value = 0L
-            _lyrics.value = _rawLyrics.value
+            _lyrics.value = _rawLyrics.value.filterBlacklistedLyricLines()
             _currentLyricIndex.value = -1
             return
         }
         val offsetMs = lyricOffsetOverrides[song.lyricIdentityKey()] ?: 0L
         _currentLyricOffsetMs.value = offsetMs
-        _lyrics.value = _rawLyrics.value.shiftedBy(offsetMs)
+        _lyrics.value = _rawLyrics.value.filterBlacklistedLyricLines().shiftedBy(offsetMs)
         _currentLyricIndex.value = -1
         lastTickerPayload = null
         lastBluetoothLyricPayload = null
@@ -846,6 +863,20 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 resendExternalLyrics(force = true)
                 resendBluetoothLyric(force = true)
                 resendLyricGetter(force = true)
+            }
+        }
+    }
+
+    private fun List<LyricLine>.filterBlacklistedLyricLines(): List<LyricLine> {
+        val rules = lyricLineBlacklist
+        if (isEmpty() || rules.isEmpty()) return this
+        return filterNot { line ->
+            rules.any { rule ->
+                line.text.contains(rule, ignoreCase = true) ||
+                    line.translation?.contains(rule, ignoreCase = true) == true ||
+                    line.pronunciation?.contains(rule, ignoreCase = true) == true ||
+                    line.backgroundText?.contains(rule, ignoreCase = true) == true ||
+                    line.backgroundTranslation?.contains(rule, ignoreCase = true) == true
             }
         }
     }

@@ -103,6 +103,7 @@ class SettingsManager(private val context: Context) {
         val KEY_LYRIC_SOURCE_PRIORITY = stringPreferencesKey("lyric_source_priority")
         val KEY_LYRICO_PLUGIN_ENABLED_IDS = stringPreferencesKey("lyrico_plugin_enabled_ids")
         val KEY_IGNORE_SPL_METADATA_LINES = booleanPreferencesKey("ignore_spl_metadata_lines")
+        val KEY_LYRIC_LINE_BLACKLIST = stringPreferencesKey("lyric_line_blacklist")
         val KEY_LYRIC_OFFSET_OVERRIDES = stringPreferencesKey("lyric_offset_overrides")
         val KEY_PLAYER_LYRIC_TEXT_ALIGN = intPreferencesKey("player_lyric_text_align")
         val KEY_LYRIC_PAGE_TRANSLATION = booleanPreferencesKey("lyric_page_translation")
@@ -116,6 +117,8 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYER_TAP_SEEK_ENABLED = booleanPreferencesKey("player_tap_seek_enabled")
         val KEY_PLAYER_SHOW_TOTAL_DURATION = booleanPreferencesKey("player_show_total_duration")
         val KEY_PLAYER_SHOW_SONG_ANNOTATION = booleanPreferencesKey("player_show_song_annotation")
+        val KEY_PLAYER_COVER_SWIPE_ENABLED = booleanPreferencesKey("player_cover_swipe_enabled")
+        val KEY_PLAYER_KEEP_SCREEN_ON = booleanPreferencesKey("player_keep_screen_on")
         val KEY_PLAYER_HDR_GLOW = booleanPreferencesKey("player_hdr_glow")
         val KEY_PLAYER_IMMERSIVE_COVER = booleanPreferencesKey("player_immersive_cover")
         val KEY_HIDE_SYSTEM_BARS = booleanPreferencesKey("hide_system_bars")
@@ -469,6 +472,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { LyricoPluginManager.normalizeEnabledIds(it[KEY_LYRICO_PLUGIN_ENABLED_IDS]) }
     val ignoreSplMetadataLines: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_IGNORE_SPL_METADATA_LINES] ?: false }
+    val lyricLineBlacklist: Flow<List<String>> =
+        context.dataStore.data.map { parseLyricLineBlacklist(it[KEY_LYRIC_LINE_BLACKLIST]) }
     val lyricOffsetOverrides: Flow<Map<String, Long>> =
         context.dataStore.data.map { parseLyricOffsetOverrides(it[KEY_LYRIC_OFFSET_OVERRIDES]) }
     val playerLyricTextAlign: Flow<Int> =
@@ -501,6 +506,10 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_PLAYER_SHOW_TOTAL_DURATION] ?: false }
     val playerShowSongAnnotation: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_SHOW_SONG_ANNOTATION] ?: true }
+    val playerCoverSwipeEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PLAYER_COVER_SWIPE_ENABLED] ?: true }
+    val playerKeepScreenOn: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_PLAYER_KEEP_SCREEN_ON] ?: false }
     val playerHdrGlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_PLAYER_HDR_GLOW] ?: false }
     val playerImmersiveCover: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_IMMERSIVE_COVER] ?: true }
@@ -869,6 +878,17 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setPlayerLyricTextAlign(align: Int) {
         context.dataStore.edit { it[KEY_PLAYER_LYRIC_TEXT_ALIGN] = align.coerceIn(0, 2) }
+    }
+
+    suspend fun setLyricLineBlacklist(lines: List<String>) {
+        val normalized = normalizeLyricLineBlacklist(lines.asSequence())
+        context.dataStore.edit { prefs ->
+            if (normalized.isEmpty()) {
+                prefs.remove(KEY_LYRIC_LINE_BLACKLIST)
+            } else {
+                prefs[KEY_LYRIC_LINE_BLACKLIST] = normalized.joinToString("\n")
+            }
+        }
     }
 
     suspend fun setDesktopLyricStatusBarVerticalAlign(align: Int) {
@@ -1501,6 +1521,14 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_PLAYER_SHOW_SONG_ANNOTATION] = enabled }
     }
 
+    suspend fun setPlayerCoverSwipeEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYER_COVER_SWIPE_ENABLED] = enabled }
+    }
+
+    suspend fun setPlayerKeepScreenOn(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_PLAYER_KEEP_SCREEN_ON] = enabled }
+    }
+
     suspend fun setLibrarySongSortIndex(index: Int) {
         context.dataStore.edit { it[KEY_SORT_LIBRARY_SONG] = index.coerceAtLeast(0) }
     }
@@ -1732,6 +1760,8 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_PLAYER_TAP_SEEK_ENABLED)
             setBoolean(KEY_PLAYER_SHOW_TOTAL_DURATION)
             setBoolean(KEY_PLAYER_SHOW_SONG_ANNOTATION)
+            setBoolean(KEY_PLAYER_COVER_SWIPE_ENABLED)
+            setBoolean(KEY_PLAYER_KEEP_SCREEN_ON)
             setBoolean(KEY_PLAYER_HDR_GLOW)
             setBoolean(KEY_PLAYER_IMMERSIVE_COVER)
             setBoolean(KEY_HIDE_SYSTEM_BARS)
@@ -1858,6 +1888,7 @@ class SettingsManager(private val context: Context) {
             setString(KEY_OPENAI_BASE_URL)
             setString(KEY_OPENAI_MODEL)
             setString(KEY_LYRIC_SOURCE_PRIORITY)
+            setString(KEY_LYRIC_LINE_BLACKLIST)
             setString(KEY_LYRIC_FONT_NAME)
             setString(KEY_LYRIC_FONT_PATH)
             setString(KEY_LYRIC_SHARE_CUSTOM_INFO)
@@ -1991,5 +2022,15 @@ class SettingsManager(private val context: Context) {
                 .toMap()
         }.getOrDefault(emptyMap())
     }
+
+    private fun parseLyricLineBlacklist(raw: String?): List<String> =
+        normalizeLyricLineBlacklist(raw.orEmpty().lineSequence())
+
+    private fun normalizeLyricLineBlacklist(lines: Sequence<String>): List<String> =
+        lines
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
 
 }

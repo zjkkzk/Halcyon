@@ -798,6 +798,8 @@
     <string name="settings_player_immersive_cover_summary">Extend the album cover to the top of the player; disable it to use the compact rounded cover layout</string>
     <string name="settings_player_tap_seek">Tap progress bar to seek</string>
     <string name="settings_player_tap_seek_summary">When off, only dragging changes playback progress. When on, tapping anywhere on the playback-page progress bar seeks directly.</string>
+    <string name="settings_player_cover_swipe">Swipe cover to change songs</string>
+    <string name="settings_player_cover_swipe_summary">Turn off to stop album covers from changing songs on horizontal swipes and avoid accidental skips.</string>
     <string name="settings_player_show_total_duration">Show total song duration on the progress bar</string>
     <string name="settings_player_show_total_duration_summary">When off, the right side shows remaining time. When on, it shows the total song duration.</string>
     <string name="settings_player_show_song_annotation">Show song annotation on player pages</string>
@@ -1007,6 +1009,8 @@
     <string name="player_show_translation">Show translation</string>
     <string name="player_disable_keep_screen_on">Disable lyrics screen always-on</string>
     <string name="player_enable_keep_screen_on">Enable lyrics screen always-on</string>
+    <string name="player_disable_playback_keep_screen_on">Disable player always-on</string>
+    <string name="player_enable_playback_keep_screen_on">Enable player always-on</string>
     <string name="player_lyric_font_size">Lyric font size</string>
     <string name="player_lyric_source">Lyric source</string>
     <string name="player_lyric_format">Lyric format</string>
@@ -1419,6 +1423,9 @@
     <string name="settings_lyric_plugin_sources">Online lyric sources</string>
     <string name="settings_lyric_plugin_sources_summary">Manage Lyrico plugin sources used to match lyrics for local songs</string>
     <string name="settings_lyric_plugin_sources_empty">No lyric source plugins imported yet</string>
+    <string name="settings_lyric_line_blacklist">Filtered lyric-line blacklist</string>
+    <string name="settings_lyric_line_blacklist_summary">%1$d rule(s) added; matching whole lyric lines are hidden and not sent to external lyric outputs</string>
+    <string name="settings_lyric_line_blacklist_editor_hint">One keyword per line, for example: Lyrics by, Composer, Studio</string>
     <string name="settings_lyric_plugin_import">Import plugin</string>
     <string name="settings_lyric_plugin_import_success">Imported %1$s</string>
     <string name="settings_lyric_plugin_import_failed">Plugin import failed</string>

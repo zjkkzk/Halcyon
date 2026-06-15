@@ -73,6 +73,7 @@ internal fun LandscapeCoverPlayerPage(
     lyricTextAlign: Int,
     showTotalDuration: Boolean,
     playerTapSeekEnabled: Boolean,
+    coverSwipeEnabled: Boolean,
     queueExpanded: Boolean,
     playlist: List<Song>,
     audioSessionId: Int,
@@ -222,27 +223,33 @@ internal fun LandscapeCoverPlayerPage(
                             .fillMaxWidth(if (hasLyrics) 0.88f else 0.78f)
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(14.dp))
-                            .pointerInput(song?.id, onSwipePrevious, onNext) {
-                                detectHorizontalDragGestures(
-                                    onDragCancel = {
-                                        swipeScope.launch { dragOffset.animateTo(0f) }
-                                    },
-                                    onDragEnd = {
-                                        val travel = dragOffset.value
-                                        swipeScope.launch { dragOffset.animateTo(0f) }
-                                        when {
-                                            travel > swipeThresholdPx -> onSwipePrevious()
-                                            travel < -swipeThresholdPx -> onNext()
-                                        }
-                                    },
-                                    onHorizontalDrag = { change, dragAmount ->
-                                        change.consume()
-                                        swipeScope.launch {
-                                            dragOffset.snapTo(dragOffset.value + dragAmount)
-                                        }
+                            .then(
+                                if (coverSwipeEnabled) {
+                                    Modifier.pointerInput(song?.id, onSwipePrevious, onNext) {
+                                        detectHorizontalDragGestures(
+                                            onDragCancel = {
+                                                swipeScope.launch { dragOffset.animateTo(0f) }
+                                            },
+                                            onDragEnd = {
+                                                val travel = dragOffset.value
+                                                swipeScope.launch { dragOffset.animateTo(0f) }
+                                                when {
+                                                    travel > swipeThresholdPx -> onSwipePrevious()
+                                                    travel < -swipeThresholdPx -> onNext()
+                                                }
+                                            },
+                                            onHorizontalDrag = { change, dragAmount ->
+                                                change.consume()
+                                                swipeScope.launch {
+                                                    dragOffset.snapTo(dragOffset.value + dragAmount)
+                                                }
+                                            }
+                                        )
                                     }
-                                )
-                            }
+                                } else {
+                                    Modifier
+                                }
+                            )
                             .graphicsLayer {
                                 translationX = dragOffset.value * 0.35f
                             },

@@ -31,3 +31,17 @@ internal fun PlayerLyricKeepScreenOnEffect(
         }
     }
 }
+
+@Composable
+internal fun PlayerSurfaceKeepScreenOnEffect(
+    view: View,
+    keepScreenOn: Boolean
+) {
+    DisposableEffect(view, keepScreenOn) {
+        val previousKeepScreenOn = view.keepScreenOn
+        view.keepScreenOn = previousKeepScreenOn || keepScreenOn
+        onDispose {
+            view.keepScreenOn = previousKeepScreenOn
+        }
+    }
+}

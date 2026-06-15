@@ -84,6 +84,9 @@ internal fun CoverPlayerPage(
     lyricTextAlign: Int,
     playerTapSeekEnabled: Boolean,
     playerShowTotalDuration: Boolean,
+    coverSwipeEnabled: Boolean,
+    showPlayerKeepScreenOnAction: Boolean,
+    playerKeepScreenOn: Boolean,
     menuExpanded: Boolean,
     queueExpanded: Boolean,
     playlist: List<Song>,
@@ -100,6 +103,7 @@ internal fun CoverPlayerPage(
     metadataEditorId: String,
     lyricTimingEditorId: String,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     onDynamicCoverFailed: (String) -> Unit,
     onMatchDynamicCover: () -> Unit,
     onToggleMenu: () -> Unit,
@@ -174,10 +178,14 @@ internal fun CoverPlayerPage(
     }
     // Stable local so the null-checked usages below can smart-cast (delegated props can't).
     val resolvedDynamicCover = dynamicCoverSource
-    val coverSwipeModifier = rememberCoverSwipeModifier(
-        onSwipePrevious = onPrevious,
-        onSwipeNext = onNext
-    )
+    val coverSwipeModifier = if (coverSwipeEnabled) {
+        rememberCoverSwipeModifier(
+            onSwipePrevious = onSwipePrevious,
+            onSwipeNext = onNext
+        )
+    } else {
+        Modifier
+    }
 
     BoxWithConstraints(modifier = modifier) {
         val useWidePlayer = maxWidth > maxHeight && maxWidth >= 700.dp
@@ -239,6 +247,7 @@ internal fun CoverPlayerPage(
                 lyricTextAlign = lyricTextAlign,
                 showTotalDuration = playerShowTotalDuration,
                 playerTapSeekEnabled = playerTapSeekEnabled,
+                coverSwipeEnabled = coverSwipeEnabled,
                 queueExpanded = queueExpanded,
                 playlist = playlist,
                 audioSessionId = audioSessionId,
@@ -586,6 +595,8 @@ internal fun CoverPlayerPage(
             lyricOffsetMs = lyricOffsetMs,
             metadataEditorId = metadataEditorId,
             lyricTimingEditorId = lyricTimingEditorId,
+            showPlayerKeepScreenOnAction = showPlayerKeepScreenOnAction,
+            playerKeepScreenOn = playerKeepScreenOn,
             sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
             stopAfterCurrentEnabled = stopAfterCurrentEnabled,
             sleepTimerCustomMinutes = sleepTimerCustomMinutes,
@@ -617,6 +628,7 @@ internal fun CoverPlayerPage(
             onPitch = onPitch,
             onLyricOffset = onLyricOffset,
             onVisualizerEnabled = onVisualizerEnabled,
+            onPlayerKeepScreenOnChange = onPlayerKeepScreenOnChange,
             initialPage = actionMenuInitialPage
         )
     }

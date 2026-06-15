@@ -21,6 +21,8 @@ internal fun PlayerCoverActionSheet(
     lyricOffsetMs: Long,
     metadataEditorId: String,
     lyricTimingEditorId: String,
+    showPlayerKeepScreenOnAction: Boolean,
+    playerKeepScreenOn: Boolean,
     sleepTimerEndRealtimeMs: Long?,
     stopAfterCurrentEnabled: Boolean,
     sleepTimerCustomMinutes: Int,
@@ -52,6 +54,7 @@ internal fun PlayerCoverActionSheet(
     onPitch: (Float) -> Unit,
     onLyricOffset: (Long) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
+    onPlayerKeepScreenOnChange: (Boolean) -> Unit,
     initialPage: PlayerActionSheetPage
 ) {
     if (!show) return
@@ -74,6 +77,8 @@ internal fun PlayerCoverActionSheet(
             lyricOffsetMs = lyricOffsetMs,
             metadataEditorId = metadataEditorId,
             lyricTimingEditorId = lyricTimingEditorId,
+            showPlayerKeepScreenOnAction = showPlayerKeepScreenOnAction,
+            playerKeepScreenOn = playerKeepScreenOn,
             sleepTimerEndRealtimeMs = sleepTimerEndRealtimeMs,
             stopAfterCurrentEnabled = stopAfterCurrentEnabled,
             sleepTimerCustomMinutes = sleepTimerCustomMinutes,
@@ -105,6 +110,7 @@ internal fun PlayerCoverActionSheet(
             onPitch = onPitch,
             onLyricOffset = onLyricOffset,
             onVisualizerEnabled = onVisualizerEnabled,
+            onPlayerKeepScreenOnChange = onPlayerKeepScreenOnChange,
             initialPage = initialPage
         )
     }

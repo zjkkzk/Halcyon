@@ -31,6 +31,8 @@ internal data class PlayerScreenSettings(
     val playerBackgroundDim: Int = 26,
     val beautifulLyricsBackground: Boolean = false,
     val showSongAnnotation: Boolean = true,
+    val coverSwipeEnabled: Boolean = true,
+    val playerKeepScreenOn: Boolean = false,
     val hiResLogoEnabled: Boolean = false,
     val hiResLogoUri: String = "",
     val lyricShareCustomInfo: String = "",
@@ -59,6 +61,8 @@ private data class PlayerSettingsGroupB(
     val playerBackgroundDim: Int,
     val beautifulLyricsBackground: Boolean,
     val showSongAnnotation: Boolean,
+    val coverSwipeEnabled: Boolean,
+    val playerKeepScreenOn: Boolean,
     val hiResLogoEnabled: Boolean,
     val hiResLogoUri: String
 )
@@ -74,6 +78,20 @@ private data class PlayerSettingsGroupBBase(
 private data class PlayerSettingsGroupBExtra(
     val beautifulLyricsBackground: Boolean,
     val showSongAnnotation: Boolean,
+    val coverSwipeEnabled: Boolean,
+    val playerKeepScreenOn: Boolean,
+    val hiResLogoEnabled: Boolean,
+    val hiResLogoUri: String
+)
+
+private data class PlayerSettingsGroupBFlags(
+    val beautifulLyricsBackground: Boolean,
+    val showSongAnnotation: Boolean,
+    val coverSwipeEnabled: Boolean,
+    val playerKeepScreenOn: Boolean
+)
+
+private data class PlayerSettingsGroupBHiRes(
     val hiResLogoEnabled: Boolean,
     val hiResLogoUri: String
 )
@@ -113,13 +131,29 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
         ) { immersive, bgEnabled, bgUri, bgOpacity, bgDim ->
             PlayerSettingsGroupBBase(immersive, bgEnabled, bgUri, bgOpacity, bgDim)
         }
-        val groupBExtra = combine(
+        val groupBFlags = combine(
             settingsManager.playerBeautifulLyricsBackground,
             settingsManager.playerShowSongAnnotation,
+            settingsManager.playerCoverSwipeEnabled,
+            settingsManager.playerKeepScreenOn
+        ) { beautifulLyrics, showAnnotation, coverSwipe, keepScreenOn ->
+            PlayerSettingsGroupBFlags(beautifulLyrics, showAnnotation, coverSwipe, keepScreenOn)
+        }
+        val groupBHiRes = combine(
             settingsManager.hiResLogoEnabled,
             settingsManager.hiResLogoUri
-        ) { beautifulLyrics, showAnnotation, hiResEnabled, hiResUri ->
-            PlayerSettingsGroupBExtra(beautifulLyrics, showAnnotation, hiResEnabled, hiResUri)
+        ) { hiResEnabled, hiResUri ->
+            PlayerSettingsGroupBHiRes(hiResEnabled, hiResUri)
+        }
+        val groupBExtra = combine(groupBFlags, groupBHiRes) { flags, hiRes ->
+            PlayerSettingsGroupBExtra(
+                beautifulLyricsBackground = flags.beautifulLyricsBackground,
+                showSongAnnotation = flags.showSongAnnotation,
+                coverSwipeEnabled = flags.coverSwipeEnabled,
+                playerKeepScreenOn = flags.playerKeepScreenOn,
+                hiResLogoEnabled = hiRes.hiResLogoEnabled,
+                hiResLogoUri = hiRes.hiResLogoUri
+            )
         }
         val groupB = combine(groupBBase, groupBExtra) { base, extra ->
             PlayerSettingsGroupB(
@@ -130,6 +164,8 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 playerBackgroundDim = base.playerBackgroundDim,
                 beautifulLyricsBackground = extra.beautifulLyricsBackground,
                 showSongAnnotation = extra.showSongAnnotation,
+                coverSwipeEnabled = extra.coverSwipeEnabled,
+                playerKeepScreenOn = extra.playerKeepScreenOn,
                 hiResLogoEnabled = extra.hiResLogoEnabled,
                 hiResLogoUri = extra.hiResLogoUri
             )
@@ -164,6 +200,8 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 playerBackgroundDim = b.playerBackgroundDim,
                 beautifulLyricsBackground = b.beautifulLyricsBackground,
                 showSongAnnotation = b.showSongAnnotation,
+                coverSwipeEnabled = b.coverSwipeEnabled,
+                playerKeepScreenOn = b.playerKeepScreenOn,
                 hiResLogoEnabled = b.hiResLogoEnabled,
                 hiResLogoUri = b.hiResLogoUri,
                 lyricShareCustomInfo = c.lyricShareCustomInfo,

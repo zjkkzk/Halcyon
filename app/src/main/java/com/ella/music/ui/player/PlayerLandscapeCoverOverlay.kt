@@ -77,6 +77,7 @@ internal fun LandscapeCoverPlaybackOverlay(
     playlist: List<Song>,
     audioSessionId: Int,
     visualizerEnabled: Boolean,
+    coverSwipeEnabled: Boolean,
     flowEffectMode: Int,
     beautifulLyricsBackground: Boolean,
     onDynamicCoverFailed: (String) -> Unit,
@@ -141,9 +142,15 @@ internal fun LandscapeCoverPlaybackOverlay(
     Box(
         modifier = modifier
             .background(palette.middle)
-            .pointerInput(onSwipePrevious, onNext) {
-                detectCoverSwipeToSkip()
-            }
+            .then(
+                if (coverSwipeEnabled) {
+                    Modifier.pointerInput(onSwipePrevious, onNext) {
+                        detectCoverSwipeToSkip()
+                    }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         LandscapeCoverModeBackground(
             palette = palette,
@@ -192,9 +199,15 @@ internal fun LandscapeCoverPlaybackOverlay(
                     // Follow the finger (damped) so swiping the cover wall feels direct; the
                     // offset springs back to 0 on release while the song change re-centers.
                     .graphicsLayer { translationX = dragOffset.value * 0.5f }
-                    .pointerInput(onSwipePrevious, onNext) {
-                        detectCoverSwipeToSkip()
-                    },
+                    .then(
+                        if (coverSwipeEnabled) {
+                            Modifier.pointerInput(onSwipePrevious, onNext) {
+                                detectCoverSwipeToSkip()
+                            }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 LandscapeCoverStack(

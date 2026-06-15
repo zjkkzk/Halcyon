@@ -842,6 +842,8 @@
     <string name="settings_player_immersive_cover_summary">开启后播放页封面延伸到顶部；关闭后使用收敛的圆角封面布局</string>
     <string name="settings_player_tap_seek">点击进度条跳转播放进度</string>
     <string name="settings_player_tap_seek_summary">关闭后仅支持拖动进度条跳转；开启后可直接点击播放页进度条任意位置跳转</string>
+    <string name="settings_player_cover_swipe">封面左右滑动切歌</string>
+    <string name="settings_player_cover_swipe_summary">关闭后播放页封面不再响应左右滑动切歌，避免误触</string>
     <string name="settings_player_show_total_duration">进度条显示歌曲播放的总时长</string>
     <string name="settings_player_show_total_duration_summary">关闭后右侧显示剩余时间；开启后显示歌曲总时长</string>
     <string name="settings_player_show_song_annotation">播放页显示歌曲注释</string>
@@ -1057,6 +1059,8 @@
     <string name="player_show_translation">显示翻译</string>
     <string name="player_disable_keep_screen_on">关闭歌词页常亮</string>
     <string name="player_enable_keep_screen_on">开启歌词页常亮</string>
+    <string name="player_disable_playback_keep_screen_on">关闭播放页常亮</string>
+    <string name="player_enable_playback_keep_screen_on">开启播放页常亮</string>
     <string name="player_lyric_font_size">歌词字号</string>
     <string name="player_lyric_source">歌词来源</string>
     <string name="player_lyric_format">歌词格式</string>
@@ -1452,6 +1456,9 @@
     <string name="settings_lyric_plugin_sources">歌词匹配在线源管理</string>
     <string name="settings_lyric_plugin_sources_summary">管理用于本地歌曲单曲匹配歌词的 Lyrico 插件源</string>
     <string name="settings_lyric_plugin_sources_empty">还没有导入歌词源插件</string>
+    <string name="settings_lyric_line_blacklist">过滤歌词单行黑名单</string>
+    <string name="settings_lyric_line_blacklist_summary">已添加 %1$d 条规则；命中的整行歌词不会显示或发送到外部词幕</string>
+    <string name="settings_lyric_line_blacklist_editor_hint">每行一个关键词，例如：作词：、作曲：、录音室：</string>
     <string name="settings_lyric_plugin_import_later">右上角可导入 Lyrico 插件 zip；导入后会出现在这里并参与单曲歌词匹配。</string>
     <string name="settings_lyric_plugin_import">导入插件</string>
     <string name="settings_lyric_plugin_import_success">已导入 %1$s</string>

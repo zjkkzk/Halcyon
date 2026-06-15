@@ -84,6 +84,7 @@ internal fun SettingsAppearanceSection() {
     val playerTapSeekEnabled by settingsManager.playerTapSeekEnabled.collectAsState(initial = true)
     val playerShowTotalDuration by settingsManager.playerShowTotalDuration.collectAsState(initial = false)
     val playerShowSongAnnotation by settingsManager.playerShowSongAnnotation.collectAsState(initial = true)
+    val playerCoverSwipeEnabled by settingsManager.playerCoverSwipeEnabled.collectAsState(initial = true)
     val playlistSpecialEntriesVisible by settingsManager.playlistSpecialEntriesVisible.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
     val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
@@ -602,6 +603,14 @@ internal fun SettingsAppearanceSection() {
                 checked = playerTapSeekEnabled,
                 onCheckedChange = {
                     scope.launch { settingsManager.setPlayerTapSeekEnabled(it) }
+                }
+            )
+            SwitchPreference(
+                title = stringResource(R.string.settings_player_cover_swipe),
+                summary = stringResource(R.string.settings_player_cover_swipe_summary),
+                checked = playerCoverSwipeEnabled,
+                onCheckedChange = {
+                    scope.launch { settingsManager.setPlayerCoverSwipeEnabled(it) }
                 }
             )
             SwitchPreference(

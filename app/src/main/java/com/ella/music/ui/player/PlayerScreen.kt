@@ -85,6 +85,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalView
@@ -152,11 +153,14 @@ fun PlayerScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val view = LocalView.current
+    val isLargeScreenDevice = LocalConfiguration.current.smallestScreenWidthDp >= 600
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val playerSettings = rememberPlayerScreenSettings(settingsManager)
     val playerTapSeekEnabled = playerSettings.playerTapSeekEnabled
     val playerShowTotalDuration = playerSettings.playerShowTotalDuration
+    val coverSwipeEnabled = playerSettings.coverSwipeEnabled
+    val playerKeepScreenOn = playerSettings.playerKeepScreenOn
     val lyricSourceMode = playerSettings.lyricSourceMode
     val lyricFontState = rememberPlayerLyricFontState(context, settingsManager)
     val lyricFontFamily = lyricFontState.fontFamily
@@ -244,10 +248,9 @@ fun PlayerScreen(
             view = view,
             trigger = landscapeState.expanded
         )
-        PlayerLyricKeepScreenOnEffect(
+        PlayerSurfaceKeepScreenOnEffect(
             view = view,
-            showLyrics = showLyrics,
-            keepScreenOn = lyricPageKeepScreenOn
+            keepScreenOn = (showLyrics && lyricPageKeepScreenOn) || (isLargeScreenDevice && playerKeepScreenOn)
         )
     }
 
@@ -449,6 +452,9 @@ fun PlayerScreen(
                         lyricTextAlign = playerLyricTextAlign,
                         playerTapSeekEnabled = playerTapSeekEnabled,
                         playerShowTotalDuration = playerShowTotalDuration,
+                        coverSwipeEnabled = coverSwipeEnabled,
+                        showPlayerKeepScreenOnAction = isLargeScreenDevice,
+                        playerKeepScreenOn = playerKeepScreenOn,
                         menuExpanded = uiState.menuExpanded,
                         onMenuExpandedChange = { uiState.menuExpanded = it },
                         queueExpanded = uiState.queueExpanded,
@@ -467,6 +473,9 @@ fun PlayerScreen(
                         metadataEditorId = metadataEditorId,
                         lyricTimingEditorId = lyricTimingEditorId,
                         onVisualizerEnabled = setAudioVisualizerEnabled,
+                        onPlayerKeepScreenOnChange = {
+                            scope.launch { settingsManager.setPlayerKeepScreenOn(it) }
+                        },
                         onDynamicCoverFailedPathChange = { uiState.dynamicCoverFailedPath = it },
                         onDynamicCoverSheetSongChange = { uiState.dynamicCoverSheetSong = it },
                         onPlaylistPickerSongChange = { uiState.playlistPickerSong = it },
@@ -592,6 +601,7 @@ fun PlayerScreen(
                 playlist = playlist,
                 audioSessionId = audioSessionId,
                 visualizerEnabled = effectiveAudioVisualizerEnabled,
+                coverSwipeEnabled = coverSwipeEnabled,
                 beautifulLyricsBackground = beautifulLyricsBackground,
                 flowEffectMode = SettingsManager.PLAYER_FLOW_EFFECT_DARK,
                 isFavorite = isCurrentSongFavorite,
