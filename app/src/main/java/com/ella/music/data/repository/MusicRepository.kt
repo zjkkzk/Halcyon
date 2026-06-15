@@ -1807,14 +1807,29 @@ class MusicRepository(private val context: Context) {
 
     private fun AudioTagInfo.embeddedLyricsContent(preferTtml: Boolean): String? {
         val names = if (preferTtml) {
-            listOf("TTML LYRICS", "TTML LYRIC", "TTMLLYRICS", "TTMLLYRIC", "TTML")
+            listOf(
+                "TTML LYRICS",
+                "TTML LYRIC",
+                "TTMLLYRICS",
+                "TTMLLYRIC",
+                "TTML",
+                "SPL LYRICS",
+                "SPLLYRICS",
+                "SYNCEDLYRICS",
+                "UNSYNCEDLYRICS",
+                "UNSYNCED LYRICS",
+                "LYRICS",
+                "USLT",
+                "SYLT",
+                "LYRIC"
+            )
         } else {
             listOf("SPL LYRICS", "SPLLYRICS", "SYNCEDLYRICS", "UNSYNCEDLYRICS", "UNSYNCED LYRICS", "LYRICS", "USLT", "SYLT", "LYRIC")
         }
         names.forEach { target ->
-            customTags.firstMatchingTagValue(target)?.let { return it }
+            customTags.firstMatchingTagValue(target)?.takeIf { it.looksLikeTtmlLyrics() == preferTtml }?.let { return it }
         }
-        return lyrics?.takeIf { it.isNotBlank() && (preferTtml == it.contains("<tt", ignoreCase = true)) }
+        return lyrics?.takeIf { it.isNotBlank() && (preferTtml == it.looksLikeTtmlLyrics()) }
     }
 
     private fun Map<String, List<String>>.firstMatchingTagValue(target: String): String? {
@@ -1826,6 +1841,9 @@ class MusicRepository(private val context: Context) {
 
     private fun String.normalizedTagName(): String =
         uppercase().filter { it.isLetterOrDigit() }
+
+    private fun String.looksLikeTtmlLyrics(): Boolean =
+        contains("<tt", ignoreCase = true) && contains("</tt", ignoreCase = true)
 
     private fun findExternalLyricContentByFormat(songPath: String, preferTtml: Boolean): String? {
         val extensions = if (preferTtml) listOf("ttml") else listOf("lrc", "elrc", "spl")
