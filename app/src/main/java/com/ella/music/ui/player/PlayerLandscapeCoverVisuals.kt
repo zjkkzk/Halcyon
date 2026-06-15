@@ -189,9 +189,8 @@ internal fun BoxScope.LandscapeCoverReflection(
         modifier = Modifier
             .matchParentSize()
             .align(Alignment.BottomCenter)
-            .offset(y = 18.dp)
             .graphicsLayer {
-                scaleY = -0.52f
+                scaleY = -0.34f
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
                 this.alpha = alpha
             }

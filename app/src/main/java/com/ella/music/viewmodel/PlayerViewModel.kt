@@ -164,6 +164,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         initLyricParsingOptions()
         initLyricOffsetOverrides()
         initBluetoothAutoPlay()
+        initExternalPlaybackSync()
         lazyOnlineQueueController.observePlaybackEnd()
     }
 
@@ -510,6 +511,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     playerManager.play()
                     AppLogStore.info(getApplication(), "BtAutoPlay", "Restored saved queue on Bluetooth connect")
                 }
+            }
+        }
+    }
+
+    private fun initExternalPlaybackSync() {
+        viewModelScope.launch {
+            PlaybackService.externalPlaybackChangeEvent.collect { snapshot ->
+                playerManager.ensureConnected(refreshStateIfConnected = false)
+                playerManager.applyExternalPlaybackSnapshot(snapshot)
+            }
+        }
+        viewModelScope.launch {
+            PlaybackService.externalPlaybackModeEvent.collect { snapshot ->
+                playerManager.ensureConnected(refreshStateIfConnected = false)
+                playerManager.applyExternalPlaybackMode(
+                    shuffle = snapshot.shuffle,
+                    repeatMode = snapshot.repeatMode
+                )
             }
         }
     }

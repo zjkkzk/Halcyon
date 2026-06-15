@@ -143,6 +143,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Search
+import top.yukonga.miuix.kmp.icon.extended.Album
+import top.yukonga.miuix.kmp.icon.extended.ContactsCircle
 import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.icon.extended.Music
 import top.yukonga.miuix.kmp.icon.extended.Playlist
@@ -698,12 +700,12 @@ fun EllaApp(
         SettingsManager.BOTTOM_DOCK_ITEM_ARTIST to BottomDockTab(
             route = Screen.Artist.createRoute(fromDock = true),
             label = stringResource(R.string.category_artist),
-            icon = MiuixIcons.Regular.Music
+            icon = MiuixIcons.Regular.ContactsCircle
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_ALBUM to BottomDockTab(
             route = Screen.Album.createRoute(fromDock = true),
             label = stringResource(R.string.category_album),
-            icon = MiuixIcons.Regular.Music
+            icon = MiuixIcons.Regular.Album
         )
     )
     val tabs = bottomDockItemIds

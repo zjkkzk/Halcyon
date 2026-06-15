@@ -53,12 +53,29 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import android.os.Bundle
+
+data class PlaybackExternalSnapshot(
+    val mediaItem: MediaItem?,
+    val mediaItemIndex: Int,
+    val mediaItemCount: Int,
+    val positionMs: Long,
+    val durationMs: Long,
+    val repeatMode: Int,
+    val isPlaying: Boolean,
+    val playbackState: Int
+)
+
+data class PlaybackModeExternalSnapshot(
+    val shuffle: Boolean,
+    val repeatMode: Int
+)
 
 class PlaybackService : MediaLibraryService() {
 
@@ -71,10 +88,13 @@ class PlaybackService : MediaLibraryService() {
         const val ACTION_TOGGLE_FAVORITE = "com.ella.music.action.TOGGLE_FAVORITE"
         const val ACTION_TOGGLE_SHUFFLE = "com.ella.music.action.TOGGLE_SHUFFLE"
         const val ACTION_SKIP_PREVIOUS = "com.ella.music.action.SKIP_PREVIOUS"
+        const val ACTION_PLAY_PAUSE = "com.ella.music.action.PLAY_PAUSE"
         const val ACTION_SKIP_NEXT = "com.ella.music.action.SKIP_NEXT"
         private const val TIMING_TAG = "EllaPlaybackTiming"
 
         val bluetoothConnectEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val externalPlaybackChangeEvent = MutableSharedFlow<PlaybackExternalSnapshot>(extraBufferCapacity = 8)
+        val externalPlaybackModeEvent = MutableSharedFlow<PlaybackModeExternalSnapshot>(extraBufferCapacity = 4)
 
         fun isXiaomiFamilyDevice(): Boolean {
             val manufacturer = android.os.Build.MANUFACTURER.orEmpty().lowercase()
@@ -202,6 +222,7 @@ class PlaybackService : MediaLibraryService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 Log.d(TIMING_TAG, "service media transition reason=$reason mediaId=${mediaItem?.mediaId}")
                 updateMediaButtonPreferences()
+                publishExternalPlaybackSnapshot(player)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -214,6 +235,7 @@ class PlaybackService : MediaLibraryService() {
                     }
                     Player.STATE_ENDED -> Log.d(TIMING_TAG, "player state ENDED mediaId=${player.currentMediaItem?.mediaId}")
                 }
+                publishExternalPlaybackSnapshot(player)
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -222,6 +244,7 @@ class PlaybackService : MediaLibraryService() {
 
             override fun onRepeatModeChanged(repeatMode: Int) {
                 updateMediaButtonPreferences()
+                publishExternalPlaybackSnapshot(player)
             }
         })
 
@@ -233,7 +256,11 @@ class PlaybackService : MediaLibraryService() {
 
         mediaSession = MediaLibrarySession.Builder(
             this,
-            RepeatOneLockingPlayer(player) { previousButtonAction },
+            RepeatOneLockingPlayer(
+                player = player,
+                previousButtonActionProvider = { previousButtonAction },
+                onExternalPlaybackChanged = ::scheduleExternalPlaybackRefresh
+            ),
             EllaLibrarySessionCallback(this)
         )
             .setSessionActivity(pendingIntent)
@@ -322,6 +349,7 @@ class PlaybackService : MediaLibraryService() {
                 AppLogStore.info(this, TAG, "NotificationAction playback mode clicked")
                 mediaSession?.player?.let { player ->
                     player.cycleNotificationPlaybackMode()
+                    publishExternalPlaybackModeSnapshot(player)
                 }
                 updateMediaButtonPreferences()
                 notificationProvider.refresh()
@@ -351,16 +379,27 @@ class PlaybackService : MediaLibraryService() {
             ACTION_SKIP_PREVIOUS -> {
                 AppLogStore.info(this, TAG, "NotificationAction previous clicked")
                 mediaSession?.player?.seekToPreviousMediaItem()
-                updateMediaButtonPreferences()
-                notificationProvider.refresh()
+                scheduleExternalPlaybackRefresh()
+                true
+            }
+
+            ACTION_PLAY_PAUSE -> {
+                AppLogStore.info(this, TAG, "NotificationAction play/pause clicked")
+                mediaSession?.player?.let { player ->
+                    if (player.isPlaying) {
+                        player.pause()
+                    } else {
+                        player.play()
+                    }
+                }
+                scheduleExternalPlaybackRefresh()
                 true
             }
 
             ACTION_SKIP_NEXT -> {
                 AppLogStore.info(this, TAG, "NotificationAction next clicked")
                 mediaSession?.player?.seekToNextMediaItem()
-                updateMediaButtonPreferences()
-                notificationProvider.refresh()
+                scheduleExternalPlaybackRefresh()
                 true
             }
 
@@ -380,8 +419,6 @@ class PlaybackService : MediaLibraryService() {
 
         appShuffleEnabled = loadAppShuffleEnabled()
         val playbackModeAction = player.notificationPlaybackModeAction()
-        val isXiaomi = isXiaomiFamilyDevice()
-
         val buttons = mutableListOf<CommandButton>()
 
         buttons += CommandButton.Builder()
@@ -420,13 +457,11 @@ class PlaybackService : MediaLibraryService() {
             .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
             .build()
 
-        if (!isXiaomi) {
-            buttons += CommandButton.Builder()
-                .setDisplayName(playbackModeAction.title)
-                .setIconResId(playbackModeAction.icon)
-                .setSessionCommand(SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY))
-                .build()
-        }
+        buttons += CommandButton.Builder()
+            .setDisplayName(playbackModeAction.title)
+            .setIconResId(playbackModeAction.icon)
+            .setSessionCommand(SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY))
+            .build()
 
         session.setMediaButtonPreferences(ImmutableList.copyOf(buttons))
     }
@@ -672,28 +707,9 @@ class PlaybackService : MediaLibraryService() {
     @OptIn(UnstableApi::class)
     private class RepeatOneLockingPlayer(
         player: Player,
-        private val previousButtonActionProvider: () -> Int
+        private val previousButtonActionProvider: () -> Int,
+        private val onExternalPlaybackChanged: () -> Unit
     ) : ForwardingPlayer(player) {
-        private var pendingRepeatOneRestore = false
-        private var pendingTargetIndex = -1
-
-        init {
-            addListener(object : Player.Listener {
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    if (pendingRepeatOneRestore) {
-                        val currentIndex = currentMediaItemIndex
-                        if (currentIndex == pendingTargetIndex || mediaItemCount <= 1) {
-                            pendingRepeatOneRestore = false
-                            pendingTargetIndex = -1
-                            if (repeatMode != Player.REPEAT_MODE_ONE) {
-                                repeatMode = Player.REPEAT_MODE_ONE
-                            }
-                        }
-                    }
-                }
-            })
-        }
-
         override fun seekToNextMediaItem() {
             Log.d(TIMING_TAG, "skipNext command received mediaId=${currentMediaItem?.mediaId}")
             if (!seekAdjacentMediaItemInRepeatOne(1)) {
@@ -733,6 +749,7 @@ class PlaybackService : MediaLibraryService() {
             if (mediaItemCount <= 0 || index !in 0 until mediaItemCount) return false
             seekToDefaultPosition(index)
             play()
+            onExternalPlaybackChanged()
             return true
         }
 
@@ -745,13 +762,56 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 Math.floorMod(index + offset, mediaItemCount)
             }
-            pendingRepeatOneRestore = true
-            pendingTargetIndex = targetIndex
-            setRepeatMode(Player.REPEAT_MODE_ALL)
-            seekToDefaultPosition(targetIndex)
-            play()
+            reopenQueueAt(targetIndex)
+            onExternalPlaybackChanged()
             return true
         }
+
+        private fun reopenQueueAt(targetIndex: Int) {
+            val items = (0 until mediaItemCount).map { getMediaItemAt(it) }
+            if (items.isEmpty()) return
+            setMediaItems(items, targetIndex.coerceIn(items.indices), 0L)
+            prepare()
+            play()
+        }
+    }
+
+    private fun scheduleExternalPlaybackRefresh() {
+        serviceScope.launch {
+            repeat(5) { attempt ->
+                if (attempt > 0) delay(90L + attempt * 70L)
+                updateMediaButtonPreferences()
+                notificationProvider.refresh()
+                publishExternalPlaybackSnapshot()
+            }
+        }
+    }
+
+    private fun publishExternalPlaybackSnapshot(player: Player? = mediaSession?.player) {
+        val current = player ?: return
+        externalPlaybackChangeEvent.tryEmit(
+            PlaybackExternalSnapshot(
+                mediaItem = current.currentMediaItem,
+                mediaItemIndex = current.currentMediaItemIndex,
+                mediaItemCount = current.mediaItemCount,
+                positionMs = current.currentPosition.coerceAtLeast(0L),
+                durationMs = current.duration.coerceAtLeast(0L),
+                repeatMode = current.repeatMode,
+                isPlaying = current.isPlaying,
+                playbackState = current.playbackState
+            )
+        )
+    }
+
+    private fun publishExternalPlaybackModeSnapshot(player: Player? = mediaSession?.player) {
+        val current = player ?: return
+        appShuffleEnabled = loadAppShuffleEnabled()
+        externalPlaybackModeEvent.tryEmit(
+            PlaybackModeExternalSnapshot(
+                shuffle = appShuffleEnabled,
+                repeatMode = current.repeatMode
+            )
+        )
     }
 
     private class NoArtworkMediaNotificationProvider(
@@ -816,20 +876,6 @@ class PlaybackService : MediaLibraryService() {
 
             val compactIndices = mutableListOf<Int>()
             var actionCount = 0
-            fun addAction(command: Int, icon: Int, title: String, compact: Boolean = true) {
-                if (!player.isCommandAvailable(command)) return
-                val index = actionCount++
-                builder.addAction(
-                    actionFactory.createMediaAction(
-                        mediaSession,
-                        IconCompat.createWithResource(service, icon),
-                        title,
-                        command
-                    )
-                )
-                if (compact) compactIndices += index
-            }
-
             fun addCustomAction(action: String, icon: Int, title: String, compact: Boolean = false) {
                 val index = actionCount++
                 builder.addAction(
@@ -849,7 +895,6 @@ class PlaybackService : MediaLibraryService() {
                 PlaylistStore.getInstance(service).isFavorite(it)
             } == true
             val playbackModeAction = player.playbackModeAction()
-            val isXiaomi = isXiaomiFamilyDevice()
 
             addCustomAction(
                 ACTION_TOGGLE_FAVORITE,
@@ -858,15 +903,15 @@ class PlaybackService : MediaLibraryService() {
                 compact = false
             )
 
-            addAction(
-                Player.COMMAND_SEEK_TO_PREVIOUS,
+            addCustomAction(
+                ACTION_SKIP_PREVIOUS,
                 R.drawable.ic_skip_previous,
                 service.getString(R.string.common_previous),
                 compact = true
             )
 
-            addAction(
-                Player.COMMAND_PLAY_PAUSE,
+            addCustomAction(
+                ACTION_PLAY_PAUSE,
                 if (player.isPlaying) {
                     R.drawable.ic_player_pause
                 } else {
@@ -875,21 +920,19 @@ class PlaybackService : MediaLibraryService() {
                 if (player.isPlaying) service.getString(R.string.common_pause) else service.getString(R.string.common_play)
             )
 
-            addAction(
-                Player.COMMAND_SEEK_TO_NEXT,
+            addCustomAction(
+                ACTION_SKIP_NEXT,
                 R.drawable.ic_skip_next,
                 service.getString(R.string.common_next),
                 compact = true
             )
 
-            if (!isXiaomi) {
-                addCustomAction(
-                    ACTION_TOGGLE_SHUFFLE,
-                    playbackModeAction.icon,
-                    playbackModeAction.title,
-                    compact = false
-                )
-            }
+            addCustomAction(
+                ACTION_TOGGLE_SHUFFLE,
+                playbackModeAction.icon,
+                playbackModeAction.title,
+                compact = false
+            )
 
             val style = MediaStyleNotificationHelper.MediaStyle(mediaSession)
                 .setShowActionsInCompactView(*compactIndices.toIntArray())

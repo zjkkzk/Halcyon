@@ -695,6 +695,7 @@
     <string name="song_more_metadata_section_credits">Credits</string>
     <string name="song_more_metadata_section_rating">Rating</string>
     <string name="song_more_metadata_section_lyrics">Lyrics</string>
+    <string name="song_more_metadata_lyrics">Embedded lyrics</string>
     <string name="song_more_metadata_no_lyrics">No embedded lyrics</string>
     <string name="song_more_metadata_section_custom_tags">Custom tags</string>
     <string name="song_more_metadata_add_custom_tag">Add custom tag</string>

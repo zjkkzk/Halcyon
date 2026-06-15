@@ -263,6 +263,7 @@ internal fun CoverPlayerPage(
                 onClearQueue = onClearQueue,
                 onLineClick = onShowLyrics,
                 onArtist = onArtist,
+                drawBackground = drawBackground,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -565,7 +566,7 @@ internal fun CoverPlayerPage(
                             onClearQueue = onClearQueue,
                             modifier = Modifier.height(92.dp)
                         )
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                     }
                 }
             }

@@ -246,6 +246,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getLargeCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song, 1200, CoverUsage.Player)
 
+    fun getMetadataEditorCoverArtBitmap(song: Song) = repository.getCoverArtBitmap(song, 1600, CoverUsage.Player)
+
     fun getReplayGain(song: Song): Float? {
         return repository.getReplayGain(song)
     }

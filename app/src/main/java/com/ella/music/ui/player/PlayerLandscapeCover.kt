@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,7 +38,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.R
@@ -105,6 +105,7 @@ internal fun LandscapeCoverPlayerPage(
     onLineClick: () -> Unit,
     onArtist: () -> Unit,
     onDismiss: () -> Unit = {},
+    drawBackground: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val bluetoothDeviceName = rememberBluetoothOutputName()
@@ -113,22 +114,39 @@ internal fun LandscapeCoverPlayerPage(
     val swipeScope = rememberCoroutineScope()
     val dragOffset = remember { androidx.compose.animation.core.Animatable(0f) }
 
-    Box(modifier = modifier.background(palette.middle)) {
-        LandscapeCoverModeBackground(
-            palette = palette,
-            embeddedCover = embeddedCover,
-            paletteBitmap = paletteBitmap,
-            currentPosition = currentPosition,
-            isPlaying = isPlaying,
-            flowEffectMode = flowEffectMode,
-            dynamicFlowEnabled = dynamicFlowEnabled,
-            visualizerEnabled = visualizerEnabled,
-            customBackgroundUri = customBackgroundUri,
-            customBackgroundOpacity = customBackgroundOpacity,
-            customBackgroundDim = customBackgroundDim,
-            beautifulLyricsBackground = beautifulLyricsBackground,
-            modifier = Modifier.fillMaxSize()
-        )
+    Box(modifier = modifier.then(if (drawBackground) Modifier.background(palette.middle) else Modifier)) {
+        if (drawBackground) {
+            LandscapeCoverModeBackground(
+                palette = palette,
+                embeddedCover = embeddedCover,
+                paletteBitmap = paletteBitmap,
+                currentPosition = currentPosition,
+                isPlaying = isPlaying,
+                flowEffectMode = flowEffectMode,
+                dynamicFlowEnabled = dynamicFlowEnabled,
+                visualizerEnabled = visualizerEnabled,
+                customBackgroundUri = customBackgroundUri,
+                customBackgroundOpacity = customBackgroundOpacity,
+                customBackgroundDim = customBackgroundDim,
+                beautifulLyricsBackground = beautifulLyricsBackground,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.04f),
+                                0.34f to Color.Transparent,
+                                0.50f to palette.middle.copy(alpha = 0.08f),
+                                0.66f to Color.Transparent,
+                                1.00f to Color.Black.copy(alpha = 0.05f)
+                            )
+                        )
+                    )
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -168,25 +186,35 @@ internal fun LandscapeCoverPlayerPage(
                         PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
                     }
                 } else {
-                    PlayerSongMetaText(
-                        song = song,
-                        annotation = annotation,
-                        titleFontSize = 24.sp,
-                        artistFontSize = 16.sp,
-                        artistAlpha = 0.62f,
-                        showArtistWithAnnotation = true,
-                        contentColor = palette.onBackground,
-                        textAlign = TextAlign.Center,
-                        onArtistClick = onArtist,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PlayerSongMetaText(
+                            song = song,
+                            annotation = annotation,
+                            titleFontSize = 24.sp,
+                            artistFontSize = 16.sp,
+                            artistAlpha = 0.62f,
+                            showArtistWithAnnotation = true,
+                            contentColor = palette.onBackground,
+                            onArtistClick = onArtist,
+                            modifier = Modifier.weight(1f)
+                        )
+                        PlayerHeaderAction(
+                            kind = PlayerHeaderActionKind.Favorite,
+                            selected = isFavorite,
+                            onClick = onToggleFavorite
+                        )
+                        PlayerHeaderAction(kind = PlayerHeaderActionKind.More, onClick = onToggleMenu)
+                    }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(22.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentAlignment = Alignment.TopCenter
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
@@ -235,7 +263,7 @@ internal fun LandscapeCoverPlayerPage(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 PlayerProgressBlock(
                     currentPosition = currentPosition,
                     duration = duration,
