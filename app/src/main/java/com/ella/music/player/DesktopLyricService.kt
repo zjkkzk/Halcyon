@@ -512,10 +512,10 @@ class DesktopLyricService : Service() {
             return
         }
         val metrics = resources.displayMetrics
-        val halfWidth = ((view.width.takeIf { it > 0 } ?: dp(636)) / 2)
+        val halfWidth = ((view.width.takeIf { it > 0 } ?: desktopLyricWidth()) / 2)
 
         val maxX = (metrics.widthPixels / 2 - halfWidth).coerceAtLeast(0)
-        val maxY = (metrics.heightPixels - (view.height.takeIf { it > 0 } ?: dp(112))).coerceAtLeast(0)
+        val maxY = (metrics.heightPixels - (view.height.takeIf { it > 0 } ?: desktopLyricHeight())).coerceAtLeast(0)
         params.x = params.x.coerceIn(-maxX, maxX)
         params.y = params.y.coerceIn(-statusBarHeight() - dp(12), maxY)
     }
@@ -543,15 +543,30 @@ class DesktopLyricService : Service() {
             dp(150)
         }
 
-    private fun desktopLyricWidth(): Int =
-        (resources.displayMetrics.widthPixels * desktopLyricWidthPercent.coerceIn(40, 100) / 100f)
-            .roundToInt()
-            .coerceIn(dp(280), resources.displayMetrics.widthPixels - dp(16))
+    private fun desktopLyricWidth(): Int {
+        val metrics = resources.displayMetrics
+        val requestedWidth = (metrics.widthPixels * desktopLyricWidthPercent.coerceIn(40, 100) / 100f).roundToInt()
+        val maxWidth = if (isTabletDevice()) {
+            metrics.widthPixels - dp(16)
+        } else {
+            minOf(metrics.widthPixels - dp(72), (metrics.widthPixels * 0.86f).roundToInt())
+        }.coerceAtLeast(dp(180))
+        val minWidth = minOf(if (isTabletDevice()) dp(280) else dp(180), maxWidth)
+        return requestedWidth.coerceIn(minWidth, maxWidth)
+    }
 
-    private fun desktopLyricHeight(): Int =
-        (resources.displayMetrics.heightPixels * 0.42f)
+    private fun desktopLyricHeight(): Int {
+        val metrics = resources.displayMetrics
+        if (isTabletDevice()) {
+            return (metrics.heightPixels * 0.42f)
+                .roundToInt()
+                .coerceIn(dp(220), dp(520))
+        }
+        val maxHeight = minOf(dp(320), (metrics.heightPixels * 0.32f).roundToInt()).coerceAtLeast(dp(128))
+        return (metrics.heightPixels * 0.24f)
             .roundToInt()
-            .coerceIn(dp(220), dp(520))
+            .coerceIn(dp(128), maxHeight)
+    }
 
     private fun statusBarLyricX(lyricWidth: Int): Int {
         val sideOffset = ((resources.displayMetrics.widthPixels - lyricWidth) / 2 - dp(12)).coerceAtLeast(0)
