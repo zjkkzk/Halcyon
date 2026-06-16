@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">Hiển thị cách phát âm hoặc dòng phụ trên thanh trạng thái</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Gửi dòng phụ phát âm hoặc dịch làm dòng thứ hai của lời bài hát trên thanh trạng thái.</string>
     <string name="settings_heads_up_lyric_secondary">Dòng lời bài hát hướng dẫn phụ</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">Lời bài hát Lock Screen Island ColorOS</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Gửi toàn bộ lời bài hát LRC tới Lock Screen Island ColorOS qua MediaMetadata[&quot;lyricInfo&quot;]. Một số phiên bản hệ thống vẫn có thể giới hạn ứng dụng được hỗ trợ.</string>
     <string name="settings_enable_bluetooth_lyric">Bật lời bài hát thông báo phương tiện</string>
     <string name="settings_enable_bluetooth_lyric_summary">Viết lời bài hát hiện tại vào tiêu đề thông báo phương tiện cho thiết bị Bluetooth, bộ phận đầu ô tô hoặc trung tâm truyền thông.</string>
     <string name="settings_bluetooth_lyric_translation">Gửi bản dịch tới lời bài hát thông báo trên phương tiện truyền thông</string>

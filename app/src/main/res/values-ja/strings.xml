@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">ステータスバーに読み仮名/サブ行を表示</string>
     <string name="settings_status_bar_phonetic_secondary_summary">有効にすると、読み仮名または翻訳サブ行をステータスバー歌詞の 2 行目として送信します。</string>
     <string name="settings_heads_up_lyric_secondary">ヘッドアップ歌詞通知のサブ行内容</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS ロック画面アイランド歌詞</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">MediaMetadata[&quot;lyricInfo&quot;] 経由で ColorOS ロック画面アイランドへ完全な LRC 歌詞を送信します。一部のシステムでは対応アプリが制限される場合があります。</string>
     <string name="settings_enable_bluetooth_lyric">メディア通知歌詞を有効化</string>
     <string name="settings_enable_bluetooth_lyric_summary">現在の歌詞をメディア通知タイトルに書き込み、Bluetooth デバイス、カーオーディオ、メディアセンターで表示します。</string>
     <string name="settings_bluetooth_lyric_translation">メディア通知歌詞に翻訳を送信</string>

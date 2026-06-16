@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">Tampilkan pelafalan atau baris sekunder di bilah status</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Kirim baris pelafalan atau terjemahan sekunder sebagai baris kedua lirik bilah status.</string>
     <string name="settings_heads_up_lyric_secondary">Baris sekunder lirik heads-up</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">Lirik Lock Screen Island ColorOS</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Kirim lirik LRC penuh ke Lock Screen Island ColorOS melalui MediaMetadata[&quot;lyricInfo&quot;]. Beberapa versi sistem mungkin masih membatasi aplikasi yang didukung.</string>
     <string name="settings_enable_bluetooth_lyric">Aktifkan lirik notifikasi media</string>
     <string name="settings_enable_bluetooth_lyric_summary">Tuliskan lirik saat ini ke judul notifikasi media untuk perangkat Bluetooth, head unit mobil, atau pusat media.</string>
     <string name="settings_bluetooth_lyric_translation">Kirim terjemahan ke lirik notifikasi media</string>

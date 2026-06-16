@@ -44,13 +44,19 @@ import com.ella.music.MainActivity
 import com.ella.music.data.AppLogStore
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.PlaylistStore
+import com.ella.music.data.model.LyricLine
+import com.ella.music.data.model.Song
+import com.ella.music.data.model.shiftedBy
+import com.ella.music.data.repository.MusicRepository
 import com.ella.music.data.webdav.WebDavClient
 import com.ella.music.data.webdav.WebDavConfig
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -60,6 +66,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import android.os.Bundle
+import org.json.JSONObject
+import java.util.Locale
 
 data class PlaybackExternalSnapshot(
     val mediaItem: MediaItem?,
@@ -91,6 +99,7 @@ class PlaybackService : MediaLibraryService() {
         const val ACTION_PLAY_PAUSE = "com.ella.music.action.PLAY_PAUSE"
         const val ACTION_SKIP_NEXT = "com.ella.music.action.SKIP_NEXT"
         private const val TIMING_TAG = "EllaPlaybackTiming"
+        private const val OPLUS_LYRIC_INFO_KEY = "lyricInfo"
 
         val bluetoothConnectEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val externalPlaybackChangeEvent = MutableSharedFlow<PlaybackExternalSnapshot>(extraBufferCapacity = 8)
@@ -106,10 +115,24 @@ class PlaybackService : MediaLibraryService() {
 
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var notificationProvider: NoArtworkMediaNotificationProvider
+    private lateinit var settingsManager: SettingsManager
+    private lateinit var musicRepository: MusicRepository
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var bluetoothReceiver: BluetoothAutoPlayReceiver? = null
     private var openedAudioEffectSessionId = -1
     private val audioEffectController = AudioEffectController()
+    private var oplusLyricInfoJob: Job? = null
+    private var oplusLyricInfoReapplyJob: Job? = null
+    private var oplusLyricInfoRefreshJob: Job? = null
+    private var oplusLyricInfoPendingSongKey: String? = null
+    private var oplusLyricInfoSongKey: String? = null
+    private var oplusLyricInfoJson: String? = null
+    private val oplusLyricInfoPrefetchJobs = mutableMapOf<String, Job>()
+    private val oplusLyricInfoCache = object : LinkedHashMap<String, String?>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String?>): Boolean = size > 24
+    }
+    @Volatile
+    private var colorOsLockScreenLyricEnabled = false
     @Volatile
     private var previousButtonAction = SettingsManager.PREVIOUS_BUTTON_PREVIOUS
     @Volatile
@@ -122,11 +145,15 @@ class PlaybackService : MediaLibraryService() {
         super.onCreate()
         notificationProvider = NoArtworkMediaNotificationProvider(this)
         setMediaNotificationProvider(notificationProvider)
-        val settingsManager = SettingsManager.getInstance(this)
+        settingsManager = SettingsManager.getInstance(this)
+        musicRepository = MusicRepository.getInstance(this)
         var webDavConfig = currentWebDavConfig(settingsManager)
         appShuffleEnabled = loadAppShuffleEnabled()
         previousButtonAction = runBlocking(Dispatchers.IO) {
             settingsManager.previousButtonAction.first()
+        }
+        colorOsLockScreenLyricEnabled = runBlocking(Dispatchers.IO) {
+            settingsManager.colorOsLockScreenLyricEnabled.first()
         }
         val httpDataSourceFactory = OkHttpDataSource.Factory(
             WebDavClient.newAuthenticatedOkHttpClient { webDavConfig }
@@ -142,6 +169,16 @@ class PlaybackService : MediaLibraryService() {
         serviceScope.launch {
             settingsManager.bluetoothAutoPlay.collect { enabled ->
                 bluetoothAutoPlayEnabled = enabled
+            }
+        }
+        serviceScope.launch {
+            settingsManager.colorOsLockScreenLyricEnabled.collect { enabled ->
+                colorOsLockScreenLyricEnabled = enabled
+                if (enabled) {
+                    refreshCurrentOplusLyricInfo()
+                } else {
+                    clearCurrentOplusLyricInfo()
+                }
             }
         }
         serviceScope.launch {
@@ -217,11 +254,17 @@ class PlaybackService : MediaLibraryService() {
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 notifyLibraryChanged(player.mediaItemCount)
+                refreshCurrentOplusLyricInfo(player)
+            }
+
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                scheduleOplusLyricInfoRefreshBurst(player)
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 Log.d(TIMING_TAG, "service media transition reason=$reason mediaId=${mediaItem?.mediaId}")
                 updateMediaButtonPreferences()
+                scheduleOplusLyricInfoRefreshBurst(player)
                 publishExternalPlaybackSnapshot(player)
             }
 
@@ -232,6 +275,7 @@ class PlaybackService : MediaLibraryService() {
                         Log.d(TIMING_TAG, "player state READY mediaId=${player.currentMediaItem?.mediaId}")
                         // Audio track exists once READY; retry effect attach for ROMs that reject it earlier.
                         audioEffectController.bind(player.audioSessionId)
+                        scheduleOplusLyricInfoRefreshBurst(player)
                     }
                     Player.STATE_ENDED -> Log.d(TIMING_TAG, "player state ENDED mediaId=${player.currentMediaItem?.mediaId}")
                 }
@@ -407,6 +451,350 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    private fun refreshCurrentOplusLyricInfo(player: Player? = mediaSession?.player) {
+        val currentPlayer = player ?: return
+        val currentItem = currentPlayer.currentMediaItem
+        val song = currentItem?.toSongFromMediaItemExtras()
+
+        if (!colorOsLockScreenLyricEnabled) {
+            clearCurrentOplusLyricInfo(currentPlayer)
+            return
+        }
+
+        if (currentItem == null || song == null) {
+            clearOplusLyricInfoState()
+            return
+        }
+
+        val songKey = song.playbackStackKey()
+        val existingLyricInfoJson = currentItem.oplusLyricInfoJsonFor(song)
+        if (existingLyricInfoJson != null) {
+            oplusLyricInfoCache[songKey] = existingLyricInfoJson
+            oplusLyricInfoSongKey = songKey
+            oplusLyricInfoJson = existingLyricInfoJson
+            prefetchAdjacentOplusLyricInfo(currentPlayer)
+            return
+        }
+
+        if (oplusLyricInfoSongKey == songKey) {
+            applyCurrentOplusLyricInfo(currentPlayer, song, oplusLyricInfoJson)
+            prefetchAdjacentOplusLyricInfo(currentPlayer)
+            return
+        }
+
+        if (oplusLyricInfoCache.containsKey(songKey)) {
+            val cachedJson = oplusLyricInfoCache[songKey]
+            oplusLyricInfoSongKey = songKey
+            oplusLyricInfoJson = cachedJson
+            applyCurrentOplusLyricInfo(currentPlayer, song, cachedJson)
+            prefetchAdjacentOplusLyricInfo(currentPlayer)
+            return
+        }
+        if (oplusLyricInfoPendingSongKey == songKey) return
+
+        oplusLyricInfoJob?.cancel()
+        oplusLyricInfoPendingSongKey = songKey
+        oplusLyricInfoJob = serviceScope.launch {
+            try {
+                val lyricInfoJson = runCatching {
+                    loadOplusLyricInfoJson(song)
+                }.getOrElse { error ->
+                    Log.w(TAG, "Failed to prepare OPlus lyricInfo for ${song.title}", error)
+                    null
+                }
+
+                val latestPlayer = mediaSession?.player ?: return@launch
+                val latestSong = latestPlayer.currentMediaItem?.toSongFromMediaItemExtras()
+                if (latestSong?.playbackStackKey() != songKey) return@launch
+
+                oplusLyricInfoSongKey = songKey
+                oplusLyricInfoJson = lyricInfoJson
+                oplusLyricInfoCache[songKey] = lyricInfoJson
+                applyCurrentOplusLyricInfo(latestPlayer, latestSong, lyricInfoJson)
+                scheduleOplusLyricInfoReapply(songKey)
+                prefetchAdjacentOplusLyricInfo(latestPlayer)
+            } finally {
+                if (oplusLyricInfoPendingSongKey == songKey) {
+                    oplusLyricInfoPendingSongKey = null
+                }
+            }
+        }
+    }
+
+    private fun scheduleOplusLyricInfoRefreshBurst(player: Player? = mediaSession?.player) {
+        if (!colorOsLockScreenLyricEnabled) {
+            clearCurrentOplusLyricInfo(player)
+            return
+        }
+
+        refreshCurrentOplusLyricInfo(player)
+        oplusLyricInfoRefreshJob?.cancel()
+        oplusLyricInfoRefreshJob = serviceScope.launch {
+            for (delayMs in listOf(120L, 420L, 1_000L, 2_200L)) {
+                delay(delayMs)
+                refreshCurrentOplusLyricInfo()
+            }
+        }
+    }
+
+    private fun scheduleOplusLyricInfoReapply(songKey: String) {
+        oplusLyricInfoReapplyJob?.cancel()
+        if (oplusLyricInfoJson.isNullOrBlank()) return
+
+        oplusLyricInfoReapplyJob = serviceScope.launch {
+            for (delayMs in listOf(600L, 1_600L, 3_500L, 7_000L, 12_000L)) {
+                delay(delayMs)
+                if (!colorOsLockScreenLyricEnabled || oplusLyricInfoSongKey != songKey) return@launch
+                val player = mediaSession?.player ?: return@launch
+                val song = player.currentMediaItem?.toSongFromMediaItemExtras() ?: return@launch
+                if (song.playbackStackKey() != songKey) return@launch
+                applyCurrentOplusLyricInfo(player, song, oplusLyricInfoJson)
+            }
+        }
+    }
+
+    private fun clearOplusLyricInfoState() {
+        oplusLyricInfoJob?.cancel()
+        oplusLyricInfoReapplyJob?.cancel()
+        oplusLyricInfoRefreshJob?.cancel()
+        cancelOplusLyricInfoPrefetchJobs()
+        oplusLyricInfoPendingSongKey = null
+        oplusLyricInfoSongKey = null
+        oplusLyricInfoJson = null
+    }
+
+    private fun clearCurrentOplusLyricInfo(player: Player? = mediaSession?.player) {
+        oplusLyricInfoJob?.cancel()
+        oplusLyricInfoReapplyJob?.cancel()
+        oplusLyricInfoRefreshJob?.cancel()
+        cancelOplusLyricInfoPrefetchJobs()
+        oplusLyricInfoPendingSongKey = null
+        oplusLyricInfoSongKey = null
+        oplusLyricInfoJson = null
+
+        val currentPlayer = player ?: return
+        val song = currentPlayer.currentMediaItem?.toSongFromMediaItemExtras() ?: return
+        applyCurrentOplusLyricInfo(currentPlayer, song, null)
+    }
+
+    private fun cancelOplusLyricInfoPrefetchJobs() {
+        oplusLyricInfoPrefetchJobs.values.forEach { it.cancel() }
+        oplusLyricInfoPrefetchJobs.clear()
+    }
+
+    private fun prefetchAdjacentOplusLyricInfo(player: Player? = mediaSession?.player) {
+        val currentPlayer = player ?: return
+        if (!colorOsLockScreenLyricEnabled || currentPlayer.mediaItemCount < 2) return
+
+        for (targetIndex in currentPlayer.oplusLyricPrefetchIndices()) {
+            val targetItem = currentPlayer.getMediaItemAt(targetIndex)
+            val targetSong = targetItem.toSongFromMediaItemExtras() ?: continue
+            val targetSongKey = targetSong.playbackStackKey()
+
+            if (targetItem.oplusLyricInfoJsonFor(targetSong) != null) continue
+            if (oplusLyricInfoCache.containsKey(targetSongKey)) {
+                oplusLyricInfoCache[targetSongKey]?.let { cachedJson ->
+                    applyOplusLyricInfoToQueueItem(currentPlayer, targetIndex, targetSong, cachedJson)
+                }
+                continue
+            }
+            if (oplusLyricInfoPrefetchJobs.containsKey(targetSongKey)) continue
+
+            lateinit var prefetchJob: Job
+            prefetchJob = serviceScope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    val lyricInfoJson = runCatching {
+                        loadOplusLyricInfoJson(targetSong)
+                    }.getOrElse { error ->
+                        Log.w(TAG, "Failed to prefetch OPlus lyricInfo for ${targetSong.title}", error)
+                        null
+                    }
+                    oplusLyricInfoCache[targetSongKey] = lyricInfoJson
+                    if (lyricInfoJson.isNullOrBlank()) return@launch
+
+                    val latestPlayer = mediaSession?.player ?: return@launch
+                    if (targetIndex >= latestPlayer.mediaItemCount) return@launch
+                    val latestItem = latestPlayer.getMediaItemAt(targetIndex)
+                    if (!latestItem.matchesSong(targetSong)) return@launch
+                    applyOplusLyricInfoToQueueItem(latestPlayer, targetIndex, targetSong, lyricInfoJson)
+                } finally {
+                    if (oplusLyricInfoPrefetchJobs[targetSongKey] === prefetchJob) {
+                        oplusLyricInfoPrefetchJobs.remove(targetSongKey)
+                    }
+                }
+            }
+            oplusLyricInfoPrefetchJobs[targetSongKey] = prefetchJob
+            prefetchJob.start()
+        }
+    }
+
+    private fun Player.oplusLyricPrefetchIndices(): List<Int> {
+        val currentIndex = currentMediaItemIndex
+        if (currentIndex == C.INDEX_UNSET || mediaItemCount <= 1) return emptyList()
+        val previousIndex = when {
+            currentIndex - 1 >= 0 -> currentIndex - 1
+            repeatMode == Player.REPEAT_MODE_ALL -> mediaItemCount - 1
+            else -> null
+        }
+        val nextIndex = when {
+            currentIndex + 1 < mediaItemCount -> currentIndex + 1
+            repeatMode == Player.REPEAT_MODE_ALL -> 0
+            else -> null
+        }
+        return listOfNotNull(previousIndex, nextIndex)
+            .filter { it != currentIndex }
+            .distinct()
+    }
+
+    private fun applyCurrentOplusLyricInfo(player: Player, song: Song, lyricInfoJson: String?) {
+        val index = player.currentMediaItemIndex
+        val currentItem = player.currentMediaItem ?: return
+        if (index == C.INDEX_UNSET || !currentItem.matchesSong(song)) return
+
+        val extras = Bundle(currentItem.mediaMetadata.extras ?: Bundle.EMPTY)
+        val currentJson = extras.getString(OPLUS_LYRIC_INFO_KEY)
+        if (lyricInfoJson.isNullOrBlank()) {
+            if (!extras.containsKey(OPLUS_LYRIC_INFO_KEY)) return
+            extras.remove(OPLUS_LYRIC_INFO_KEY)
+        } else {
+            if (currentJson == lyricInfoJson) return
+            extras.putString(OPLUS_LYRIC_INFO_KEY, lyricInfoJson)
+        }
+
+        val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+            .setExtras(extras)
+            .build()
+        val updatedItem = currentItem.buildUpon()
+            .setMediaMetadata(updatedMetadata)
+            .build()
+
+        runCatching {
+            player.replaceMediaItem(index, updatedItem)
+            Log.d(TIMING_TAG, "OPlus lyricInfo metadata updated mediaId=${song.id} hasLyric=${!lyricInfoJson.isNullOrBlank()}")
+        }.onFailure { error ->
+            Log.w(TAG, "Failed to update OPlus lyricInfo metadata for ${song.title}", error)
+        }
+    }
+
+    private fun applyOplusLyricInfoToQueueItem(player: Player, index: Int, song: Song, lyricInfoJson: String) {
+        if (index < 0 || index >= player.mediaItemCount) return
+        val mediaItem = player.getMediaItemAt(index)
+        if (!mediaItem.matchesSong(song)) return
+        val extras = Bundle(mediaItem.mediaMetadata.extras ?: Bundle.EMPTY)
+        if (extras.getString(OPLUS_LYRIC_INFO_KEY) == lyricInfoJson) return
+        extras.putString(OPLUS_LYRIC_INFO_KEY, lyricInfoJson)
+
+        val updatedItem = mediaItem.buildUpon()
+            .setMediaMetadata(
+                mediaItem.mediaMetadata.buildUpon()
+                    .setExtras(extras)
+                    .build()
+            )
+            .build()
+
+        runCatching {
+            player.replaceMediaItem(index, updatedItem)
+            Log.d(TIMING_TAG, "OPlus lyricInfo prefetched mediaId=${song.id} index=$index")
+        }.onFailure { error ->
+            Log.w(TAG, "Failed to prefetch OPlus lyricInfo metadata for ${song.title}", error)
+        }
+    }
+
+    private fun MediaItem.matchesSong(song: Song): Boolean {
+        if (song.id > 0L && mediaId == song.id.toString()) return true
+        val itemSong = toSongFromMediaItemExtras()
+        if (itemSong != null) return itemSong.isSamePlaybackIdentity(song)
+        return localConfiguration?.uri?.toString().orEmpty() == song.path
+    }
+
+    private fun MediaItem.oplusLyricInfoJsonFor(song: Song): String? {
+        val raw = mediaMetadata.extras
+            ?.getString(OPLUS_LYRIC_INFO_KEY)
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        return raw.takeIf { it.matchesOplusLyricSong(song) }
+    }
+
+    private suspend fun loadOplusLyricInfoJson(song: Song): String? {
+        val sourceMode = settingsManager.lyricSourceMode.first()
+        val offsetMs = settingsManager.lyricOffsetOverrides.first()[song.oplusLyricOffsetKey()] ?: 0L
+        return musicRepository.getLyrics(song, sourceMode)
+            .shiftedBy(offsetMs)
+            .toOplusLyricInfoJson(song)
+    }
+
+    private fun List<LyricLine>.toOplusLyricInfoJson(song: Song): String? {
+        val lrc = toOplusLrc().takeIf { it.isNotBlank() } ?: return null
+        return JSONObject()
+            .put("songName", song.title)
+            .put("artist", song.artist)
+            .put("songId", song.oplusLyricSongId())
+            .put("lyric", lrc)
+            .toString()
+    }
+
+    private fun String.matchesOplusLyricSong(song: Song): Boolean {
+        return runCatching {
+            val json = JSONObject(this)
+            val songId = json.optString("songId").takeIf { it.isNotBlank() }
+            when {
+                songId != null -> songId == song.oplusLyricSongId()
+                else -> {
+                    val songName = json.optString("songName")
+                    val artist = json.optString("artist")
+                    songName == song.title && artist == song.artist
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun List<LyricLine>.toOplusLrc(): String {
+        return mapNotNull { line ->
+            val primaryText = listOf(line.text, line.translation.orEmpty())
+                .mapNotNull { it.toOplusLrcTextOrNull() }
+                .distinct()
+                .joinToString(" / ")
+                .takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            line.timeMs.coerceAtLeast(0L) to primaryText
+        }
+            .sortedBy { it.first }
+            .joinToString("\n") { (timeMs, text) ->
+                "${timeMs.toOplusLrcTimestamp()}$text"
+            }
+    }
+
+    private fun String.toOplusLrcTextOrNull(): String? {
+        return lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun Long.toOplusLrcTimestamp(): String {
+        val safeMs = coerceAtLeast(0L)
+        val minutes = safeMs / 60_000L
+        val seconds = (safeMs % 60_000L) / 1_000L
+        val centiseconds = (safeMs % 1_000L) / 10L
+        return "[%02d:%02d.%02d]".format(Locale.US, minutes, seconds, centiseconds)
+    }
+
+    private fun Song.oplusLyricSongId(): String = when {
+        onlineSource.isNotBlank() && onlineId.isNotBlank() -> "$onlineSource:$onlineId"
+        id > 0L -> id.toString()
+        path.isNotBlank() -> path
+        else -> "$title|$artist|$album"
+    }
+
+    private fun Song.oplusLyricOffsetKey(): String {
+        return when {
+            onlineSource.isNotBlank() || onlineId.isNotBlank() -> "online:$onlineSource:$onlineId:$path"
+            path.isNotBlank() -> "path:$path"
+            else -> "id:$id"
+        }
+    }
+
     @OptIn(UnstableApi::class)
     private fun updateMediaButtonPreferences() {
         val session = mediaSession ?: return
@@ -436,7 +824,7 @@ class PlaybackService : MediaLibraryService() {
         buttons += CommandButton.Builder()
             .setDisplayName(getString(R.string.common_previous))
             .setIconResId(R.drawable.ic_skip_previous)
-            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             .build()
 
         buttons += CommandButton.Builder()
@@ -454,7 +842,7 @@ class PlaybackService : MediaLibraryService() {
         buttons += CommandButton.Builder()
             .setDisplayName(getString(R.string.common_next))
             .setIconResId(R.drawable.ic_skip_next)
-            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
             .build()
 
         buttons += CommandButton.Builder()
@@ -876,6 +1264,19 @@ class PlaybackService : MediaLibraryService() {
 
             val compactIndices = mutableListOf<Int>()
             var actionCount = 0
+            fun addMediaAction(command: Int, icon: Int, title: String, compact: Boolean = false) {
+                val index = actionCount++
+                builder.addAction(
+                    actionFactory.createMediaAction(
+                        mediaSession,
+                        IconCompat.createWithResource(service, icon),
+                        title,
+                        command
+                    )
+                )
+                if (compact) compactIndices += index
+            }
+
             fun addCustomAction(action: String, icon: Int, title: String, compact: Boolean = false) {
                 val index = actionCount++
                 builder.addAction(
@@ -903,25 +1304,26 @@ class PlaybackService : MediaLibraryService() {
                 compact = false
             )
 
-            addCustomAction(
-                ACTION_SKIP_PREVIOUS,
+            addMediaAction(
+                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
                 R.drawable.ic_skip_previous,
                 service.getString(R.string.common_previous),
                 compact = true
             )
 
-            addCustomAction(
-                ACTION_PLAY_PAUSE,
+            addMediaAction(
+                Player.COMMAND_PLAY_PAUSE,
                 if (player.isPlaying) {
                     R.drawable.ic_player_pause
                 } else {
                     R.drawable.ic_player_play
                 },
-                if (player.isPlaying) service.getString(R.string.common_pause) else service.getString(R.string.common_play)
+                if (player.isPlaying) service.getString(R.string.common_pause) else service.getString(R.string.common_play),
+                compact = true
             )
 
-            addCustomAction(
-                ACTION_SKIP_NEXT,
+            addMediaAction(
+                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
                 R.drawable.ic_skip_next,
                 service.getString(R.string.common_next),
                 compact = true

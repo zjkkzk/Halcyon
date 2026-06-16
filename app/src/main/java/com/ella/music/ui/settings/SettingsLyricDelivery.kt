@@ -96,6 +96,7 @@ internal fun SettingsLyricOutputControls(
     val bluetoothLyricEnabled by settingsManager.bluetoothLyricEnabled.collectAsState(initial = false)
     val bluetoothLyricTranslation by settingsManager.bluetoothLyricTranslation.collectAsState(initial = true)
     val bluetoothLyricPronunciation by settingsManager.bluetoothLyricPronunciation.collectAsState(initial = false)
+    val colorOsLockScreenLyricEnabled by settingsManager.colorOsLockScreenLyricEnabled.collectAsState(initial = false)
     val isFlymeDevice = remember {
         Build.MANUFACTURER.orEmpty().contains("meizu", ignoreCase = true) ||
             Build.BRAND.orEmpty().contains("meizu", ignoreCase = true) ||
@@ -223,6 +224,15 @@ internal fun SettingsLyricOutputControls(
                     }
                 }
             }
+        }
+    )
+
+    SwitchPreference(
+        title = stringResource(R.string.settings_enable_coloros_lock_screen_lyric),
+        summary = stringResource(R.string.settings_enable_coloros_lock_screen_lyric_summary),
+        checked = colorOsLockScreenLyricEnabled,
+        onCheckedChange = { enabled ->
+            scope.launch { settingsManager.setColorOsLockScreenLyricEnabled(enabled) }
         }
     )
 

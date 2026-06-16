@@ -896,6 +896,8 @@
     <string name="settings_status_bar_phonetic_secondary">Показывать произношение или дополнительную строку в строке состояния</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Отправьте второстепенную строку произношения или перевода в качестве второй строки текста строки состояния.</string>
     <string name="settings_heads_up_lyric_secondary">Лирическая второстепенная линия хедз-ап</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">Тексты Lock Screen Island ColorOS</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Отправляет полный LRC-текст в Lock Screen Island ColorOS через MediaMetadata[&quot;lyricInfo&quot;]. Некоторые версии системы могут по-прежнему ограничивать поддерживаемые приложения.</string>
     <string name="settings_enable_bluetooth_lyric">Включить тексты медиа-уведомлений</string>
     <string name="settings_enable_bluetooth_lyric_summary">Впишите текущий текст в заголовок медиа-уведомления для устройств Bluetooth, автомобильных головных устройств или медиацентров.</string>
     <string name="settings_bluetooth_lyric_translation">Отправить перевод в уведомление СМИ</string>

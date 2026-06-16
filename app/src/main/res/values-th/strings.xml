@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">แสดงการออกเสียงหรือบรรทัดที่สองบนแถบสถานะ</string>
     <string name="settings_status_bar_phonetic_secondary_summary">ส่งบรรทัดการออกเสียงหรือคำแปลเป็นบรรทัดที่สองของเนื้อเพลงบนแถบสถานะ</string>
     <string name="settings_heads_up_lyric_secondary">บรรทัดที่สองของเนื้อเพลงแบบ heads-up</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">เนื้อเพลง Lock Screen Island ของ ColorOS</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">ส่งเนื้อเพลง LRC ทั้งเพลงไปยัง Lock Screen Island ของ ColorOS ผ่าน MediaMetadata[&quot;lyricInfo&quot;] บางเวอร์ชันของระบบอาจยังจำกัดแอปที่รองรับ</string>
     <string name="settings_enable_bluetooth_lyric">เปิดใช้งานเนื้อเพลงในการแจ้งเตือนสื่อ</string>
     <string name="settings_enable_bluetooth_lyric_summary">เขียนเนื้อเพลงปัจจุบันลงในชื่อการแจ้งเตือนสื่อสำหรับอุปกรณ์ Bluetooth ชุดเครื่องเสียงรถยนต์ หรือศูนย์สื่อ</string>
     <string name="settings_bluetooth_lyric_translation">ส่งคำแปลไปยังเนื้อเพลงในการแจ้งเตือนสื่อ</string>

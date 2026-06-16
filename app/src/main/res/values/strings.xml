@@ -991,6 +991,8 @@
     <string name="settings_status_bar_phonetic_secondary">状态栏显示注音/副行</string>
     <string name="settings_status_bar_phonetic_secondary_summary">开启后将注音或翻译副行作为状态栏歌词的第二行传递。</string>
     <string name="settings_heads_up_lyric_secondary">浮动通知歌词副行内容</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS 锁屏岛歌词</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">通过 MediaMetadata[&quot;lyricInfo&quot;] 向 ColorOS 锁屏岛传递整首 LRC 歌词，部分系统版本可能仍受白名单限制。</string>
     <string name="settings_enable_bluetooth_lyric">启用媒体通知歌词</string>
     <string name="settings_enable_bluetooth_lyric_summary">将当前歌词写入媒体通知标题，供蓝牙设备、车机或媒体中心显示。</string>
     <string name="settings_bluetooth_lyric_translation">媒体通知歌词传递翻译</string>

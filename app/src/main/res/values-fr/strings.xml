@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">Afficher la prononciation ou la ligne secondaire dans la barre d’état</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Envoyer la prononciation ou la ligne secondaire de traduction comme seconde ligne des paroles de barre d’état.</string>
     <string name="settings_heads_up_lyric_secondary">Ligne secondaire des paroles en notification flottante</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">Paroles de l’ilot d’écran verrouillé ColorOS</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Envoie les paroles LRC complètes à l’ilot d’écran verrouillé ColorOS via MediaMetadata[&quot;lyricInfo&quot;]. Certaines versions du système peuvent encore limiter les apps prises en charge.</string>
     <string name="settings_enable_bluetooth_lyric">Activer les paroles dans la notification média</string>
     <string name="settings_enable_bluetooth_lyric_summary">Écrire la parole actuelle dans le titre de la notification média pour les appareils Bluetooth, les systèmes embarqués ou les centres multimédias.</string>
     <string name="settings_bluetooth_lyric_translation">Envoyer la traduction aux paroles de notification média</string>

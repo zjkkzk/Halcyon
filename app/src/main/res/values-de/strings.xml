@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">Aussprache oder zweite Zeile in der Statusleiste anzeigen</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Aussprache oder Übersetzung als zweite Zeile der Statusleisten-Lyrics senden.</string>
     <string name="settings_heads_up_lyric_secondary">Zweite Zeile für Heads-up-Liedtext</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS-Sperrbildschirm-Insel-Liedtexte</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Sendet vollständige LRC-Liedtexte über MediaMetadata[&quot;lyricInfo&quot;] an die ColorOS-Sperrbildschirm-Insel. Einige Systemversionen können unterstützte Apps weiterhin einschränken.</string>
     <string name="settings_enable_bluetooth_lyric">Liedtexte in Medienbenachrichtigung aktivieren</string>
     <string name="settings_enable_bluetooth_lyric_summary">Aktuellen Liedtext als Titel der Medienbenachrichtigung für Bluetooth-Geräte, Auto-Headunits oder Medienzentren schreiben.</string>
     <string name="settings_bluetooth_lyric_translation">Übersetzung an Medienbenachrichtigungs-Lyrics senden</string>

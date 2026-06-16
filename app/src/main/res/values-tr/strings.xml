@@ -896,6 +896,8 @@
     <string name="settings_status_bar_phonetic_secondary">Durum çubuğunda telaffuzu veya ikincil satırı göster</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Telaffuz veya çeviri ikincil satırını durum çubuğu sözünün ikinci satırı olarak gönderin.</string>
     <string name="settings_heads_up_lyric_secondary">Dikkatli şarkı sözü ikincil satırı</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS Lock Screen Island şarkı sözleri</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Tam LRC şarkı sözlerini MediaMetadata[&quot;lyricInfo&quot;] üzerinden ColorOS Lock Screen Island’a gönderir. Bazı sistem sürümleri desteklenen uygulamaları yine de kısıtlayabilir.</string>
     <string name="settings_enable_bluetooth_lyric">Medya bildirim şarkı sözlerini etkinleştir</string>
     <string name="settings_enable_bluetooth_lyric_summary">Geçerli şarkıyı Bluetooth cihazları, araç ana üniteleri veya medya merkezleri için medya bildirim başlığına yazın.</string>
     <string name="settings_bluetooth_lyric_translation">Medya bildirim şarkı sözlerine çeviri gönder</string>

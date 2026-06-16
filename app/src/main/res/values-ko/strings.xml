@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">상태 표시줄에 발음 또는 보조 줄 표시</string>
     <string name="settings_status_bar_phonetic_secondary_summary">상태 표시줄 가사의 두 번째 줄에 발음이나 번역 보조 줄을 보냅니다.</string>
     <string name="settings_heads_up_lyric_secondary">헤드업 가사 보조 줄</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS 잠금 화면 아일랜드 가사</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">MediaMetadata[&quot;lyricInfo&quot;]를 통해 전체 LRC 가사를 ColorOS 잠금 화면 아일랜드로 보냅니다. 일부 시스템 버전에서는 지원 앱이 계속 제한될 수 있습니다.</string>
     <string name="settings_enable_bluetooth_lyric">미디어 알림 가사 활성화</string>
     <string name="settings_enable_bluetooth_lyric_summary">블루투스 기기, 자동차 헤드 유닛, 미디어 가운데의 미디어 알림 제목에 현재 가사를 입력하세요.</string>
     <string name="settings_bluetooth_lyric_translation">미디어 알림 가사로 번역 보내기</string>

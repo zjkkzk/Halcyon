@@ -898,6 +898,8 @@
     <string name="settings_status_bar_phonetic_secondary">狀態列顯示發音/副行</string>
     <string name="settings_status_bar_phonetic_secondary_summary">開啟後將發音或翻譯副行作為狀態列歌詞的第二行傳送。</string>
     <string name="settings_heads_up_lyric_secondary">橫幅歌詞通知副行內容</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS 鎖屏島歌詞</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">透過 MediaMetadata[&quot;lyricInfo&quot;] 向 ColorOS 鎖屏島傳送整首 LRC 歌詞，部分系統版本可能仍受白名單限制。</string>
     <string name="settings_enable_bluetooth_lyric">啟用媒體通知歌詞</string>
     <string name="settings_enable_bluetooth_lyric_summary">將目前歌詞寫入媒體通知標題，供藍牙裝置、車用主機或媒體中心顯示。</string>
     <string name="settings_bluetooth_lyric_translation">媒體通知歌詞傳送翻譯</string>

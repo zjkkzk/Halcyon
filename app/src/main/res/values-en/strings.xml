@@ -941,6 +941,8 @@
     <string name="settings_status_bar_phonetic_secondary">Show pronunciation or secondary line in status bar</string>
     <string name="settings_status_bar_phonetic_secondary_summary">Send the pronunciation or translation secondary line as the second line of the status bar lyric.</string>
     <string name="settings_heads_up_lyric_secondary">Heads-up lyric secondary line</string>
+    <string name="settings_enable_coloros_lock_screen_lyric">ColorOS Lock Screen Island lyrics</string>
+    <string name="settings_enable_coloros_lock_screen_lyric_summary">Send full LRC lyrics to ColorOS Lock Screen Island through MediaMetadata[&quot;lyricInfo&quot;]. Some system builds may still restrict supported apps.</string>
     <string name="settings_enable_bluetooth_lyric">Enable media notification lyrics</string>
     <string name="settings_enable_bluetooth_lyric_summary">Write the current lyric into the media notification title for Bluetooth devices, car head units, or media centers.</string>
     <string name="settings_bluetooth_lyric_translation">Send translation to media notification lyrics</string>
