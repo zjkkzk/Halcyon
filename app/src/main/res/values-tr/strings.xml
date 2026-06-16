@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">Gauss Bulanıklığı</string>
     <string name="bottom_bar_glass_effect_liquid">Sıvı Cam</string>
     <string name="settings_bottom_dock_items">Alt çubuk girişleri</string>
-    <string name="settings_bottom_dock_items_summary">En fazla 4 girişi gösterin; arama ayrıca bir slot alır</string>
+    <string name="settings_bottom_dock_items_summary">En fazla 5 girişi gösterin; arama ayrıca bir slot alır</string>
     <string name="settings_bottom_dock_slot">Alt çubuk girişi %1$d</string>
     <string name="settings_bottom_dock_item_none">Gizli</string>
     <string name="settings_theme_mode">Tema modu</string>
@@ -418,6 +418,7 @@
     <string name="folder_full_scan">Tam tarama</string>
     <string name="folder_add_custom_directory">Özel dizin ekle</string>
     <string name="folder_scanning_library">Müzik kitaplığı taranıyor...</string>
+    <string name="library_scan_finished_summary">Tarama tamamlandı: %1$d şarkı\n%2$d eklendi, %3$d güncellendi, %4$d silindi</string>
     <string name="folder_use_android_media_library">Android ortam kitaplığını kullanın</string>
     <string name="folder_scan_android_media_summary">Sistem ortam kitaplığındaki tüm müzikleri tarayın</string>
     <string name="folder_scan_custom_folders_summary">Yalnızca %1$d eklenen özel klasörleri tarayın</string>
@@ -1291,7 +1292,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">Oyuncu kapağı bulanıklığı arka planı ve şarkı sözü görsel efektleri için referans</string>
     <string name="about_summary_beautiful_lyrics">Dinamik arka planlar, tam ekran sözler ve şarkı sözü görsel deneyimi için referans</string>
-    <string name="about_summary_splayer">Oyuncu animasyonları ve şarkı sözü deneyimi için referans</string>
     <string name="about_title_lightcone">Lightcone Müzik</string>
     <string name="about_summary_lightcone">Bazı kullanıcı arayüzü görselleri ve efektleri için referans</string>
     <string name="about_summary_miuix">MIUI/HyperOS tarzı Oluşturma UI bileşen kitaplığı (Apache-2.0)</string>
@@ -1438,5 +1438,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

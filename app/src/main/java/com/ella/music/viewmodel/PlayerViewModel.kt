@@ -890,14 +890,50 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private fun List<LyricLine>.filterBlacklistedLyricLines(): List<LyricLine> {
         val rules = lyricBlacklistRules
         if (isEmpty() || rules.isEmpty()) return this
-        return filterNot { line ->
-            rules.any { rule ->
-                rule.matches(line.text) ||
-                    rule.matches(line.translation) ||
-                    rule.matches(line.pronunciation) ||
-                    rule.matches(line.backgroundText) ||
-                    rule.matches(line.backgroundTranslation)
-            }
+        return mapNotNull { line -> line.withoutBlacklistedParts(rules) }
+    }
+
+    private fun LyricLine.withoutBlacklistedParts(rules: List<LyricBlacklistRule>): LyricLine? {
+        fun blocked(text: String?): Boolean = rules.any { it.matches(text) }
+        val textBlocked = blocked(text)
+        val translationBlocked = blocked(translation)
+        val pronunciationBlocked = blocked(pronunciation)
+        val backgroundBlocked = blocked(backgroundText)
+        val backgroundTranslationBlocked = blocked(backgroundTranslation)
+
+        val remainingText = text.takeUnless { textBlocked }.orEmpty()
+        val remainingTranslation = translation.takeUnless { translationBlocked }
+        val remainingPronunciation = pronunciation.takeUnless { pronunciationBlocked }
+        val remainingBackgroundText = backgroundText.takeUnless { backgroundBlocked }
+        val remainingBackgroundTranslation = backgroundTranslation.takeUnless { backgroundTranslationBlocked }
+
+        val promotedText = remainingText.ifBlank {
+            remainingTranslation
+                ?.takeIf { it.isNotBlank() }
+                ?: remainingPronunciation?.takeIf { it.isNotBlank() }
+                ?: remainingBackgroundText?.takeIf { it.isNotBlank() }
+                ?: ""
+        }
+        val promotedFromTranslation = remainingText.isBlank() && promotedText == remainingTranslation
+        val promotedFromPronunciation = remainingText.isBlank() && promotedText == remainingPronunciation
+        val promotedFromBackground = remainingText.isBlank() && promotedText == remainingBackgroundText
+
+        val filtered = copy(
+            text = promotedText,
+            words = if (textBlocked || promotedText != text) emptyList() else words,
+            translation = remainingTranslation.takeUnless { promotedFromTranslation },
+            pronunciation = remainingPronunciation.takeUnless { promotedFromPronunciation },
+            pronunciationWords = if (pronunciationBlocked || promotedFromPronunciation) emptyList() else pronunciationWords,
+            backgroundText = remainingBackgroundText.takeUnless { promotedFromBackground },
+            backgroundWords = if (backgroundBlocked || promotedFromBackground) emptyList() else backgroundWords,
+            backgroundTranslation = remainingBackgroundTranslation
+        )
+        return filtered.takeIf {
+            it.text.isNotBlank() ||
+                !it.translation.isNullOrBlank() ||
+                !it.pronunciation.isNullOrBlank() ||
+                !it.backgroundText.isNullOrBlank() ||
+                !it.backgroundTranslation.isNullOrBlank()
         }
     }
 

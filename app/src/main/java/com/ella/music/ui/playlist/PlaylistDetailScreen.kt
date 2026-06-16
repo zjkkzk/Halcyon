@@ -45,12 +45,15 @@ import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.ellaPageBackground
+import com.ella.music.ui.components.toFastIndexSection
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
@@ -134,6 +137,20 @@ fun PlaylistDetailScreen(
         }
     }
     val songListHeaderCount = 2
+    val showSongSideIndex = !selectionMode &&
+        searchQuery.isBlank() &&
+        sortMode == PlaylistSongSortMode.Title &&
+        displayedSongs.size > 30
+    val songFastIndexData = remember(showSongSideIndex, displayedSongs) {
+        if (!showSongSideIndex) {
+            emptyList()
+        } else {
+            displayedSongs
+                .mapIndexed { index, song -> song.title.toFastIndexSection() to (index + songListHeaderCount) }
+                .distinctBy { it.first }
+        }
+    }
+    val showScrollIndicator = displayedSongs.size > 30 && !showSongSideIndex
     val reorderableLazyListState = rememberReorderableLazyListState(
         lazyListState = listState,
         onMove = { from, to ->
@@ -433,14 +450,21 @@ fun PlaylistDetailScreen(
                         state = reorderableLazyListState,
                         key = song.playlistIdentityKey()
                     ) { isDragging ->
-                        val dragHandleModifier = Modifier.draggableHandle(
-                            onDragStopped = {
-                                mainViewModel.reorderPlaylistSongs(
-                                    playlist.id,
-                                    manualOrder.map { it.playlistIdentityKey() }
-                                )
-                            }
-                        )
+                        fun settleManualOrder() {
+                            mainViewModel.reorderPlaylistSongs(
+                                playlist.id,
+                                manualOrder.map { it.playlistIdentityKey() }
+                            )
+                        }
+                        val dragHandleModifier = Modifier
+                            .draggableHandle(
+                                onDragStopped = ::settleManualOrder
+                            )
+                            .longPressDraggableHandle(
+                                onDragStopped = {
+                                    settleManualOrder()
+                                }
+                            )
                         val albumArtUri = remember(song.albumId) {
                             song.albumId
                                 .takeIf { it > 0L }
@@ -496,6 +520,27 @@ fun PlaylistDetailScreen(
                     }
                 }
             }
+            }
+
+            if (showSongSideIndex && songFastIndexData.isNotEmpty()) {
+                FastIndexBar(
+                    letters = songFastIndexData.map { it.first },
+                    onLetterClick = { letter ->
+                        songFastIndexData.firstOrNull { it.first == letter }?.second?.let { itemIndex ->
+                            scope.launch { listState.scrollToItem(itemIndex) }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(top = 72.dp, bottom = 126.dp)
+                )
+            } else if (showScrollIndicator) {
+                LazyListScrollIndicator(
+                    state = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(top = 72.dp, bottom = 126.dp)
+                )
             }
 
             LocateCurrentSongFloatingButton(

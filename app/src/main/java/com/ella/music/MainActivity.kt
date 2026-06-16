@@ -377,7 +377,14 @@ fun EllaApp(
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    val currentRoute = when (val route = navBackStackEntry?.destination?.route) {
+        Screen.MetadataCategory.route -> navBackStackEntry
+            ?.arguments
+            ?.getString("type")
+            ?.let(Screen.MetadataCategory::createRoute)
+            ?: route
+        else -> route
+    }
     val view = LocalView.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -717,7 +724,7 @@ fun EllaApp(
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_FOLDER to BottomDockTab(
             route = Screen.Folder.createRoute(fromDock = true),
-            label = stringResource(R.string.category_folder),
+            label = stringResource(R.string.category_folder_tree),
             icon = MiuixIcons.Regular.Folder
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_ARTIST to BottomDockTab(
@@ -729,11 +736,46 @@ fun EllaApp(
             route = Screen.Album.createRoute(fromDock = true),
             label = stringResource(R.string.category_album),
             icon = MiuixIcons.Regular.Album
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_SCAN_SETTINGS to BottomDockTab(
+            route = Screen.ScanSettings.route,
+            label = stringResource(R.string.folder_scan_settings),
+            icon = MiuixIcons.Regular.Settings
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_SETTINGS to BottomDockTab(
+            route = Screen.Settings.route,
+            label = stringResource(R.string.settings),
+            icon = MiuixIcons.Regular.Settings
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_YEAR to BottomDockTab(
+            route = Screen.MetadataCategory.createRoute("year"),
+            label = stringResource(R.string.category_year),
+            icon = MiuixIcons.Regular.Album
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_GENRE to BottomDockTab(
+            route = Screen.MetadataCategory.createRoute("genre"),
+            label = stringResource(R.string.category_genre),
+            icon = MiuixIcons.Regular.Music
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_COMPOSER to BottomDockTab(
+            route = Screen.MetadataCategory.createRoute("composer"),
+            label = stringResource(R.string.category_composer),
+            icon = MiuixIcons.Regular.ContactsCircle
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_LYRICIST to BottomDockTab(
+            route = Screen.MetadataCategory.createRoute("lyricist"),
+            label = stringResource(R.string.category_lyricist),
+            icon = MiuixIcons.Regular.ContactsCircle
+        ),
+        SettingsManager.BOTTOM_DOCK_ITEM_ANALYTICS to BottomDockTab(
+            route = Screen.Analytics.route,
+            label = stringResource(R.string.analytics_title),
+            icon = MiuixIcons.Regular.Music
         )
     )
     val tabs = bottomDockItemIds
         .mapNotNull { bottomDockSpecs[it] }
-        .take(4)
+        .take(SettingsManager.MAX_BOTTOM_DOCK_ITEMS)
         .ifEmpty {
             listOfNotNull(
                 bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_HOME],

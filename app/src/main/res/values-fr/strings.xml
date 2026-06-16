@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">Flou gaussien</string>
     <string name="bottom_bar_glass_effect_liquid">Verre liquide</string>
     <string name="settings_bottom_dock_items">Entrées de la barre inférieure</string>
-    <string name="settings_bottom_dock_items_summary">Afficher jusqu’à 4 entrées ; la recherche occupe aussi un emplacement</string>
+    <string name="settings_bottom_dock_items_summary">Afficher jusqu’à 5 entrées ; la recherche occupe aussi un emplacement</string>
     <string name="settings_bottom_dock_slot">Entrée %1$d de la barre inférieure</string>
     <string name="settings_bottom_dock_item_none">Masqué</string>
     <string name="settings_theme_mode">Mode du thème</string>
@@ -420,6 +420,7 @@
     <string name="folder_full_scan">Analyse complète</string>
     <string name="folder_add_custom_directory">Ajouter un dossier personnalisé</string>
     <string name="folder_scanning_library">Analyse de la bibliothèque musicale...</string>
+    <string name="library_scan_finished_summary">Analyse terminée : %1$d morceaux\n%2$d ajoutés, %3$d mis à jour, %4$d supprimés</string>
     <string name="folder_use_android_media_library">Utiliser la bibliothèque multimédia Android</string>
     <string name="folder_scan_android_media_summary">Analyser toute la musique de la bibliothèque multimédia système</string>
     <string name="folder_scan_custom_folders_summary">Analyser uniquement les %1$d dossiers personnalisés ajoutés</string>
@@ -1302,7 +1303,6 @@
     <!-- i18n : remerciements et résumés des projets open source de l’écran À propos -->
     <string name="about_summary_betterlyrics">Référence pour le fond flouté de pochette du lecteur et les effets visuels des paroles</string>
     <string name="about_summary_beautiful_lyrics">Référence pour les arrière-plans dynamiques, les paroles plein écran et l’expérience visuelle des paroles</string>
-    <string name="about_summary_splayer">Référence pour les animations du lecteur et l’expérience des paroles</string>
     <string name="about_title_lightcone">Lightcone Music</string>
     <string name="about_summary_lightcone">Référence pour certains visuels et effets de l’interface</string>
     <string name="about_summary_miuix">Bibliothèque de composants Compose au style MIUI/HyperOS (Apache-2.0)</string>
@@ -1451,5 +1451,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

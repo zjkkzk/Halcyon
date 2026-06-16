@@ -245,11 +245,6 @@ private fun AboutContent(
                         onClick = { uriHandler.openUri("https://github.com/surfbryce/beautiful-lyrics") },
                     )
                     BasicComponent(
-                        title = "SPlayer",
-                        summary = stringResource(R.string.about_summary_splayer),
-                        onClick = { uriHandler.openUri("https://github.com/imsyy/SPlayer") },
-                    )
-                    BasicComponent(
                         title = stringResource(R.string.about_title_lightcone),
                         summary = stringResource(R.string.about_summary_lightcone),
                         onClick = { uriHandler.openUri("https://coneplayer.trantor.ink/") },

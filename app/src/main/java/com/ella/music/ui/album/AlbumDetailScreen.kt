@@ -72,7 +72,9 @@ import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.SongMoreActionHost
@@ -81,6 +83,7 @@ import com.ella.music.ui.components.SortDropdownMenu
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.rememberSongArtworkState
 import com.ella.music.ui.components.rememberSongDeleteRequester
+import com.ella.music.ui.components.toFastIndexSection
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import top.yukonga.miuix.kmp.basic.Icon
@@ -204,6 +207,20 @@ fun AlbumDetailScreen(
             .distinctBy { it.lowercase(Locale.ROOT) }
     }
     val listState = rememberLazyListState()
+    val albumSongHeaderCount = 2
+    val showSongSideIndex = !selectionMode &&
+        sortMode == AlbumDetailSongSortMode.Title &&
+        sortedAlbumSongs.size > 30
+    val songFastIndexData = remember(showSongSideIndex, sortedAlbumSongs) {
+        if (!showSongSideIndex) {
+            emptyList()
+        } else {
+            sortedAlbumSongs
+                .mapIndexed { index, song -> song.title.toFastIndexSection() to (index + albumSongHeaderCount) }
+                .distinctBy { it.first }
+        }
+    }
+    val showScrollIndicator = sortedAlbumSongs.size > 30 && !showSongSideIndex
     var scrollToTopRequest by remember { mutableStateOf(0) }
     fun finishSelectionMode() {
         selectionMode = false
@@ -449,6 +466,27 @@ fun AlbumDetailScreen(
                     )
                 }
             }
+        }
+
+        if (showSongSideIndex && songFastIndexData.isNotEmpty()) {
+            FastIndexBar(
+                letters = songFastIndexData.map { it.first },
+                onLetterClick = { letter ->
+                    songFastIndexData.firstOrNull { it.first == letter }?.second?.let { itemIndex ->
+                        scope.launch { listState.scrollToItem(itemIndex) }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 80.dp, bottom = 118.dp)
+            )
+        } else if (showScrollIndicator) {
+            LazyListScrollIndicator(
+                state = listState,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 80.dp, bottom = 118.dp)
+            )
         }
 
         IconButton(

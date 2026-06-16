@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">高斯模糊</string>
     <string name="bottom_bar_glass_effect_liquid">液態玻璃</string>
     <string name="settings_bottom_dock_items">底部列入口</string>
-    <string name="settings_bottom_dock_items_summary">最多顯示 4 個入口；搜尋也會佔用一個入口</string>
+    <string name="settings_bottom_dock_items_summary">最多顯示 5 個入口；搜尋也會佔用一個入口</string>
     <string name="settings_bottom_dock_slot">底部列入口 %1$d</string>
     <string name="settings_bottom_dock_item_none">不顯示</string>
     <string name="settings_theme_mode">主題模式</string>
@@ -420,6 +420,7 @@
     <string name="folder_full_scan">完整掃描</string>
     <string name="folder_add_custom_directory">新增自訂目錄</string>
     <string name="folder_scanning_library">正在掃描音樂庫…</string>
+    <string name="library_scan_finished_summary">掃描完成：共 %1$d 首\n新增 %2$d，更新 %3$d，刪除 %4$d</string>
     <string name="folder_use_android_media_library">使用 Android 媒體庫</string>
     <string name="folder_scan_android_media_summary">掃描系統媒體庫中的所有音樂</string>
     <string name="folder_scan_custom_folders_summary">只掃描已新增的 %1$d 個自訂資料夾</string>
@@ -1302,7 +1303,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">播放頁封面模糊背景和歌詞視覺效果參考</string>
     <string name="about_summary_beautiful_lyrics">動態背景、全螢幕歌詞與歌詞視覺體驗參考</string>
-    <string name="about_summary_splayer">播放頁動效和歌詞體驗參考</string>
     <string name="about_title_lightcone">光錐音樂</string>
     <string name="about_summary_lightcone">部分介面視覺與 UI 效果參考</string>
     <string name="about_summary_miuix">MIUI/HyperOS 風格 Compose UI 元件庫（Apache-2.0）</string>
@@ -1451,5 +1451,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

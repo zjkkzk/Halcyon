@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">Размытие по Гауссу</string>
     <string name="bottom_bar_glass_effect_liquid">Жидкое стекло</string>
     <string name="settings_bottom_dock_items">Записи нижней панели</string>
-    <string name="settings_bottom_dock_items_summary">Показать до 4 записей; поиск тоже занимает один слот</string>
+    <string name="settings_bottom_dock_items_summary">Показать до 5 записей; поиск тоже занимает один слот</string>
     <string name="settings_bottom_dock_slot">Ввод нижней панели %1$d</string>
     <string name="settings_bottom_dock_item_none">Скрытый</string>
     <string name="settings_theme_mode">Тематический режим</string>
@@ -418,6 +418,7 @@
     <string name="folder_full_scan">Полное сканирование</string>
     <string name="folder_add_custom_directory">Добавить собственный каталог</string>
     <string name="folder_scanning_library">Сканирование музыкальной библиотеки...</string>
+    <string name="library_scan_finished_summary">Сканирование завершено: %1$d треков\n%2$d добавлено, %3$d обновлено, %4$d удалено</string>
     <string name="folder_use_android_media_library">Используйте медиа-библиотеку Android.</string>
     <string name="folder_scan_android_media_summary">Сканировать всю музыку в системной медиатеке</string>
     <string name="folder_scan_custom_folders_summary">Сканировать только добавленные %1$d пользовательские папки.</string>
@@ -1291,7 +1292,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">Справочник по размытию фона обложки проигрывателя и лирическим визуальным эффектам</string>
     <string name="about_summary_beautiful_lyrics">Справочник по динамическим фонам, полноэкранным текстам и визуальному опыту текстов</string>
-    <string name="about_summary_splayer">Справочник по анимации игроков и текстам.</string>
     <string name="about_title_lightcone">Лайткоун Музыка</string>
     <string name="about_summary_lightcone">Справочник по некоторым визуальным элементам и эффектам пользовательского интерфейса.</string>
     <string name="about_summary_miuix">Библиотека компонентов Compose пользовательского интерфейса в стиле MIUI/HyperOS (Apache-2.0)</string>
@@ -1438,5 +1438,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

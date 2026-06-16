@@ -275,7 +275,7 @@
     <string name="bottom_bar_glass_effect_blur">Gaussian Blur</string>
     <string name="bottom_bar_glass_effect_liquid">Liquid Glass</string>
     <string name="settings_bottom_dock_items">Bottom bar entries</string>
-    <string name="settings_bottom_dock_items_summary">Show up to 4 entries; search also takes one slot</string>
+    <string name="settings_bottom_dock_items_summary">Show up to 5 entries; search also takes one slot</string>
     <string name="settings_bottom_dock_slot">Bottom bar entry %1$d</string>
     <string name="settings_bottom_dock_item_none">Hidden</string>
     <string name="settings_theme_mode">Theme mode</string>
@@ -441,7 +441,7 @@
     <string name="folder_add_custom_directory">Add custom directory</string>
     <string name="folder_scanning_library">Scanning music library...</string>
     <string name="library_scan_started">Scanning music library…</string>
-    <string name="library_scan_finished_summary">Scan complete: %1$d songs, %2$d added, %3$d updated, %4$d deleted</string>
+    <string name="library_scan_finished_summary">Scan complete: %1$d songs\n%2$d added, %3$d updated, %4$d deleted</string>
     <string name="folder_use_android_media_library">Use Android media library</string>
     <string name="folder_scan_android_media_summary">Scan all music in the system media library</string>
     <string name="folder_scan_custom_folders_summary">Only scan %1$d added custom folders</string>
@@ -1351,7 +1351,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">Reference for player cover blur background and lyric visual effects</string>
     <string name="about_summary_beautiful_lyrics">Reference for dynamic backgrounds, fullscreen lyrics, and lyric visual experience</string>
-    <string name="about_summary_splayer">Reference for player animations and lyric experience</string>
     <string name="about_title_lightcone">Lightcone Music</string>
     <string name="about_summary_lightcone">Reference for some UI visuals and effects</string>
     <string name="about_summary_miuix">MIUI/HyperOS-style Compose UI component library (Apache-2.0)</string>
@@ -1507,5 +1506,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

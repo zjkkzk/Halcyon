@@ -2,6 +2,8 @@ package com.ella.music.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,8 +29,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -49,6 +56,9 @@ import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.rememberSongArtworkState
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import sh.calvin.reorderable.DragGestureDetector
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import top.yukonga.miuix.kmp.basic.Icon
@@ -206,6 +216,7 @@ internal fun PlayerQueueMenu(
                         key = item.stableKey
                     ) { isDragging ->
                         val dragHandleModifier = Modifier.draggableHandle(
+                            dragGestureDetector = OneSecondLongPressDragGestureDetector,
                             onDragStopped = {
                                 val fromIndex = pendingMoveStart
                                 val toIndex = pendingMoveTarget
@@ -300,6 +311,58 @@ internal fun PlayerQueueMenu(
         }
     }
 }
+
+private object OneSecondLongPressDragGestureDetector : DragGestureDetector {
+    override suspend fun PointerInputScope.detect(
+        onDragStart: (Offset) -> Unit,
+        onDragEnd: () -> Unit,
+        onDragCancel: () -> Unit,
+        onDrag: (PointerInputChange, Offset) -> Unit
+    ) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var lastChange = down
+            val pressedForOneSecond = try {
+                withTimeout(QUEUE_REORDER_LONG_PRESS_MS) {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeout false
+                        if (!change.pressed || change.changedToUpIgnoreConsumed()) return@withTimeout false
+                        lastChange = change
+                    }
+                    true
+                }
+            } catch (_: TimeoutCancellationException) {
+                true
+            }
+
+            if (!pressedForOneSecond) {
+                onDragCancel()
+                return@awaitEachGesture
+            }
+
+            onDragStart(lastChange.position)
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: run {
+                    onDragCancel()
+                    break
+                }
+                if (!change.pressed || change.changedToUpIgnoreConsumed()) {
+                    onDragEnd()
+                    break
+                }
+                val dragAmount = change.positionChange()
+                if (dragAmount != Offset.Zero) {
+                    onDrag(change, dragAmount)
+                    change.consume()
+                }
+            }
+        }
+    }
+}
+
+private const val QUEUE_REORDER_LONG_PRESS_MS = 1_000L
 
 @Composable
 private fun QueueAlbumArtView(

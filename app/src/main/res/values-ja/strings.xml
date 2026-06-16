@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">ガウスブラー</string>
     <string name="bottom_bar_glass_effect_liquid">リキッドグラス</string>
     <string name="settings_bottom_dock_items">ボトムバー項目</string>
-    <string name="settings_bottom_dock_items_summary">最大 4 項目を表示。検索も 1 枠として数えます</string>
+    <string name="settings_bottom_dock_items_summary">最大 5 項目を表示。検索も 1 枠として数えます</string>
     <string name="settings_bottom_dock_slot">ボトムバー項目 %1$d</string>
     <string name="settings_bottom_dock_item_none">非表示</string>
     <string name="settings_theme_mode">テーマモード</string>
@@ -420,6 +420,7 @@
     <string name="folder_full_scan">フルスキャン</string>
     <string name="folder_add_custom_directory">カスタムフォルダを追加</string>
     <string name="folder_scanning_library">ライブラリをスキャン中…</string>
+    <string name="library_scan_finished_summary">スキャン完了：%1$d 曲\n%2$d 件追加、%3$d 件更新、%4$d 件削除</string>
     <string name="folder_use_android_media_library">Android メディアライブラリを使用</string>
     <string name="folder_scan_android_media_summary">システムメディアライブラリ内のすべての音楽をスキャン</string>
     <string name="folder_scan_custom_folders_summary">追加済みの %1$d 個のカスタムフォルダのみスキャン</string>
@@ -1302,7 +1303,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">プレーヤーカバーのぼかし背景と歌詞ビジュアルエフェクトの参考</string>
     <string name="about_summary_beautiful_lyrics">動的背景、全画面歌詞、歌詞ビジュアル体験の参考</string>
-    <string name="about_summary_splayer">プレーヤーのアニメーションと歌詞エクスペリエンスの参考</string>
     <string name="about_title_lightcone">Lightcone Music</string>
     <string name="about_summary_lightcone">一部のインターフェースビジュアルと UI エフェクトの参考</string>
     <string name="about_summary_miuix">MIUI/HyperOS スタイル Compose UI コンポーネントライブラリ（Apache-2.0）</string>
@@ -1451,5 +1451,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-

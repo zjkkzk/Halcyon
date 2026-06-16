@@ -288,6 +288,14 @@ class SettingsManager(private val context: Context) {
         const val BOTTOM_DOCK_ITEM_FOLDER = "folder"
         const val BOTTOM_DOCK_ITEM_ARTIST = "artist"
         const val BOTTOM_DOCK_ITEM_ALBUM = "album"
+        const val BOTTOM_DOCK_ITEM_SCAN_SETTINGS = "scan_settings"
+        const val BOTTOM_DOCK_ITEM_SETTINGS = "settings"
+        const val BOTTOM_DOCK_ITEM_YEAR = "year"
+        const val BOTTOM_DOCK_ITEM_GENRE = "genre"
+        const val BOTTOM_DOCK_ITEM_COMPOSER = "composer"
+        const val BOTTOM_DOCK_ITEM_LYRICIST = "lyricist"
+        const val BOTTOM_DOCK_ITEM_ANALYTICS = "analytics"
+        const val MAX_BOTTOM_DOCK_ITEMS = 5
         const val DEFAULT_BOTTOM_DOCK_ITEMS = "$BOTTOM_DOCK_ITEM_HOME,$BOTTOM_DOCK_ITEM_LIBRARY,$BOTTOM_DOCK_ITEM_SEARCH"
         const val DESKTOP_LYRIC_STATUS_POSITION_LEFT = 0
         const val DESKTOP_LYRIC_STATUS_POSITION_CENTER = 1
@@ -348,7 +356,14 @@ class SettingsManager(private val context: Context) {
             BOTTOM_DOCK_ITEM_PLAYLISTS,
             BOTTOM_DOCK_ITEM_FOLDER,
             BOTTOM_DOCK_ITEM_ARTIST,
-            BOTTOM_DOCK_ITEM_ALBUM
+            BOTTOM_DOCK_ITEM_ALBUM,
+            BOTTOM_DOCK_ITEM_SCAN_SETTINGS,
+            BOTTOM_DOCK_ITEM_SETTINGS,
+            BOTTOM_DOCK_ITEM_YEAR,
+            BOTTOM_DOCK_ITEM_GENRE,
+            BOTTOM_DOCK_ITEM_COMPOSER,
+            BOTTOM_DOCK_ITEM_LYRICIST,
+            BOTTOM_DOCK_ITEM_ANALYTICS
         )
 
         fun normalizeLyricSourcePriority(value: String): String {
@@ -367,7 +382,7 @@ class SettingsManager(private val context: Context) {
                 .map { it.trim().lowercase(Locale.ROOT) }
                 .filter { it in BOTTOM_DOCK_ITEM_IDS }
                 .distinct()
-                .take(4)
+                .take(MAX_BOTTOM_DOCK_ITEMS)
             return requested
                 .ifEmpty { DEFAULT_BOTTOM_DOCK_ITEMS.split(',') }
                 .joinToString(",")

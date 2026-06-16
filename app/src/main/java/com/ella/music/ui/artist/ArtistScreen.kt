@@ -75,6 +75,8 @@ import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.AppleStylePlayButton
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.EllaMiuixBottomSheet
@@ -96,6 +98,7 @@ import com.ella.music.ui.components.SortDropdownMenu
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.rememberSongArtworkState
 import com.ella.music.ui.components.rememberSongDeleteRequester
+import com.ella.music.ui.components.toFastIndexSection
 import com.ella.music.ui.components.wallpaperContentOverlayColor
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -201,18 +204,39 @@ fun ArtistScreen(
     }
     val selectedArtistTab = selectedTabTarget.takeIf { it in tabs } ?: ArtistTab.Songs
     val listState = rememberLazyListState()
+    val hasArtistJumpActions = hasComposerCategory || hasLyricistCategory || !neteaseArtistUrl.isNullOrBlank()
+    val artistDetailListBodyStartIndex = 3 + if (hasArtistJumpActions) 1 else 0
+    val activeArtistListSize = when (selectedArtistTab) {
+        ArtistTab.Songs -> sortedArtistSongs.size
+        ArtistTab.ParticipatedAlbums -> sortedParticipatedAlbums.size
+        ArtistTab.ReleaseAlbums -> sortedReleaseAlbums.size
+    }
+    val showSongSideIndex = !selectionMode &&
+        selectedArtistTab == ArtistTab.Songs &&
+        sortMode == ArtistDetailSongSortMode.Title &&
+        sortedArtistSongs.size > 30
+    val songFastIndexData = remember(showSongSideIndex, sortedArtistSongs, artistDetailListBodyStartIndex) {
+        if (!showSongSideIndex) {
+            emptyList()
+        } else {
+            sortedArtistSongs
+                .mapIndexed { index, song -> song.title.toFastIndexSection() to (index + artistDetailListBodyStartIndex) }
+                .distinctBy { it.first }
+        }
+    }
+    val showScrollIndicator = activeArtistListSize > 30 && !showSongSideIndex
     val sortedArtistSongIndexById = remember(sortedArtistSongs) {
         buildMap {
             sortedArtistSongs.forEachIndexed { index, song -> put(song.id, index) }
         }
     }
-    val currentSongItemIndex = remember(sortedArtistSongIndexById, currentSong?.id, selectedArtistTab) {
+    val currentSongItemIndex = remember(sortedArtistSongIndexById, currentSong?.id, selectedArtistTab, artistDetailListBodyStartIndex) {
         if (selectedArtistTab != ArtistTab.Songs || selectionMode) {
             -1
         } else {
             (currentSong?.id?.let { sortedArtistSongIndexById[it] } ?: -1)
                 .takeIf { it >= 0 }
-                ?.plus(3)
+                ?.plus(artistDetailListBodyStartIndex)
                 ?: -1
         }
     }
@@ -346,7 +370,7 @@ fun ArtistScreen(
                 )
             }
 
-            if (hasComposerCategory || hasLyricistCategory || !neteaseArtistUrl.isNullOrBlank()) {
+            if (hasArtistJumpActions) {
                 item {
                     ArtistJumpActions(
                         hasComposerCategory = hasComposerCategory,
@@ -484,6 +508,27 @@ fun ArtistScreen(
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        if (showSongSideIndex && songFastIndexData.isNotEmpty()) {
+            FastIndexBar(
+                letters = songFastIndexData.map { it.first },
+                onLetterClick = { letter ->
+                    songFastIndexData.firstOrNull { it.first == letter }?.second?.let { itemIndex ->
+                        scope.launch { listState.scrollToItem(itemIndex) }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 88.dp, bottom = 118.dp)
+            )
+        } else if (showScrollIndicator) {
+            LazyListScrollIndicator(
+                state = listState,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 88.dp, bottom = 118.dp)
+            )
         }
 
         IconButton(

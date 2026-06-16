@@ -100,7 +100,7 @@ class MusicScanner(private val context: Context) {
                 if (!file.exists()) continue
 
                 val rawTrackNumber = cursor.getInt(trackCol)
-                val dateModified = maxOf(cursor.getLong(dateModifiedCol) * 1000L, file.lastModified())
+                val dateModified = file.lastModified().takeIf { it > 0L } ?: (cursor.getLong(dateModifiedCol) * 1000L)
                 items += MediaStoreAudioItem(
                     id = cursor.getLong(idCol),
                     title = cursor.getString(titleCol).orEmpty(),
@@ -316,7 +316,7 @@ class MusicScanner(private val context: Context) {
                 val rawTrackNumber = cursor.getInt(trackCol)
                 var trackNumber = rawTrackNumber.normalizedTrackNumber()
                 var discNumber = rawTrackNumber.normalizedDiscNumber()
-                val dateModified = maxOf(cursor.getLong(dateModifiedCol) * 1000L, file.lastModified())
+                val dateModified = file.lastModified().takeIf { it > 0L } ?: (cursor.getLong(dateModifiedCol) * 1000L)
 
                 val shouldDeepRead = deepMetadata ||
                     isMissingTag(title, file.name) ||

@@ -150,9 +150,16 @@ internal fun SettingsAppearanceSection() {
         SettingsManager.BOTTOM_DOCK_ITEM_LIBRARY to stringResource(R.string.tab_library),
         SettingsManager.BOTTOM_DOCK_ITEM_SEARCH to stringResource(R.string.common_search),
         SettingsManager.BOTTOM_DOCK_ITEM_PLAYLISTS to stringResource(R.string.category_playlist),
-        SettingsManager.BOTTOM_DOCK_ITEM_FOLDER to stringResource(R.string.category_folder),
+        SettingsManager.BOTTOM_DOCK_ITEM_FOLDER to stringResource(R.string.category_folder_tree),
         SettingsManager.BOTTOM_DOCK_ITEM_ARTIST to stringResource(R.string.category_artist),
-        SettingsManager.BOTTOM_DOCK_ITEM_ALBUM to stringResource(R.string.category_album)
+        SettingsManager.BOTTOM_DOCK_ITEM_ALBUM to stringResource(R.string.category_album),
+        SettingsManager.BOTTOM_DOCK_ITEM_SCAN_SETTINGS to stringResource(R.string.folder_scan_settings),
+        SettingsManager.BOTTOM_DOCK_ITEM_SETTINGS to stringResource(R.string.settings),
+        SettingsManager.BOTTOM_DOCK_ITEM_YEAR to stringResource(R.string.category_year),
+        SettingsManager.BOTTOM_DOCK_ITEM_GENRE to stringResource(R.string.category_genre),
+        SettingsManager.BOTTOM_DOCK_ITEM_COMPOSER to stringResource(R.string.category_composer),
+        SettingsManager.BOTTOM_DOCK_ITEM_LYRICIST to stringResource(R.string.category_lyricist),
+        SettingsManager.BOTTOM_DOCK_ITEM_ANALYTICS to stringResource(R.string.analytics_title)
     )
     val bottomDockEntries = remember(bottomDockOptions) {
         bottomDockOptions.map { (_, label) -> DropdownItem(title = label) }
@@ -161,7 +168,7 @@ internal fun SettingsAppearanceSection() {
         SettingsManager.normalizeBottomDockItems(bottomDockItems.joinToString(","))
             .split(',')
             .filter(String::isNotBlank)
-            .take(4)
+            .take(SettingsManager.MAX_BOTTOM_DOCK_ITEMS)
     }
     fun updateBottomDockSlot(slotIndex: Int, itemId: String) {
         val updated = normalizedBottomDockItems
@@ -175,7 +182,7 @@ internal fun SettingsAppearanceSection() {
             }
             .filter(String::isNotBlank)
             .distinct()
-            .take(4)
+            .take(SettingsManager.MAX_BOTTOM_DOCK_ITEMS)
         scope.launch { settingsManager.setBottomDockItems(updated) }
     }
 
@@ -291,7 +298,7 @@ internal fun SettingsAppearanceSection() {
                     }
                 }
             )
-            repeat(4) { slotIndex ->
+            repeat(SettingsManager.MAX_BOTTOM_DOCK_ITEMS) { slotIndex ->
                 val selectedItem = normalizedBottomDockItems.getOrNull(slotIndex).orEmpty()
                 val selectedIndex = bottomDockOptions.indexOfFirst { it.first == selectedItem }
                     .takeIf { it >= 0 }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +56,15 @@ import com.ella.music.ui.components.SongSelectionActionRow
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.requestPinnedEllaShortcut
 import com.ella.music.ui.components.shareLocalSongs
+import com.ella.music.ui.folder.normalizeFolderPath
+import com.ella.music.ui.folder.toFolderSettingList
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.playlist.CreatePlaylistDialog
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.MetadataCategoryItem
 import com.ella.music.viewmodel.PlayerViewModel
+import java.util.Locale
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -89,13 +94,17 @@ fun LibrarySearchScreen(
     onNavigateToPlayer: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsManager = mainViewModel.settingsManager
     val songs by mainViewModel.songs.collectAsState()
     val albums by mainViewModel.albums.collectAsState()
     val playlists by mainViewModel.playlists.collectAsState()
     val currentSong by playerViewModel.currentSong.collectAsState()
     val requestDeleteSongs = rememberSongDeleteRequester(mainViewModel)
-    val lyricSourceMode by mainViewModel.settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
-    val showPlayNextInLists by mainViewModel.settingsManager.showPlayNextInLists.collectAsState(initial = false)
+    val lyricSourceMode by settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
+    val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
+    val scanExcludeFolders by settingsManager.scanExcludeFolders.collectAsState(initial = "")
+    val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
     var query by remember(initialQuery) { mutableStateOf(initialQuery.orEmpty()) }
     var filter by remember(initialFilterType) { mutableStateOf(SearchFilter.fromRouteType(initialFilterType)) }
     var duplicatesOnly by remember { mutableStateOf(false) }
@@ -108,6 +117,8 @@ fun LibrarySearchScreen(
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedSongKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var rangeAnchorSongKey by remember { mutableStateOf<String?>(null) }
+    var rangeTargetSongKey by remember { mutableStateOf<String?>(null) }
 
     val trimmedQuery = query.trim()
     val songSelectionAvailable = filter in listOf(SearchFilter.Songs, SearchFilter.Lyrics)
@@ -144,7 +155,8 @@ fun LibrarySearchScreen(
         cachedSongResults,
         lyricSourceMode
     ) {
-        value = cachedSongResults.ifEmpty { immediateSongResults }
+        val initialResults = cachedSongResults.ifEmpty { immediateSongResults }
+        value = initialResults
         if (!filter.acceptsSongResults || trimmedQuery.isBlank()) {
             return@produceState
         }
@@ -163,7 +175,15 @@ fun LibrarySearchScreen(
         if (duplicatesOnlyActive) {
             return@produceState
         }
-        val current = cachedSongResults.ifEmpty { immediateSongResults }.toMutableList()
+        val current = initialResults.map { result ->
+            if (result.lyricSnippet == null && result.matches.isEmpty()) {
+                val tagInfo = mainViewModel.getSongTagInfo(result.song)
+                result.copy(matches = result.song.directSearchMatches(trimmedQuery, tagInfo = tagInfo, includeSnapshotTag = true))
+            } else {
+                result
+            }
+        }.toMutableList()
+        if (current != initialResults) value = current.toList()
         val seenKeys = current.map { it.song.searchIdentityKey() }.toMutableSet()
         val remainingSongs = songSearchSource.filter { it.searchIdentityKey() !in seenKeys }
         val snapshotMatches = mainViewModel
@@ -271,24 +291,82 @@ fun LibrarySearchScreen(
     LaunchedEffect(filter, trimmedQuery) {
         selectionMode = false
         selectedSongKeys = emptySet()
+        rangeAnchorSongKey = null
+        rangeTargetSongKey = null
+    }
+
+    val displayedSongIndexByKey = remember(songResults) {
+        buildMap {
+            songResults.forEachIndexed { index, result -> put(result.song.searchIdentityKey(), index) }
+        }
+    }
+    val rangeSelectionAvailable = remember(
+        displayedSongIndexByKey,
+        selectedSongKeys,
+        rangeAnchorSongKey,
+        rangeTargetSongKey
+    ) {
+        val anchor = rangeAnchorSongKey
+        val target = rangeTargetSongKey
+        anchor != null &&
+            target != null &&
+            anchor != target &&
+            anchor in selectedSongKeys &&
+            target in selectedSongKeys &&
+            anchor in displayedSongIndexByKey &&
+            target in displayedSongIndexByKey
+    }
+
+    fun updateRangeAnchorsForManualSelection(songKey: String, selectedNow: Boolean) {
+        if (selectedNow) {
+            when {
+                rangeAnchorSongKey == null -> rangeAnchorSongKey = songKey
+                rangeAnchorSongKey == songKey -> Unit
+                else -> rangeTargetSongKey = songKey
+            }
+        } else {
+            if (rangeTargetSongKey == songKey) rangeTargetSongKey = null
+            if (rangeAnchorSongKey == songKey) {
+                rangeAnchorSongKey = rangeTargetSongKey ?: selectedSongKeys.firstOrNull { it != songKey }
+                rangeTargetSongKey = null
+            }
+        }
     }
 
     fun toggleSongSelection(song: Song) {
         val key = song.searchIdentityKey()
-        selectedSongKeys = if (key in selectedSongKeys) {
-            selectedSongKeys - key
-        } else {
+        val selecting = key !in selectedSongKeys
+        selectedSongKeys = if (selecting) {
             selectedSongKeys + key
+        } else {
+            selectedSongKeys - key
         }
+        updateRangeAnchorsForManualSelection(key, selecting)
     }
 
     fun toggleSelectAllSongResults() {
         val allKeys = songResults.mapTo(mutableSetOf()) { it.song.searchIdentityKey() }
         selectedSongKeys = if (allKeys.isNotEmpty() && allKeys.all { it in selectedSongKeys }) {
+            rangeAnchorSongKey = null
+            rangeTargetSongKey = null
             emptySet()
         } else {
+            rangeAnchorSongKey = songResults.firstOrNull()?.song?.searchIdentityKey()
+            rangeTargetSongKey = songResults.lastOrNull()?.song?.searchIdentityKey()
             allKeys
         }
+    }
+
+    fun applyRangeSelection() {
+        val anchor = rangeAnchorSongKey ?: return
+        val target = rangeTargetSongKey ?: return
+        val anchorIndex = displayedSongIndexByKey[anchor] ?: return
+        val targetIndex = displayedSongIndexByKey[target] ?: return
+        if (anchorIndex == targetIndex) return
+        val bounds = if (anchorIndex < targetIndex) anchorIndex..targetIndex else targetIndex..anchorIndex
+        selectedSongKeys = selectedSongKeys + bounds.map { songResults[it].song.searchIdentityKey() }
+        rangeAnchorSongKey = target
+        rangeTargetSongKey = null
     }
 
     fun selectedSearchSongs(): List<Song> =
@@ -308,6 +386,8 @@ fun LibrarySearchScreen(
     fun finishSelectionMode() {
         selectionMode = false
         selectedSongKeys = emptySet()
+        rangeAnchorSongKey = null
+        rangeTargetSongKey = null
     }
 
     fun commitSearch(text: String = query) {
@@ -437,9 +517,9 @@ fun LibrarySearchScreen(
             SongSelectionActionRow(
                 selectedCount = selectedSongKeys.size,
                 totalCount = songResults.size,
-                rangeEnabled = false,
+                rangeEnabled = rangeSelectionAvailable,
                 allSelected = songResults.isNotEmpty() && songResults.all { it.song.searchIdentityKey() in selectedSongKeys },
-                onRangeSelect = {},
+                onRangeSelect = ::applyRangeSelection,
                 onSelectAll = ::toggleSelectAllSongResults,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
@@ -602,7 +682,9 @@ fun LibrarySearchScreen(
                                     onLongClick = {
                                         if (songSelectionAvailable) {
                                             selectionMode = true
-                                            selectedSongKeys = selectedSongKeys + result.song.searchIdentityKey()
+                                            val songKey = result.song.searchIdentityKey()
+                                            selectedSongKeys = selectedSongKeys + songKey
+                                            updateRangeAnchorsForManualSelection(songKey, selectedNow = true)
                                         } else {
                                             actionSong = result.song
                                         }
@@ -762,6 +844,21 @@ fun LibrarySearchScreen(
                         actionTarget = null
                     }
                 )
+                if (target is SearchActionTarget.CategoryTarget && target.type == "folder") {
+                    EllaMiuixMenuItem(
+                        text = stringResource(R.string.folder_block_folder),
+                        onClick = {
+                            val normalizedPath = target.item.name.normalizeFolderPath()
+                            scope.launch {
+                                val nextBlockedFolders = (blockedFolders + normalizedPath)
+                                    .distinctBy { it.normalizeFolderPath().lowercase(Locale.ROOT) }
+                                settingsManager.setScanExcludeFolders(nextBlockedFolders.joinToString("；"))
+                                mainViewModel.scanMusic()
+                            }
+                            actionTarget = null
+                        }
+                    )
+                }
             }
         }
     }

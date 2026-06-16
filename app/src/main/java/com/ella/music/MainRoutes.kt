@@ -43,6 +43,13 @@ internal fun String?.toCurrentTabRoute(): String? {
         this.isTopLevelRoute(Screen.Folder.baseRoute) -> Screen.Folder.createRoute(fromDock = true)
         this.isTopLevelRoute(Screen.Artist.baseRoute) -> Screen.Artist.createRoute(fromDock = true)
         this.isTopLevelRoute(Screen.Album.baseRoute) -> Screen.Album.createRoute(fromDock = true)
+        this == Screen.ScanSettings.route -> Screen.ScanSettings.route
+        this == Screen.Settings.route -> Screen.Settings.route
+        this == Screen.Analytics.route -> Screen.Analytics.route
+        this == Screen.MetadataCategory.createRoute("year") -> Screen.MetadataCategory.createRoute("year")
+        this == Screen.MetadataCategory.createRoute("genre") -> Screen.MetadataCategory.createRoute("genre")
+        this == Screen.MetadataCategory.createRoute("composer") -> Screen.MetadataCategory.createRoute("composer")
+        this == Screen.MetadataCategory.createRoute("lyricist") -> Screen.MetadataCategory.createRoute("lyricist")
         else -> null
     }
 }
@@ -62,6 +69,13 @@ internal fun String?.isBottomDockRoute(): Boolean {
         this.isTopLevelRoute(Screen.Folder.baseRoute) -> true
         this.isTopLevelRoute(Screen.Artist.baseRoute) -> true
         this.isTopLevelRoute(Screen.Album.baseRoute) -> true
+        this == Screen.ScanSettings.route -> true
+        this == Screen.Settings.route -> true
+        this == Screen.Analytics.route -> true
+        this == Screen.MetadataCategory.createRoute("year") -> true
+        this == Screen.MetadataCategory.createRoute("genre") -> true
+        this == Screen.MetadataCategory.createRoute("composer") -> true
+        this == Screen.MetadataCategory.createRoute("lyricist") -> true
         else -> false
     }
 }

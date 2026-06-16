@@ -15,6 +15,11 @@
 </p>
 
 <p align="center">
+  <a href="https://qm.qq.com/q/6MHSXRrjTq"><img src="https://img.shields.io/badge/QQ交流群-0084FF?style=flat&logo=qq&logoColor=white" alt="QQ Group"></a>
+  <!-- <a href="https://t.me/halcyonplayer"><img src="https://img.shields.io/badge/Telegram-0084FF?style=flat&logo=telegram&logoColor=white" alt="Telegram"></a> -->
+</p>
+
+<p align="center">
   <b>Local Music · Online Libraries · Dynamic Player UI · Word-by-Word Lyrics · Floating Lyrics · Status Bar Lyrics · Multilingual UI</b>
 </p>
 
@@ -234,7 +239,6 @@ The Halcyon main project is licensed under **Apache-2.0**. Third-party component
 
 - **BetterLyrics** — Visual reference for blurred cover backgrounds and lyric display.
 - **Beautiful Lyrics** — Reference for dynamic backgrounds, fullscreen lyrics, and lyric visual experience.
-- **SPlayer** — Visual reference for playback page animations and lyric experience.
 - **Lyrico** — Reference for external tag editor adaptation and log page interaction.
 - **LX Music Mobile** — Provides LX Music API compatibility implementation and testing reference.
 - **Light Cone Music** — Interface design and feature implementation reference.

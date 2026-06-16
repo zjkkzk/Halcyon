@@ -67,6 +67,7 @@ class RawsLyricView @JvmOverloads constructor(
         private const val TRANS_GAP_DP = 6f
         private const val FEATHER_WIDTH_DP = 30f
         private const val TEXT_CLIP_BLEED_DP = 4f
+        private const val RIGHT_ALIGN_GLYPH_SAFE_INSET_DP = 3f
         private const val SCROLL_ANIM_MS = 400L
         private const val AUTO_SCROLL_RESUME_MS = 5000L
         private const val INTERLUDE_MIN_GAP_MS = 7000L
@@ -1228,7 +1229,12 @@ class RawsLyricView @JvmOverloads constructor(
             paint.maskFilter = oldMask
             return
         }
-        val layout = buildLayout(text, paint, w, alignedRight, centered, forMain)
+        val safeLayoutWidth = if (alignedRight) {
+            (w - RIGHT_ALIGN_GLYPH_SAFE_INSET_DP * density).toInt().coerceAtLeast(1)
+        } else {
+            w
+        }
+        val layout = buildLayout(text, paint, safeLayoutWidth, alignedRight, centered, forMain)
         canvas.save()
         // StaticLayout line 0 baseline is at getLineTop(0) + getLineBaseline(0) - getLineTop(0)
         // = getLineBaseline(0). With includePad=true, getLineTop(0) includes top padding.

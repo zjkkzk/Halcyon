@@ -257,7 +257,7 @@
     <string name="bottom_bar_glass_effect_blur">Làm mờ Gaussian</string>
     <string name="bottom_bar_glass_effect_liquid">Thủy tinh lỏng</string>
     <string name="settings_bottom_dock_items">Các mục thanh dưới cùng</string>
-    <string name="settings_bottom_dock_items_summary">Hiển thị tối đa 4 mục; tìm kiếm cũng chiếm một vị trí</string>
+    <string name="settings_bottom_dock_items_summary">Hiển thị tối đa 5 mục; tìm kiếm cũng chiếm một vị trí</string>
     <string name="settings_bottom_dock_slot">Mục nhập thanh dưới cùng %1$d</string>
     <string name="settings_bottom_dock_item_none">Ẩn giấu</string>
     <string name="settings_theme_mode">Chế độ chủ đề</string>
@@ -420,6 +420,7 @@
     <string name="folder_full_scan">Quét toàn bộ</string>
     <string name="folder_add_custom_directory">Thêm thư mục tùy chỉnh</string>
     <string name="folder_scanning_library">Đang quét thư viện nhạc...</string>
+    <string name="library_scan_finished_summary">Quét xong: %1$d bài hát\nĐã thêm %2$d, cập nhật %3$d, xóa %4$d</string>
     <string name="folder_use_android_media_library">Sử dụng thư viện phương tiện Android</string>
     <string name="folder_scan_android_media_summary">Quét tất cả nhạc trong thư viện phương tiện hệ thống</string>
     <string name="folder_scan_custom_folders_summary">Chỉ quét các thư mục tùy chỉnh được thêm vào %1$d</string>
@@ -1302,7 +1303,6 @@
     <!-- i18n: About screen acknowledgements and open-source project summaries -->
     <string name="about_summary_betterlyrics">Tham khảo về nền mờ của trình phát và hiệu ứng hình ảnh lời bài hát</string>
     <string name="about_summary_beautiful_lyrics">Tham khảo về nền động, lời bài hát toàn màn hình và trải nghiệm hình ảnh lời bài hát</string>
-    <string name="about_summary_splayer">Tài liệu tham khảo về hoạt ảnh của người chơi và trải nghiệm lời bài hát</string>
     <string name="about_title_lightcone">Nhạc Lightcone</string>
     <string name="about_summary_lightcone">Tham khảo một số hình ảnh và hiệu ứng UI</string>
     <string name="about_summary_miuix">Thư viện thành phần giao diện người dùng Compose kiểu MIUI/HyperOS (Apache-2.0)</string>
@@ -1451,5 +1451,3 @@
     <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 </resources>
-
-
