@@ -32,9 +32,7 @@ class ExternalUriResolver(private val context: Context) {
         preferredName: String?
     ): ResolvedAudioUri {
         ensureReadable(uri)
-        if (persistReadGrantIfPossible(uri, grantFlags)) {
-            return ResolvedAudioUri(uri, copiedToCache = false)
-        }
+        persistReadGrantIfPossible(uri, grantFlags)
         val cached = copyContentUriToCache(uri, preferredName)
         return ResolvedAudioUri(Uri.fromFile(cached), copiedToCache = true)
     }

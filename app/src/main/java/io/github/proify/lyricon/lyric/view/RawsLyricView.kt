@@ -66,6 +66,7 @@ class RawsLyricView @JvmOverloads constructor(
         private const val LINE_PAD_BOTTOM_DP = 6f
         private const val TRANS_GAP_DP = 6f
         private const val FEATHER_WIDTH_DP = 30f
+        private const val TEXT_CLIP_BLEED_DP = 4f
         private const val SCROLL_ANIM_MS = 400L
         private const val AUTO_SCROLL_RESUME_MS = 5000L
         private const val INTERLUDE_MIN_GAP_MS = 7000L
@@ -1261,11 +1262,12 @@ class RawsLyricView @JvmOverloads constructor(
             startX - marqueeOffsetPx(textWidth, availableWidth)
         }
         val fm = paint.fontMetrics
+        val bleed = TEXT_CLIP_BLEED_DP * density
         canvas.save()
         canvas.clipRect(
-            startX,
+            startX - bleed,
             baseline + fm.top - density * 2f,
-            startX + availableWidth,
+            startX + availableWidth + bleed,
             baseline + fm.bottom + density * 2f
         )
         canvas.drawText(text, drawX, baseline, paint)
@@ -1353,7 +1355,7 @@ class RawsLyricView @JvmOverloads constructor(
         val dotGroupWidth = ds * 3f + dg * 2f
         val availableWidth = (width - paddingLeft - paddingRight).toFloat().coerceAtLeast(dotGroupWidth)
         val startX = when {
-            prevEntry.alignedRight -> width - paddingRight.toFloat() - dotGroupWidth
+            prevEntry.alignedRight -> width - paddingRight.toFloat() - dotGroupWidth - ds
             prevEntry.centered -> paddingLeft.toFloat() + (availableWidth - dotGroupWidth) / 2f
             else -> paddingLeft.toFloat() + ds * 0.45f
         }

@@ -97,6 +97,7 @@ import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.SafeCoverImage
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.ArtworkUsage
@@ -557,9 +558,13 @@ fun MetadataCategoryDetailScreen(
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
+            val showSongSideIndex = selectedTab == MetadataDetailTab.Songs && sortedSongs.size > 30
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(
+                    end = if (showSongSideIndex) SideIndexListEndPadding else 0.dp,
+                    bottom = 120.dp
+                )
             ) {
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -679,7 +684,7 @@ fun MetadataCategoryDetailScreen(
                 item { Spacer(modifier = Modifier.height(24.dp)) }
             }
 
-            if (selectedTab == MetadataDetailTab.Songs && sortedSongs.size > 30) {
+            if (showSongSideIndex) {
                 if (sortMode == MetadataDetailSongSortMode.Title || sortMode == MetadataDetailSongSortMode.FileName) {
                     FastIndexBar(
                         letters = fastIndexLetters,

@@ -20,6 +20,9 @@ import androidx.media3.session.SessionToken
 import com.ella.music.data.AppLogStore
 import com.ella.music.data.ExternalUriResolver
 import com.ella.music.data.LibraryNormalizer
+import com.ella.music.data.metadata.AudioTagInfo
+import com.ella.music.data.metadata.AudioTagRepository
+import com.ella.music.data.metadata.LyricoAudioTagReaderWriter
 import com.ella.music.data.model.Song
 import com.ella.music.player.PlaybackService
 import com.ella.music.player.toMediaItemExtras
@@ -36,6 +39,7 @@ class ExternalPlaybackActivity : ComponentActivity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var handlingIntent = false
     private val externalUriResolver by lazy { ExternalUriResolver(this) }
+    private val audioTagRepository by lazy { AudioTagRepository(LyricoAudioTagReaderWriter()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,22 +68,28 @@ class ExternalPlaybackActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val mediaItem = runCatching {
-                val song = withContext(Dispatchers.IO) { uri.toExternalSong(intent.type.orEmpty()) }
-                val resolved = externalUriResolver.resolveForPlayback(
-                    uri = uri,
-                    grantFlags = intent.flags,
-                    preferredName = song.fileName
-                )
-                val playbackSong = song.copy(
-                    id = stableExternalId(resolved.playbackUri),
-                    path = resolved.playbackUri.toString(),
-                    fileSize = if (resolved.copiedToCache) {
-                        File(resolved.playbackUri.path.orEmpty()).length()
-                    } else {
-                        song.fileSize
-                    }
-                )
-                playbackSong.toExternalMediaItem(resolved.playbackUri)
+                withContext(Dispatchers.IO) {
+                    val song = uri.toExternalSong(intent.type.orEmpty())
+                    val resolved = externalUriResolver.resolveForPlayback(
+                        uri = uri,
+                        grantFlags = intent.flags,
+                        preferredName = song.fileName
+                    )
+                    val metadataPath = resolved.playbackUri.localMetadataPath()
+                    val tagInfo = audioTagRepository.readTagsBlocking(metadataPath)
+                    val playbackSong = song
+                        .withExternalTagInfo(tagInfo)
+                        .copy(
+                            id = stableExternalId(resolved.playbackUri),
+                            path = metadataPath,
+                            fileSize = if (resolved.copiedToCache) {
+                                File(metadataPath).length()
+                            } else {
+                                song.fileSize
+                            }
+                        )
+                    playbackSong.toExternalMediaItem(resolved.playbackUri)
+                }
             }.getOrElse { error ->
                 AppLogStore.error(this@ExternalPlaybackActivity, "ExternalPlayback", "Failed to resolve external uri=$uri", error)
                 handlingIntent = false
@@ -232,6 +242,28 @@ class ExternalPlaybackActivity : ComponentActivity() {
                     .build()
             )
             .build()
+
+    private fun Uri.localMetadataPath(): String =
+        if (scheme.equals("file", ignoreCase = true)) path.orEmpty() else toString()
+
+    private fun Song.withExternalTagInfo(tagInfo: AudioTagInfo?): Song {
+        if (tagInfo == null) return this
+        return copy(
+            title = tagInfo.title.usableTag() ?: title,
+            artist = tagInfo.artist.usableTag() ?: artist,
+            album = tagInfo.album.usableTag() ?: album,
+            albumArtist = tagInfo.albumArtist.usableTag() ?: albumArtist,
+            genre = tagInfo.genre.usableTag() ?: genre,
+            year = tagInfo.year.usableTag() ?: year,
+            composer = tagInfo.composer.usableTag() ?: composer,
+            lyricist = tagInfo.lyricist.usableTag() ?: lyricist,
+            trackNumber = tagInfo.trackNumber ?: trackNumber,
+            discNumber = tagInfo.discNumber ?: discNumber
+        )
+    }
+
+    private fun String?.usableTag(): String? =
+        LibraryNormalizer.cleanedTagText(this).takeIf { it.isNotBlank() }
 
     private fun queryAudioMetadata(uri: Uri): ExternalAudioMetadata {
         val projection = arrayOf(

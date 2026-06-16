@@ -102,6 +102,7 @@ class SettingsManager(private val context: Context) {
         val KEY_LYRIC_SOURCE_MODE = intPreferencesKey("lyric_source_mode")
         val KEY_LYRIC_SOURCE_PRIORITY = stringPreferencesKey("lyric_source_priority")
         val KEY_LYRICO_PLUGIN_ENABLED_IDS = stringPreferencesKey("lyrico_plugin_enabled_ids")
+        val KEY_IGNORE_LYRIC_HEADER_TAGS = booleanPreferencesKey("ignore_lyric_header_tags")
         val KEY_LYRIC_LINE_BLACKLIST = stringPreferencesKey("lyric_line_blacklist")
         val KEY_LYRIC_OFFSET_OVERRIDES = stringPreferencesKey("lyric_offset_overrides")
         val KEY_PLAYER_LYRIC_TEXT_ALIGN = intPreferencesKey("player_lyric_text_align")
@@ -470,6 +471,8 @@ class SettingsManager(private val context: Context) {
         }
     val lyricoPluginEnabledIds: Flow<Set<String>> =
         context.dataStore.data.map { LyricoPluginManager.normalizeEnabledIds(it[KEY_LYRICO_PLUGIN_ENABLED_IDS]) }
+    val ignoreLyricHeaderTags: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_IGNORE_LYRIC_HEADER_TAGS] ?: true }
     val lyricLineBlacklist: Flow<List<String>> =
         context.dataStore.data.map { parseLyricLineBlacklist(it[KEY_LYRIC_LINE_BLACKLIST]) }
     val lyricOffsetOverrides: Flow<Map<String, Long>> =
@@ -889,6 +892,10 @@ class SettingsManager(private val context: Context) {
                 prefs[KEY_LYRIC_LINE_BLACKLIST] = normalized.joinToString("\n")
             }
         }
+    }
+
+    suspend fun setIgnoreLyricHeaderTags(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_IGNORE_LYRIC_HEADER_TAGS] = enabled }
     }
 
     suspend fun setDesktopLyricStatusBarVerticalAlign(align: Int) {

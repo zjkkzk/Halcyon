@@ -51,6 +51,7 @@ import com.ella.music.ui.components.EllaMiuixMenuItem
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyListScrollIndicator
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.requestPinnedEllaShortcut
 import com.ella.music.ui.components.shareLocalSongs
@@ -500,10 +501,16 @@ fun PlaylistScreen(
                 }
             }
         }
+        val showPlaylistSideIndex = displayedCustomPlaylists.size > 30
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(
+                start = 12.dp,
+                end = if (showPlaylistSideIndex) SideIndexListEndPadding else 12.dp,
+                top = 8.dp,
+                bottom = 8.dp
+            )
         ) {
             if (favorites != null && showFavorites) {
                 item(key = favorites.id) {
@@ -602,7 +609,7 @@ fun PlaylistScreen(
 
             item { Spacer(modifier = Modifier.height(150.dp)) }
         }
-            if (playlistSortMode == PlaylistSortMode.Name && displayedCustomPlaylists.size > 30) {
+            if (playlistSortMode == PlaylistSortMode.Name && showPlaylistSideIndex) {
                 FastIndexBar(
                     letters = playlistFastIndexLetters,
                     modifier = Modifier
@@ -613,7 +620,7 @@ fun PlaylistScreen(
                         if (index != null) scope.launch { listState.scrollToItem(index) }
                     }
                 )
-            } else if (displayedCustomPlaylists.size > 30) {
+            } else if (showPlaylistSideIndex) {
                 LazyListScrollIndicator(
                     state = listState,
                     modifier = Modifier

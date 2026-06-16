@@ -55,9 +55,9 @@ import com.ella.music.viewmodel.PlayerViewModel
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Library : Screen("library")
-    data object LibrarySearch : Screen("library_search?type={type}&keyword={keyword}") {
+    data object LibrarySearch : Screen("library_search?type={type}&keyword={keyword}&focus={focus}") {
         const val baseRoute = "library_search"
-        fun createRoute(type: String? = null, keyword: String? = null): String {
+        fun createRoute(type: String? = null, keyword: String? = null, focus: Boolean = false): String {
             val params = buildList {
                 type?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     add("type=${java.net.URLEncoder.encode(it, "UTF-8").replace("+", "%20")}")
@@ -65,6 +65,7 @@ sealed class Screen(val route: String) {
                 keyword?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     add("keyword=${java.net.URLEncoder.encode(it, "UTF-8").replace("+", "%20")}")
                 }
+                if (focus) add("focus=true")
             }
             return if (params.isEmpty()) baseRoute else "$baseRoute?${params.joinToString("&")}"
         }
@@ -215,6 +216,10 @@ fun AppNavigation(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("focus") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
@@ -223,6 +228,7 @@ fun AppNavigation(
                 playerViewModel = playerViewModel,
                 initialFilterType = backStackEntry.arguments?.getString("type"),
                 initialQuery = backStackEntry.arguments?.getString("keyword"),
+                autoFocusSearch = backStackEntry.arguments?.getBoolean("focus") == true,
                 showBackButton = false,
                 onBack = { navController.popBackStack() },
                 onNavigateToAlbum = { albumId -> navController.navigate(Screen.AlbumDetail.createRoute(albumId)) },

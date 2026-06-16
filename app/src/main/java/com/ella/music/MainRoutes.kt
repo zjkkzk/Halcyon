@@ -15,7 +15,8 @@ internal fun Intent.resolveShortcutRoute(): String {
             val keyword = uri.getQueryParameter("keyword")
             return Screen.LibrarySearch.createRoute(
                 type = uri.getQueryParameter("type"),
-                keyword = keyword
+                keyword = keyword,
+                focus = keyword.isNullOrBlank()
             )
         }
         if (host == "shortcut") {

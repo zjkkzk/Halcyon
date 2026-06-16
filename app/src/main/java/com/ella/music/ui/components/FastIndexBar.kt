@@ -37,6 +37,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.floor
@@ -50,14 +51,17 @@ import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+val SideIndexListEndPadding: Dp = 8.dp
+
 @Composable
 fun FastIndexBar(
     letters: List<String>,
     onLetterClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    reverse: Boolean = false
 ) {
     val view = LocalView.current
-    val indexLetters = remember(letters) { letters.toFastIndexLetters() }
+    val indexLetters = remember(letters, reverse) { letters.toFastIndexLetters(reverse) }
     var heightPx by remember { mutableStateOf(1) }
     var contentHeightPx by remember { mutableStateOf(1) }
     var lastSelectedLetter by remember { mutableStateOf<String?>(null) }
@@ -181,7 +185,7 @@ fun FastIndexBar(
     }
 }
 
-fun List<String>.toFastIndexLetters(): List<String> =
+fun List<String>.toFastIndexLetters(reverse: Boolean = false): List<String> =
     map { it.trim().ifBlank { "#" } }
         .distinct()
         .sortedWith(
@@ -194,6 +198,7 @@ fun List<String>.toFastIndexLetters(): List<String> =
                 }
             }.thenBy { if (it == "#") "ZZZ" else it.uppercase() }
         )
+        .let { if (reverse) it.asReversed() else it }
 
 fun String.toFastIndexSection(): String {
     val value = trim().removeFastIndexSortPrefix()

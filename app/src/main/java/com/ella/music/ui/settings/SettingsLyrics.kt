@@ -25,6 +25,7 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
 @Composable
@@ -37,6 +38,7 @@ internal fun SettingsLyricsSection(
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val lyricLineBlacklist by settingsManager.lyricLineBlacklist.collectAsState(initial = emptyList())
+    val ignoreLyricHeaderTags by settingsManager.ignoreLyricHeaderTags.collectAsState(initial = true)
     var showBlacklistSheet by remember { mutableStateOf(false) }
     var blacklistDraft by remember(lyricLineBlacklist) { mutableStateOf(lyricLineBlacklist.joinToString("\n")) }
 
@@ -48,6 +50,14 @@ internal fun SettingsLyricsSection(
                 onClick = onNavigateToLyricPluginSources
             )
             SettingsPlayerLyricAlignmentPreference()
+            SwitchPreference(
+                title = stringResource(R.string.settings_ignore_lyric_header_tags),
+                summary = stringResource(R.string.settings_ignore_lyric_header_tags_summary),
+                checked = ignoreLyricHeaderTags,
+                onCheckedChange = { enabled ->
+                    scope.launch { settingsManager.setIgnoreLyricHeaderTags(enabled) }
+                }
+            )
             ArrowPreference(
                 title = stringResource(R.string.settings_lyric_line_blacklist),
                 summary = stringResource(R.string.settings_lyric_line_blacklist_summary, lyricLineBlacklist.size),

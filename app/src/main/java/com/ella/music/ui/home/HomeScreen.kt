@@ -95,6 +95,7 @@ import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.EllaSmallTopAppBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyListScrollIndicator
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SongSelectionActionRow
@@ -108,7 +109,6 @@ import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.launchTagEditorOption
 import com.ella.music.ui.components.openSongSpectrumWithAspectPro
 import com.ella.music.ui.components.shareLocalSong
-import com.ella.music.ui.components.toFastIndexLetters
 import com.ella.music.ui.components.wallpaperContentOverlayColor
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
@@ -190,6 +190,16 @@ fun LibraryScreen(
     var ratingFilterExpanded by remember { mutableStateOf(false) }
     var scrollToTopRequest by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    fun applyHomeSortMode(mode: HomeSortMode) {
+        LibrarySortUiState.librarySongSortIndex = mode.ordinal
+        scope.launch { settingsManager.setLibrarySongSortIndex(mode.ordinal) }
+        scrollToTopRequest++
+    }
+
+    fun selectHomeSortField(field: HomeSortField) {
+        applyHomeSortMode(sortMode.nextForField(field))
+    }
+
     fun navigateToArtistOrChoose(artistText: String) {
         val artists = splitArtistNames(artistText)
             .distinctBy { it.tagIdentityKey() }
@@ -498,15 +508,19 @@ fun LibraryScreen(
                             )
                         }
                         SortDropdownMenu(
-                            items = HomeSortMode.entries.map { mode ->
+                            items = HomeSortField.entries.map { field ->
+                                val selected = sortMode.sortField() == field
                                 SortDropdownItem(
-                                    text = stringResource(mode.labelRes),
-                                    selected = sortMode == mode,
-                                    onClick = {
-                                        LibrarySortUiState.librarySongSortIndex = mode.ordinal
-                                        scope.launch { settingsManager.setLibrarySongSortIndex(mode.ordinal) }
-                                        scrollToTopRequest++
-                                    }
+                                    text = stringResource(field.labelRes),
+                                    selected = selected,
+                                    summary = if (selected) {
+                                        stringResource(
+                                            if (sortMode.isDescending()) R.string.common_sort_descending else R.string.common_sort_ascending
+                                        )
+                                    } else {
+                                        null
+                                    },
+                                    onClick = { selectHomeSortField(field) }
                                 )
                             }
                         )
@@ -546,24 +560,32 @@ fun LibraryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {
-                HomeSortMode.entries.forEach { mode ->
+                HomeSortField.entries.forEach { field ->
+                    val selected = sortMode.sortField() == field
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                LibrarySortUiState.librarySongSortIndex = mode.ordinal
-                                scope.launch { settingsManager.setLibrarySongSortIndex(mode.ordinal) }
-                                scrollToTopRequest++
+                                selectHomeSortField(field)
                                 sortExpanded = false
                             }
                             .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = stringResource(mode.labelRes),
+                            text = listOf(
+                                stringResource(field.labelRes),
+                                if (selected) {
+                                    stringResource(
+                                        if (sortMode.isDescending()) R.string.common_sort_descending else R.string.common_sort_ascending
+                                    )
+                                } else {
+                                    null
+                                }
+                            ).filterNotNull().joinToString(" · "),
                             fontSize = 14.sp,
-                            fontWeight = if (sortMode == mode) FontWeight.Bold else FontWeight.Normal,
-                            color = if (sortMode == mode) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -659,7 +681,7 @@ fun LibraryScreen(
             // Compute the per-song index letter once and reuse it for both the bar labels and the
             // scroll targets. Building this inline on every recomposition was O(n) main-thread work
             // that scaled badly for large libraries (1k–10k+ songs).
-            val showFastIndexBar = sortMode == HomeSortMode.Title && sortedSongs.size > 30
+            val showFastIndexBar = sortMode.sortField() == HomeSortField.Title && sortedSongs.size > 30
             val fastIndexData = remember(showFastIndexBar, sortedSongs, sortKeysBySongId) {
                 if (!showFastIndexBar) {
                     FastIndexData.Empty
@@ -669,7 +691,7 @@ fun LibraryScreen(
                         targets.putIfAbsent(song.indexLetter(sortKeysBySongId[song.id]), index)
                     }
                     FastIndexData(
-                        letters = targets.keys.toList().toFastIndexLetters(),
+                        letters = targets.keys.toList(),
                         targets = targets
                     )
                 }
@@ -684,11 +706,9 @@ fun LibraryScreen(
                     )
                 }
                 val showScrollIndicator = sortedSongs.size > 30 && !showFastIndexBar
-                // Inset rows so the song "more" button clears the side index bar (matches Lyrico)
-                // and is no longer easy to mis-tap.
+                // Keep a small inset so the more button sits near, but not under, the side index bar.
                 val listEndInset = when {
-                    showFastIndexBar -> 36.dp
-                    showScrollIndicator -> 16.dp
+                    showFastIndexBar || showScrollIndicator -> SideIndexListEndPadding
                     else -> 0.dp
                 }
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -709,7 +729,9 @@ fun LibraryScreen(
                                     R.string.library_song_count_sorted,
                                     sortedSongs.size,
                                     listOfNotNull(
-                                        stringResource(sortMode.labelRes),
+                                        stringResource(sortMode.sortField().labelRes) + " · " + stringResource(
+                                            if (sortMode.isDescending()) R.string.common_sort_descending else R.string.common_sort_ascending
+                                        ),
                                         ratingFilter.summaryLabel(context),
                                     stringResource(R.string.favorite_filter).takeIf { favoriteFilter }
                                 ).joinToString(" · ")
@@ -774,10 +796,11 @@ fun LibraryScreen(
                 if (showFastIndexBar) {
                     FastIndexBar(
                         letters = fastIndexData.letters,
+                        reverse = sortMode == HomeSortMode.TitleDesc,
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
-                            .padding(end = 2.dp),
+                            .padding(end = 0.dp),
                         onLetterClick = { letter ->
                             val index = fastIndexData.targets[letter]
                             if (index != null) {

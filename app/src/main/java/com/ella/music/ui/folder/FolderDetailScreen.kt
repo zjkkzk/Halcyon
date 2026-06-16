@@ -76,6 +76,7 @@ import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SortDropdownItem
@@ -582,6 +583,8 @@ fun FolderDetailScreen(
                 }
             }
             val showFastIndex = fastIndexLetters.size > 30 && (childFolders.isNotEmpty() || sortMode == FolderSongSortMode.Title)
+            val showScrollIndicator = !showFastIndex && sortedSongs.size > 30
+            val listEndInset = if (showFastIndex || showScrollIndicator) SideIndexListEndPadding else 0.dp
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Text(
@@ -597,7 +600,7 @@ fun FolderDetailScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp)
+                        contentPadding = PaddingValues(end = listEndInset, bottom = 120.dp)
                     ) {
                         if (searchQuery.isBlank()) {
                             items(childFolders, key = { it.path }) { folder ->
@@ -663,7 +666,7 @@ fun FolderDetailScreen(
                             }
                         }
                     )
-                } else if (sortedSongs.size > 30) {
+                } else if (showScrollIndicator) {
                     LazyListScrollIndicator(
                         state = listState,
                         modifier = Modifier

@@ -64,6 +64,7 @@ import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyListScrollIndicator
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
 import com.ella.music.ui.components.ellaPageBackground
@@ -539,11 +540,15 @@ fun ArtistListScreen(
                     fastIndexLetters.forEachIndexed { index, letter -> putIfAbsent(letter, index + 1) }
                 }
             }
+            val showArtistSideIndex = filteredArtists.size > 30
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 160.dp)
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        end = if (showArtistSideIndex) SideIndexListEndPadding else 0.dp,
+                        bottom = 160.dp
+                    )
                 ) {
                     item {
                         Text(
@@ -585,7 +590,7 @@ fun ArtistListScreen(
                     }
                 }
 
-                if (sortMode == ArtistSortMode.Name && filteredArtists.size > 30) {
+                if (sortMode == ArtistSortMode.Name && showArtistSideIndex) {
                     FastIndexBar(
                         letters = fastIndexLetters,
                         modifier = Modifier
@@ -600,7 +605,7 @@ fun ArtistListScreen(
                             }
                         }
                     )
-                } else if (filteredArtists.size > 30) {
+                } else if (showArtistSideIndex) {
                     LazyListScrollIndicator(
                         state = listState,
                         modifier = Modifier

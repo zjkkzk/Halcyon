@@ -1,10 +1,13 @@
 package com.ella.music.ui.search
 
 import android.content.Context
+import com.ella.music.R
+import com.ella.music.data.decodeNeteaseKey
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Artist
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.Song
+import com.ella.music.data.model.SongTagInfo
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -56,8 +59,91 @@ internal data class ArtistSearchResult(
 
 internal data class SongSearchResult(
     val song: Song,
-    val lyricSnippet: String? = null
+    val lyricSnippet: String? = null,
+    val matches: List<SongSearchMatch> = song.directSearchMatches("")
+) {
+    val primaryLabelRes: Int
+        get() = when {
+            lyricSnippet != null -> R.string.library_search_lyrics
+            matches.isNotEmpty() -> matches.first().labelRes
+            else -> R.string.library_search_songs
+        }
+}
+
+internal data class SongSearchMatch(
+    val labelRes: Int,
+    val value: String
 )
+
+internal data class SongSearchGroupEntry(
+    val result: SongSearchResult,
+    val match: SongSearchMatch?,
+    val keySuffix: String
+)
+
+internal fun SongSearchResult.toSearchGroupEntries(filter: SearchFilter): List<Pair<Int, SongSearchGroupEntry>> {
+    if (lyricSnippet != null) {
+        return listOf(
+            R.string.library_search_lyrics to SongSearchGroupEntry(
+                result = this,
+                match = null,
+                keySuffix = "lyrics:${lyricSnippet.hashCode()}"
+            )
+        )
+    }
+    if (filter == SearchFilter.Lyrics) return emptyList()
+    if (matches.isEmpty()) {
+        return listOf(
+            R.string.library_search_songs to SongSearchGroupEntry(
+                result = this,
+                match = null,
+                keySuffix = "song"
+            )
+        )
+    }
+    return matches.mapIndexed { index, match ->
+        match.labelRes to SongSearchGroupEntry(
+            result = this,
+            match = match,
+            keySuffix = "$index:${match.labelRes}:${match.value.hashCode()}"
+        )
+    }
+}
+
+internal fun Song.directSearchMatches(
+    query: String,
+    tagInfo: SongTagInfo? = null,
+    includeSnapshotTag: Boolean = false
+): List<SongSearchMatch> {
+    val target = query.trim()
+    if (target.isBlank()) return emptyList()
+    return buildList {
+        addMatch(R.string.library_search_match_title, title, target)
+        addMatch(R.string.library_search_match_artist, artist, target)
+        addMatch(R.string.library_search_match_album, album, target)
+        addMatch(R.string.library_search_match_album_artist, albumArtist, target)
+        addMatch(R.string.library_search_match_genre, genre, target)
+        addMatch(R.string.library_search_match_year, year, target)
+        addMatch(R.string.library_search_match_composer, composer, target)
+        addMatch(R.string.library_search_match_lyricist, lyricist, target)
+        addMatch(R.string.library_search_match_file_name, fileName, target)
+        tagInfo?.displayComment?.let { addMatch(R.string.library_search_match_comment, it, target) }
+        decodeNeteaseKey(tagInfo?.neteaseKey.orEmpty())
+            ?.aliases
+            .orEmpty()
+            .forEach { alias -> addMatch(R.string.library_search_match_alias, alias, target) }
+        if (includeSnapshotTag && isEmpty()) {
+            add(SongSearchMatch(R.string.library_search_match_tag, target))
+        }
+    }
+}
+
+private fun MutableList<SongSearchMatch>.addMatch(labelRes: Int, value: String, query: String) {
+    val trimmed = value.trim()
+    if (trimmed.isNotBlank() && trimmed.contains(query, ignoreCase = true)) {
+        add(SongSearchMatch(labelRes, trimmed))
+    }
+}
 
 internal fun List<LyricLine>.firstMatchingLyricSnippet(query: String): String? {
     return asSequence()
@@ -154,7 +240,8 @@ internal fun loadCachedSongSearchResults(
             for (index in 0 until array.length()) {
                 val item = array.optJSONObject(index) ?: continue
                 val song = byKey[item.optString("key")] ?: continue
-                add(SongSearchResult(song, item.optString("lyricSnippet").takeIf { it.isNotBlank() }))
+                val snippet = item.optString("lyricSnippet").takeIf { it.isNotBlank() }
+                add(SongSearchResult(song, snippet, song.directSearchMatches(query)))
                 if (size >= 80) break
             }
         }

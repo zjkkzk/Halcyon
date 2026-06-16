@@ -166,6 +166,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         initReplayGain()
         initLyricSourceMode()
         initLyricLineBlacklist()
+        initLyricHeaderTagFilter()
         initLyricOffsetOverrides()
         initBluetoothAutoPlay()
         initExternalPlaybackSync()
@@ -520,6 +521,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun initLyricHeaderTagFilter() {
+        viewModelScope.launch {
+            var initialized = false
+            settingsManager.ignoreLyricHeaderTags.distinctUntilChanged().collect {
+                if (!initialized) {
+                    initialized = true
+                    return@collect
+                }
+                currentSong.value?.let { song -> reloadLyrics(song, force = true) }
+            }
+        }
+    }
+
     private fun initExternalPlaybackSync() {
         viewModelScope.launch {
             PlaybackService.externalPlaybackChangeEvent.collect { snapshot ->
@@ -812,16 +826,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         if (song == null) {
             _currentLyricOffsetMs.value = 0L
-            _lyrics.value = _rawLyrics.value.filterBlacklistedLyricLines()
-            _currentLyricIndex.value = -1
+            val nextLyrics = _rawLyrics.value.preparedForDisplay()
+            if (_lyrics.value != nextLyrics) {
+                _lyrics.value = nextLyrics
+                _currentLyricIndex.value = -1
+            }
             return
         }
         val offsetMs = lyricOffsetOverrides[song.lyricIdentityKey()] ?: 0L
         _currentLyricOffsetMs.value = offsetMs
-        _lyrics.value = _rawLyrics.value.filterBlacklistedLyricLines().shiftedBy(offsetMs)
-        _currentLyricIndex.value = -1
-        lastTickerPayload = null
-        lastBluetoothLyricPayload = null
+        val nextLyrics = _rawLyrics.value
+            .filterBlacklistedLyricLines()
+            .shiftedBy(offsetMs)
+            .withImplicitLineEndTimes()
+        val lyricsChanged = _lyrics.value != nextLyrics
+        if (lyricsChanged) {
+            _lyrics.value = nextLyrics
+            _currentLyricIndex.value = -1
+            updateCurrentLyricIndex()
+            lastTickerPayload = null
+            lastBluetoothLyricPayload = null
+        }
         if (!notifyExternal) return
         if (lyriconBridge.isEnabled()) lyriconBridge.sendSong(song, _lyrics.value)
         superLyricBridge.sendSong(song)
@@ -862,6 +887,28 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     rule.matches(line.pronunciation) ||
                     rule.matches(line.backgroundText) ||
                     rule.matches(line.backgroundTranslation)
+            }
+        }
+    }
+
+    private fun List<LyricLine>.preparedForDisplay(): List<LyricLine> =
+        filterBlacklistedLyricLines().withImplicitLineEndTimes()
+
+    private fun List<LyricLine>.withImplicitLineEndTimes(): List<LyricLine> {
+        if (isEmpty()) return this
+        return mapIndexed { index, line ->
+            val nextStartMs = getOrNull(index + 1)?.timeMs
+            if (
+                !line.isTtml &&
+                line.endMs == null &&
+                nextStartMs != null &&
+                nextStartMs > line.timeMs &&
+                line.words.isEmpty() &&
+                line.backgroundWords.isEmpty()
+            ) {
+                line.copy(endMs = nextStartMs)
+            } else {
+                line
             }
         }
     }

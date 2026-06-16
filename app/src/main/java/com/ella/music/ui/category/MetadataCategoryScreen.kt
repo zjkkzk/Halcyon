@@ -89,6 +89,7 @@ import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SortDropdownItem
@@ -338,12 +339,13 @@ fun MetadataCategoryScreen(
                     categoryIndexLetters.forEachIndexed { index, letter -> putIfAbsent(letter, index) }
                 }
             }
+            val showCategorySideIndex = displayedItems.size > 30
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(safeGridColumns),
                     state = gridState,
                     contentPadding = PaddingValues(
-                        end = if (showCategoryIndexBar) 36.dp else 0.dp,
+                        end = if (showCategorySideIndex) SideIndexListEndPadding else 0.dp,
                         bottom = 120.dp
                     )
                 ) {
@@ -387,7 +389,7 @@ fun MetadataCategoryScreen(
                             }
                         }
                     )
-                } else if (displayedItems.size > 30) {
+                } else if (showCategorySideIndex) {
                     LazyGridScrollIndicator(
                         state = gridState,
                         modifier = Modifier

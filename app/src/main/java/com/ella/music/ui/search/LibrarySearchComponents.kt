@@ -1,7 +1,9 @@
 package com.ella.music.ui.search
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -107,7 +109,7 @@ internal fun HistoryRow(text: String, onClick: () -> Unit, onDelete: () -> Unit)
 }
 
 @Composable
-internal fun AlbumResultRow(album: Album, coverModel: Any?, onClick: () -> Unit) {
+internal fun AlbumResultRow(album: Album, coverModel: Any?, query: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val subtitle = buildList {
         add("${album.songCount} ${stringResource(R.string.library_search_song_count_unit)}")
         if (album.year.isNotBlank()) add(album.year)
@@ -119,12 +121,14 @@ internal fun AlbumResultRow(album: Album, coverModel: Any?, onClick: () -> Unit)
         title = album.name,
         subtitle = subtitle,
         coverModel = coverModel,
-        onClick = onClick
+        query = query,
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 
 @Composable
-internal fun ArtistResultRow(result: ArtistSearchResult, coverModel: Any?, onClick: () -> Unit) {
+internal fun ArtistResultRow(result: ArtistSearchResult, coverModel: Any?, query: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val subtitle = stringResource(
         R.string.library_search_artist_summary,
         result.artist.songCount,
@@ -135,17 +139,21 @@ internal fun ArtistResultRow(result: ArtistSearchResult, coverModel: Any?, onCli
         subtitle = subtitle,
         coverModel = coverModel,
         roundCover = true,
-        onClick = onClick
+        query = query,
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 
 @Composable
-internal fun PlaylistResultRow(playlist: UserPlaylist, coverModel: Any?, onClick: () -> Unit) {
+internal fun PlaylistResultRow(playlist: UserPlaylist, coverModel: Any?, query: String, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     SearchResultRow(
         title = playlist.name,
         subtitle = stringResource(R.string.library_search_playlist_summary, playlist.songs.size),
         coverModel = coverModel,
-        onClick = onClick
+        query = query,
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 
@@ -155,29 +163,40 @@ internal fun MetadataCategoryResultRow(
     displayName: String = item.name,
     coverModel: Any?,
     roundCover: Boolean = false,
-    onClick: () -> Unit
+    query: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
     SearchResultRow(
         title = displayName,
         subtitle = stringResource(R.string.library_search_category_summary, item.songCount, item.albumCount),
         coverModel = coverModel,
         roundCover = roundCover,
-        onClick = onClick
+        query = query,
+        onClick = onClick,
+        onLongClick = onLongClick
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SearchResultRow(
     title: String,
     subtitle: String,
     coverModel: Any?,
     roundCover: Boolean = false,
-    onClick: () -> Unit
+    query: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
+    val highlightColor = MiuixTheme.colorScheme.primary
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -202,7 +221,7 @@ private fun SearchResultRow(
                 .padding(start = 12.dp)
         ) {
             Text(
-                text = title,
+                text = highlightedText(title, query, highlightColor),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MiuixTheme.colorScheme.onSurface,
@@ -211,7 +230,7 @@ private fun SearchResultRow(
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
-                text = subtitle,
+                text = highlightedText(subtitle, query, highlightColor),
                 fontSize = 13.sp,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
@@ -220,6 +239,11 @@ private fun SearchResultRow(
         }
     }
 }
+
+private fun highlightedText(text: String, query: String, highlightColor: Color): AnnotatedString =
+    buildAnnotatedString {
+        appendHighlightedQuery(text, query, highlightColor)
+    }
 
 @Composable
 internal fun EmptySearchHint(text: String) {
@@ -234,6 +258,22 @@ internal fun LyricSearchMatchLine(snippet: String, query: String) {
         text = buildAnnotatedString {
             append(stringResource(R.string.library_search_lyric_prefix))
             appendHighlightedQuery(snippet, query, MiuixTheme.colorScheme.primary)
+        },
+        fontSize = 13.sp,
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(start = 76.dp, end = 16.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+internal fun SongSearchMatchLine(match: SongSearchMatch, query: String) {
+    Text(
+        text = buildAnnotatedString {
+            append(stringResource(match.labelRes))
+            append(": ")
+            appendHighlightedQuery(match.value, query, MiuixTheme.colorScheme.primary)
         },
         fontSize = 13.sp,
         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,

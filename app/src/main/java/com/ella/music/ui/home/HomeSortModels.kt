@@ -17,13 +17,60 @@ internal enum class HomeSortMode(val labelRes: Int) {
     DateModified(R.string.playlist_song_sort_date_modified),
     DateModifiedAsc(R.string.playlist_song_sort_date_modified_asc),
     YearAsc(R.string.playlist_song_sort_year_asc),
-    YearDesc(R.string.playlist_song_sort_year_desc)
+    YearDesc(R.string.playlist_song_sort_year_desc),
+    TitleDesc(R.string.playlist_song_sort_title),
+    FileNameDesc(R.string.playlist_song_sort_file_name)
+}
+
+internal enum class HomeSortField(val labelRes: Int) {
+    Title(R.string.playlist_song_sort_title),
+    FileName(R.string.playlist_song_sort_file_name),
+    DateAdded(R.string.playlist_song_sort_date_added),
+    DateModified(R.string.playlist_song_sort_date_modified),
+    Year(R.string.playlist_song_sort_year)
+}
+
+internal fun HomeSortMode.sortField(): HomeSortField = when (this) {
+    HomeSortMode.Title,
+    HomeSortMode.TitleDesc -> HomeSortField.Title
+    HomeSortMode.FileName,
+    HomeSortMode.FileNameDesc -> HomeSortField.FileName
+    HomeSortMode.DateAdded,
+    HomeSortMode.DateAddedAsc -> HomeSortField.DateAdded
+    HomeSortMode.DateModified,
+    HomeSortMode.DateModifiedAsc -> HomeSortField.DateModified
+    HomeSortMode.YearAsc,
+    HomeSortMode.YearDesc -> HomeSortField.Year
+}
+
+internal fun HomeSortMode.isDescending(): Boolean = when (this) {
+    HomeSortMode.TitleDesc,
+    HomeSortMode.FileNameDesc,
+    HomeSortMode.DateAdded,
+    HomeSortMode.DateModified,
+    HomeSortMode.YearDesc -> true
+    else -> false
+}
+
+internal fun HomeSortMode.nextForField(field: HomeSortField): HomeSortMode {
+    val descending = sortField() == field && !isDescending()
+    return field.toMode(descending)
+}
+
+internal fun HomeSortField.toMode(descending: Boolean = false): HomeSortMode = when (this) {
+    HomeSortField.Title -> if (descending) HomeSortMode.TitleDesc else HomeSortMode.Title
+    HomeSortField.FileName -> if (descending) HomeSortMode.FileNameDesc else HomeSortMode.FileName
+    HomeSortField.DateAdded -> if (descending) HomeSortMode.DateAdded else HomeSortMode.DateAddedAsc
+    HomeSortField.DateModified -> if (descending) HomeSortMode.DateModified else HomeSortMode.DateModifiedAsc
+    HomeSortField.Year -> if (descending) HomeSortMode.YearDesc else HomeSortMode.YearAsc
 }
 
 internal fun List<Song>.sortedForHomeMode(sortMode: HomeSortMode): HomeSortedSongs =
     when (sortMode) {
         HomeSortMode.Title -> sortedByMusicKey { it.title }
+        HomeSortMode.TitleDesc -> sortedByMusicKey { it.title }.reversedOrder()
         HomeSortMode.FileName -> sortedByMusicKey { it.fileName.ifBlank { it.path.substringAfterLast('/') } }
+        HomeSortMode.FileNameDesc -> sortedByMusicKey { it.fileName.ifBlank { it.path.substringAfterLast('/') } }.reversedOrder()
         HomeSortMode.YearAsc -> HomeSortedSongs(sortedByReleaseDate(ascending = true), emptyMap())
         HomeSortMode.YearDesc -> HomeSortedSongs(sortedByReleaseDate(ascending = false), emptyMap())
         HomeSortMode.DateAdded -> HomeSortedSongs(sortedByDescending { it.dateAdded }, emptyMap())
@@ -51,6 +98,9 @@ private fun List<Song>.sortedByReleaseDate(ascending: Boolean): List<Song> {
             .thenBy { it.title.lowercase(Locale.ROOT) }
     )
 }
+
+private fun HomeSortedSongs.reversedOrder(): HomeSortedSongs =
+    copy(songs = songs.asReversed())
 
 private fun Song.releaseYearOrNull(): Int? =
     Regex("""\d{4}""").find(year)?.value?.toIntOrNull()

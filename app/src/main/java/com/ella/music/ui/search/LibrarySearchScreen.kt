@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,16 +36,28 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.data.model.Album
 import com.ella.music.data.model.Artist
 import com.ella.music.data.model.Song
+import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.albumIdentityId
 import com.ella.music.data.model.matchesFullTagSearch
+import com.ella.music.data.tagIdentityKey
+import com.ella.music.ui.components.AddToPlaylistSheet
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.ConfirmDangerDialog
+import com.ella.music.ui.components.EllaMiuixBottomSheet
+import com.ella.music.ui.components.EllaMiuixMenuItem
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
+import com.ella.music.ui.components.SongSelectionActionRow
 import com.ella.music.ui.components.ellaPageBackground
+import com.ella.music.ui.components.requestPinnedEllaShortcut
+import com.ella.music.ui.components.shareLocalSongs
+import com.ella.music.ui.navigation.Screen
+import com.ella.music.ui.playlist.CreatePlaylistDialog
 import com.ella.music.viewmodel.MainViewModel
+import com.ella.music.viewmodel.MetadataCategoryItem
 import com.ella.music.viewmodel.PlayerViewModel
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -59,6 +72,7 @@ fun LibrarySearchScreen(
     playerViewModel: PlayerViewModel,
     initialFilterType: String? = null,
     initialQuery: String? = null,
+    autoFocusSearch: Boolean = false,
     showBackButton: Boolean = true,
     onBack: () -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
@@ -78,10 +92,16 @@ fun LibrarySearchScreen(
     var filter by remember(initialFilterType) { mutableStateOf(SearchFilter.fromRouteType(initialFilterType)) }
     var duplicatesOnly by remember { mutableStateOf(false) }
     var actionSong by remember { mutableStateOf<Song?>(null) }
+    var actionTarget by remember { mutableStateOf<SearchActionTarget?>(null) }
+    var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var history by remember { mutableStateOf(loadSearchHistory(context)) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedSongKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val trimmedQuery = query.trim()
+    val songSelectionAvailable = filter in listOf(SearchFilter.Songs, SearchFilter.Lyrics)
     val duplicateSongs = remember(songs) { songs.duplicateTitleAlbumSongs() }
     val duplicatesOnlyActive = duplicatesOnly && filter.supportsDuplicateFilter
     val songSearchSource = remember(songs, duplicateSongs, duplicatesOnlyActive) {
@@ -93,12 +113,12 @@ fun LibrarySearchScreen(
             trimmedQuery.isBlank() && !duplicatesOnlyActive -> emptyList()
             trimmedQuery.isBlank() -> songSearchSource
                 .asSequence()
-                .map { SongSearchResult(it) }
+                .map { SongSearchResult(it, matches = it.directSearchMatches(trimmedQuery)) }
                 .toList()
             else -> songSearchSource
                 .asSequence()
                 .filter { it.matchesFullTagSearch(trimmedQuery) }
-                .map { SongSearchResult(it) }
+                .map { SongSearchResult(it, matches = it.directSearchMatches(trimmedQuery)) }
                 .toList()
         }
     }
@@ -143,7 +163,11 @@ fun LibrarySearchScreen(
             .filter { it.searchIdentityKey() !in seenKeys }
             .toList()
         snapshotMatches.forEach { song ->
-            current += SongSearchResult(song = song)
+            val tagInfo = mainViewModel.getSongTagInfo(song)
+            current += SongSearchResult(
+                song = song,
+                matches = song.directSearchMatches(trimmedQuery, tagInfo = tagInfo, includeSnapshotTag = true)
+            )
             seenKeys += song.searchIdentityKey()
         }
         if (snapshotMatches.isNotEmpty()) value = current.toList()
@@ -159,12 +183,12 @@ fun LibrarySearchScreen(
         }
         saveCachedSongSearchResults(context, trimmedQuery, filter, current)
     }
-    val albumResults = remember(albums, trimmedQuery, filter, duplicatesOnlyActive) {
-        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Albums) || trimmedQuery.isBlank()) emptyList()
-        else albums.filter { it.matchesLibrarySearch(trimmedQuery) }.take(24)
+    val albumResults = remember(albums, trimmedQuery, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || trimmedQuery.isBlank()) emptyList()
+        else albums.filter { it.matchesLibrarySearch(trimmedQuery) }
     }
-    val artistResults = remember(songs, trimmedQuery, filter, duplicatesOnlyActive) {
-        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Artists) || trimmedQuery.isBlank()) {
+    val artistResults = remember(songs, trimmedQuery, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || trimmedQuery.isBlank()) {
             emptyList()
         } else {
             songs.asSequence()
@@ -173,7 +197,6 @@ fun LibrarySearchScreen(
                 .groupBy({ it.first }, { it.second })
                 .entries
                 .sortedBy { it.key.lowercase() }
-                .take(24)
                 .map { (artist, artistSongs) ->
                     ArtistSearchResult(
                         artist = Artist(
@@ -187,8 +210,8 @@ fun LibrarySearchScreen(
                 }
         }
     }
-    val playlistResults = remember(playlists, trimmedQuery, filter, duplicatesOnlyActive) {
-        if (duplicatesOnlyActive || filter !in listOf(SearchFilter.All, SearchFilter.Playlists) || trimmedQuery.isBlank()) {
+    val playlistResults = remember(playlists, trimmedQuery, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || trimmedQuery.isBlank()) {
             emptyList()
         } else {
             playlists.filter { playlist ->
@@ -198,24 +221,64 @@ fun LibrarySearchScreen(
                             song.artist.contains(trimmedQuery, ignoreCase = true) ||
                             song.album.contains(trimmedQuery, ignoreCase = true)
                     }
-            }.take(24)
+            }
         }
     }
-    val categoryFilterType = when (filter) {
-        SearchFilter.Folders -> "folder"
-        SearchFilter.Composers -> "composer"
-        SearchFilter.Lyricists -> "lyricist"
-        SearchFilter.Genres -> "genre"
-        SearchFilter.Years -> "year"
-        else -> null
-    }
-    val categoryResults = remember(songs, trimmedQuery, filter, categoryFilterType, duplicatesOnlyActive) {
-        if (duplicatesOnlyActive || categoryFilterType == null || trimmedQuery.isBlank()) {
-            emptyList()
+    val allCategoryTypes = remember { listOf("folder", "composer", "lyricist", "genre", "year") }
+    val allCategoryResultsByType = remember(songs, trimmedQuery, duplicatesOnlyActive) {
+        if (duplicatesOnlyActive || trimmedQuery.isBlank()) {
+            emptyMap()
         } else {
-            mainViewModel.getMetadataCategoryItems(categoryFilterType)
-                .filter { it.name.contains(trimmedQuery, ignoreCase = true) }
-                .take(24)
+            allCategoryTypes.associateWith { type ->
+                mainViewModel.getMetadataCategoryItems(type)
+                    .filter { it.name.contains(trimmedQuery, ignoreCase = true) }
+            }
+        }
+    }
+    val categoryResultsByType = remember(filter, allCategoryResultsByType) {
+        when (filter) {
+            SearchFilter.All -> allCategoryResultsByType
+            SearchFilter.Folders -> allCategoryResultsByType.filterKeys { it == "folder" }
+            SearchFilter.Composers -> allCategoryResultsByType.filterKeys { it == "composer" }
+            SearchFilter.Lyricists -> allCategoryResultsByType.filterKeys { it == "lyricist" }
+            SearchFilter.Genres -> allCategoryResultsByType.filterKeys { it == "genre" }
+            SearchFilter.Years -> allCategoryResultsByType.filterKeys { it == "year" }
+            else -> emptyMap()
+        }
+    }
+    val categoryResultsCount = remember(categoryResultsByType) { categoryResultsByType.values.sumOf { it.size } }
+    val visibleAlbumCount = if (filter in listOf(SearchFilter.All, SearchFilter.Albums)) albumResults.size else 0
+    val visibleArtistCount = if (filter in listOf(SearchFilter.All, SearchFilter.Artists)) artistResults.size else 0
+    val visiblePlaylistCount = if (filter in listOf(SearchFilter.All, SearchFilter.Playlists)) playlistResults.size else 0
+    val visibleResultCount = songResults.size + visibleAlbumCount + visibleArtistCount + visiblePlaylistCount + categoryResultsCount
+
+    val songResultGroups = remember(songResults, filter) {
+        songResults
+            .flatMap { it.toSearchGroupEntries(filter) }
+            .groupBy({ it.first }, { it.second })
+            .map { it.key to it.value }
+    }
+
+    LaunchedEffect(filter, trimmedQuery) {
+        selectionMode = false
+        selectedSongKeys = emptySet()
+    }
+
+    fun toggleSongSelection(song: Song) {
+        val key = song.searchIdentityKey()
+        selectedSongKeys = if (key in selectedSongKeys) {
+            selectedSongKeys - key
+        } else {
+            selectedSongKeys + key
+        }
+    }
+
+    fun toggleSelectAllSongResults() {
+        val allKeys = songResults.mapTo(mutableSetOf()) { it.song.searchIdentityKey() }
+        selectedSongKeys = if (allKeys.isNotEmpty() && allKeys.all { it in selectedSongKeys }) {
+            emptySet()
+        } else {
+            allKeys
         }
     }
 
@@ -225,7 +288,41 @@ fun LibrarySearchScreen(
         history = saveSearchHistory(context, value)
     }
 
-    BackHandler(onBack = onBack)
+    fun songsForActionTarget(target: SearchActionTarget): List<Song> = when (target) {
+        is SearchActionTarget.AlbumTarget -> mainViewModel.getSongsForAlbum(target.album.id)
+        is SearchActionTarget.ArtistTarget -> mainViewModel.getSongsForArtist(target.artist.name)
+        is SearchActionTarget.PlaylistTarget -> mainViewModel.playlistSongs(target.playlist)
+        is SearchActionTarget.CategoryTarget -> mainViewModel.getSongsForMetadataCategory(target.type, target.item.name)
+    }
+
+    fun shortcutRouteForActionTarget(target: SearchActionTarget): String = when (target) {
+        is SearchActionTarget.AlbumTarget -> Screen.AlbumDetail.createRoute(target.album.id)
+        is SearchActionTarget.ArtistTarget -> Screen.ArtistDetail.createRoute(target.artist.name)
+        is SearchActionTarget.PlaylistTarget -> Screen.PlaylistDetail.createRoute(target.playlist.id)
+        is SearchActionTarget.CategoryTarget -> Screen.MetadataCategoryDetail.createRoute(target.type, target.item.name)
+    }
+
+    fun shortcutIdForActionTarget(target: SearchActionTarget): String = when (target) {
+        is SearchActionTarget.AlbumTarget -> "album_${target.album.id}"
+        is SearchActionTarget.ArtistTarget -> "artist_${target.artist.name.tagIdentityKey()}"
+        is SearchActionTarget.PlaylistTarget -> "playlist_${target.playlist.id}"
+        is SearchActionTarget.CategoryTarget -> "category_${target.type}_${target.item.name.tagIdentityKey()}"
+    }
+
+    LaunchedEffect(initialQuery) {
+        initialQuery?.trim()?.takeIf { it.isNotBlank() }?.let { value ->
+            history = saveSearchHistory(context, value)
+        }
+    }
+
+    BackHandler {
+        if (selectionMode) {
+            selectionMode = false
+            selectedSongKeys = emptySet()
+        } else {
+            onBack()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -257,7 +354,7 @@ fun LibrarySearchScreen(
                 onSearch = { commitSearch() },
                 placeholder = stringResource(R.string.library_search_page_placeholder),
                 modifier = Modifier.weight(1f),
-                autoFocus = false
+                autoFocus = autoFocusSearch
             )
         }
 
@@ -269,8 +366,22 @@ fun LibrarySearchScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SearchFilter.entries.forEach { item ->
+                val baseLabel = stringResource(item.labelRes())
+                val itemCount = when (item) {
+                    SearchFilter.All -> songResults.size + albumResults.size + artistResults.size + playlistResults.size + allCategoryResultsByType.values.sumOf { it.size }
+                    SearchFilter.Songs -> if (filter in listOf(SearchFilter.All, SearchFilter.Songs) || duplicatesOnlyActive) songResults.size else 0
+                    SearchFilter.Lyrics -> if (filter == SearchFilter.Lyrics) songResults.size else 0
+                    SearchFilter.Albums -> albumResults.size
+                    SearchFilter.Artists -> artistResults.size
+                    SearchFilter.Playlists -> playlistResults.size
+                    SearchFilter.Folders -> allCategoryResultsByType["folder"].orEmpty().size
+                    SearchFilter.Composers -> allCategoryResultsByType["composer"].orEmpty().size
+                    SearchFilter.Lyricists -> allCategoryResultsByType["lyricist"].orEmpty().size
+                    SearchFilter.Genres -> allCategoryResultsByType["genre"].orEmpty().size
+                    SearchFilter.Years -> allCategoryResultsByType["year"].orEmpty().size
+                }
                 SearchPill(
-                    text = stringResource(item.labelRes()),
+                    text = if ((trimmedQuery.isNotBlank() || duplicatesOnlyActive) && itemCount > 0) "$baseLabel ($itemCount)" else baseLabel,
                     selected = filter == item,
                     onClick = {
                         filter = item
@@ -292,6 +403,18 @@ fun LibrarySearchScreen(
                     onClick = { duplicatesOnly = !duplicatesOnly }
                 )
             }
+        }
+
+        if (selectionMode) {
+            SongSelectionActionRow(
+                selectedCount = selectedSongKeys.size,
+                totalCount = songResults.size,
+                rangeEnabled = false,
+                allSelected = songResults.isNotEmpty() && songResults.all { it.song.searchIdentityKey() in selectedSongKeys },
+                onRangeSelect = {},
+                onSelectAll = ::toggleSelectAllSongResults,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
         }
 
         LazyColumn(
@@ -331,69 +454,94 @@ fun LibrarySearchScreen(
                     item { SearchSectionHeader(stringResource(R.string.library_search_duplicates)) }
                 }
                 if (songResults.isNotEmpty()) {
-                    item {
-                        SearchSectionHeader(
-                            if (filter == SearchFilter.Lyrics) stringResource(R.string.library_search_lyrics)
-                            else stringResource(R.string.library_search_songs)
-                        )
-                    }
-                    items(songResults, key = { "${it.song.id}:${it.song.path}:${it.lyricSnippet.orEmpty()}" }) { result ->
-                        Column {
-                            SongItem(
-                                song = result.song,
-                                isCurrent = currentSong?.id == result.song.id,
-                                loadCoverArt = mainViewModel::getCoverArtBitmap,
-                                loadAudioInfo = mainViewModel::getAudioInfo,
-                                showPlayNextInLists = showPlayNextInLists,
-                                onPlayNext = {
-                                    playerViewModel.playNext(result.song)
-                                    Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
-                                },
-                                onClick = {
-                                    val playbackSongs = songResults.map { it.song }
-                                    val index = playbackSongs.indexOfFirst { it.id == result.song.id && it.path == result.song.path }.coerceAtLeast(0)
-                                    playerViewModel.setPlaylist(playbackSongs, index)
-                                    commitSearch()
-                                    onNavigateToPlayer()
-                                },
-                                onLongClick = { actionSong = result.song },
-                                onMore = { actionSong = result.song }
+                    songResultGroups.forEach { (labelRes, entries) ->
+                        item {
+                            SearchSectionHeader(
+                                stringResource(labelRes) + " (${entries.size})"
                             )
-                            result.lyricSnippet?.let { snippet ->
-                                LyricSearchMatchLine(snippet = snippet, query = trimmedQuery)
+                        }
+                        items(entries, key = { entry ->
+                            val result = entry.result
+                            "${result.song.id}:${result.song.path}:${result.lyricSnippet.orEmpty()}:$labelRes:${entry.keySuffix}"
+                        }) { entry ->
+                            val result = entry.result
+                            val selected = result.song.searchIdentityKey() in selectedSongKeys
+                            Column {
+                                SongItem(
+                                    song = result.song,
+                                    isCurrent = currentSong?.id == result.song.id,
+                                    loadCoverArt = mainViewModel::getCoverArtBitmap,
+                                    loadAudioInfo = mainViewModel::getAudioInfo,
+                                    showPlayNextInLists = showPlayNextInLists,
+                                    selectionMode = selectionMode,
+                                    selected = selected,
+                                    onPlayNext = {
+                                        playerViewModel.playNext(result.song)
+                                        Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
+                                    },
+                                    onClick = {
+                                        if (selectionMode) {
+                                            toggleSongSelection(result.song)
+                                        } else {
+                                            val playbackSongs = songResults.map { it.song }
+                                            val index = playbackSongs.indexOfFirst { it.id == result.song.id && it.path == result.song.path }.coerceAtLeast(0)
+                                            playerViewModel.setPlaylist(playbackSongs, index)
+                                            commitSearch()
+                                            onNavigateToPlayer()
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (songSelectionAvailable) {
+                                            selectionMode = true
+                                            selectedSongKeys = selectedSongKeys + result.song.searchIdentityKey()
+                                        } else {
+                                            actionSong = result.song
+                                        }
+                                    },
+                                    onMore = { actionSong = result.song }
+                                )
+                                result.lyricSnippet?.let { snippet ->
+                                    LyricSearchMatchLine(snippet = snippet, query = trimmedQuery)
+                                } ?: entry.match?.let { match ->
+                                    SongSearchMatchLine(match = match, query = trimmedQuery)
+                                }
                             }
                         }
                     }
                 }
-                if (albumResults.isNotEmpty()) {
-                    item { SearchSectionHeader(stringResource(R.string.library_search_albums)) }
+                if (albumResults.isNotEmpty() && filter in listOf(SearchFilter.All, SearchFilter.Albums)) {
+                    item { SearchSectionHeader(stringResource(R.string.library_search_albums) + " (${albumResults.size})") }
                     items(albumResults, key = { it.id }) { album ->
                         AlbumResultRow(
                             album = album,
                             coverModel = mainViewModel.getAlbumArtUri(album.artAlbumId),
+                            query = trimmedQuery,
                             onClick = {
                                 commitSearch()
                                 onNavigateToAlbum(album.id)
-                            }
+                            },
+                            onLongClick = { actionTarget = SearchActionTarget.AlbumTarget(album) }
                         )
                     }
                 }
-                if (artistResults.isNotEmpty()) {
-                    item { SearchSectionHeader(stringResource(R.string.library_search_artists)) }
+                if (artistResults.isNotEmpty() && filter in listOf(SearchFilter.All, SearchFilter.Artists)) {
+                    item { SearchSectionHeader(stringResource(R.string.library_search_artists) + " (${artistResults.size})") }
                     items(artistResults, key = { it.artist.name }) { result ->
                         ArtistResultRow(
                             result = result,
                             coverModel = result.representativeSong?.coverUrl?.takeIf { it.isNotBlank() }
                                 ?: result.representativeSong?.let { mainViewModel.getAlbumArtUri(it.albumId) },
+                            query = trimmedQuery,
                             onClick = {
                                 commitSearch()
                                 onNavigateToArtist(result.artist.name)
-                            }
+                            },
+                            onLongClick = { actionTarget = SearchActionTarget.ArtistTarget(result.artist) }
                         )
                     }
                 }
-                if (playlistResults.isNotEmpty()) {
-                    item { SearchSectionHeader(stringResource(R.string.library_search_playlists)) }
+                if (playlistResults.isNotEmpty() && filter in listOf(SearchFilter.All, SearchFilter.Playlists)) {
+                    item { SearchSectionHeader(stringResource(R.string.library_search_playlists) + " (${playlistResults.size})") }
                     items(playlistResults, key = { it.id }) { playlist ->
                         val playlistSongs = remember(playlist, songs) { mainViewModel.playlistSongs(playlist) }
                         val coverSong = playlistSongs.firstOrNull()
@@ -401,35 +549,38 @@ fun LibrarySearchScreen(
                             playlist = playlist,
                             coverModel = coverSong?.coverUrl?.takeIf { it.isNotBlank() }
                                 ?: coverSong?.albumId?.takeIf { it > 0L }?.let(mainViewModel::getAlbumArtUri),
+                            query = trimmedQuery,
                             onClick = {
                                 commitSearch()
                                 onNavigateToPlaylist(playlist.id)
-                            }
+                            },
+                            onLongClick = { actionTarget = SearchActionTarget.PlaylistTarget(playlist) }
                         )
                     }
                 }
-                if (categoryResults.isNotEmpty() && categoryFilterType != null) {
-                    item { SearchSectionHeader(stringResource(filter.labelRes())) }
-                    items(categoryResults, key = { "$categoryFilterType:${it.name}" }) { item ->
-                        MetadataCategoryResultRow(
-                            item = item,
-                            displayName = if (categoryFilterType == "folder") item.name.substringAfterLast('/').ifBlank { item.name } else item.name,
-                            coverModel = item.representativeSong?.coverUrl?.takeIf { it.isNotBlank() }
-                                ?: item.coverAlbumIds.firstOrNull()?.let(mainViewModel::getAlbumArtUri),
-                            roundCover = categoryFilterType in listOf("composer", "lyricist"),
-                            onClick = {
-                                commitSearch()
-                                onNavigateToMetadataCategory(categoryFilterType, item.name)
-                            }
-                        )
+                categoryResultsByType.forEach { (categoryType, results) ->
+                    if (results.isNotEmpty()) {
+                        item { SearchSectionHeader(stringResource(categoryType.labelRes()) + " (${results.size})") }
+                        items(results, key = { "$categoryType:${it.name}" }) { item ->
+                            MetadataCategoryResultRow(
+                                item = item,
+                                displayName = if (categoryType == "folder") item.name.substringAfterLast('/').ifBlank { item.name } else item.name,
+                                coverModel = item.representativeSong?.coverUrl?.takeIf { it.isNotBlank() }
+                                    ?: item.coverAlbumIds.firstOrNull()?.let(mainViewModel::getAlbumArtUri),
+                                roundCover = categoryType in listOf("composer", "lyricist"),
+                                query = trimmedQuery,
+                                onClick = {
+                                    commitSearch()
+                                    onNavigateToMetadataCategory(categoryType, item.name)
+                                },
+                                onLongClick = { actionTarget = SearchActionTarget.CategoryTarget(categoryType, item) }
+                            )
+                        }
                     }
                 }
                 if (
                     songResults.isEmpty() &&
-                    albumResults.isEmpty() &&
-                    artistResults.isEmpty() &&
-                    playlistResults.isEmpty() &&
-                    categoryResults.isEmpty()
+                    visibleResultCount == 0
                 ) {
                     item {
                         EmptySearchHint(
@@ -440,6 +591,108 @@ fun LibrarySearchScreen(
                 }
             }
         }
+    }
+
+    actionTarget?.let { target ->
+        EllaMiuixBottomSheet(
+            show = true,
+            enableNestedScroll = false,
+            title = target.title,
+            onDismissRequest = { actionTarget = null }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                EllaMiuixMenuItem(
+                    text = stringResource(R.string.common_share),
+                    onClick = {
+                        shareLocalSongs(context, songsForActionTarget(target))
+                        actionTarget = null
+                    }
+                )
+                EllaMiuixMenuItem(
+                    text = stringResource(R.string.song_more_add_to_playlist),
+                    onClick = {
+                        playlistPickerSongs = songsForActionTarget(target)
+                        actionTarget = null
+                    }
+                )
+                EllaMiuixMenuItem(
+                    text = stringResource(R.string.common_add_to_queue),
+                    onClick = {
+                        playerViewModel.addToPlaylist(songsForActionTarget(target))
+                        Toast.makeText(context, context.getString(R.string.song_more_added_to_queue), Toast.LENGTH_SHORT).show()
+                        actionTarget = null
+                    }
+                )
+                EllaMiuixMenuItem(
+                    text = stringResource(R.string.song_more_play_next),
+                    onClick = {
+                        playerViewModel.playNext(songsForActionTarget(target))
+                        Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
+                        actionTarget = null
+                    }
+                )
+                EllaMiuixMenuItem(
+                    text = stringResource(R.string.common_add_desktop_shortcut),
+                    onClick = {
+                        val ok = requestPinnedEllaShortcut(
+                            context = context,
+                            id = shortcutIdForActionTarget(target),
+                            label = target.title,
+                            route = shortcutRouteForActionTarget(target)
+                        )
+                        Toast.makeText(
+                            context,
+                            if (ok) context.getString(R.string.playlist_shortcut_requested, target.title) else context.getString(R.string.playlist_shortcut_unsupported),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        actionTarget = null
+                    }
+                )
+            }
+        }
+    }
+
+    playlistPickerSongs?.let { songsToAdd ->
+        EllaMiuixBottomSheet(
+            show = true,
+            enableNestedScroll = false,
+            title = stringResource(R.string.song_more_add_to_playlist_title),
+            onDismissRequest = { playlistPickerSongs = null }
+        ) {
+            AddToPlaylistSheet(
+                playlists = playlists,
+                songCount = songsToAdd.size,
+                onDismiss = { playlistPickerSongs = null },
+                onCreatePlaylist = {
+                    createPlaylistSongs = songsToAdd
+                    playlistPickerSongs = null
+                },
+                onPlaylistsConfirm = { selectedPlaylists, appendToEnd ->
+                    selectedPlaylists.forEach { playlist ->
+                        mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd, appendToEnd)
+                    }
+                    playlistPickerSongs = null
+                    Toast.makeText(context, context.getString(R.string.player_added_to_playlists, selectedPlaylists.size), Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+
+    createPlaylistSongs?.let { songsToAdd ->
+        CreatePlaylistDialog(
+            onDismiss = { createPlaylistSongs = null },
+            onCreate = { playlistName ->
+                mainViewModel.createPlaylist(playlistName) { playlist ->
+                    if (playlist != null) mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
+                }
+                createPlaylistSongs = null
+            }
+        )
     }
 
     SongMoreActionHost(
@@ -477,4 +730,33 @@ private fun SearchFilter.labelRes(): Int = when (this) {
     SearchFilter.Lyrics -> R.string.library_search_lyrics
     SearchFilter.Genres -> R.string.library_search_genres
     SearchFilter.Years -> R.string.library_search_years
+}
+
+private fun String.labelRes(): Int = when (this) {
+    "folder" -> R.string.library_search_folders
+    "composer" -> R.string.library_search_composers
+    "lyricist" -> R.string.library_search_lyricists
+    "genre" -> R.string.library_search_genres
+    "year" -> R.string.library_search_years
+    else -> R.string.library_search_all
+}
+
+private sealed interface SearchActionTarget {
+    val title: String
+
+    data class AlbumTarget(val album: Album) : SearchActionTarget {
+        override val title: String = album.name
+    }
+
+    data class ArtistTarget(val artist: Artist) : SearchActionTarget {
+        override val title: String = artist.name
+    }
+
+    data class PlaylistTarget(val playlist: UserPlaylist) : SearchActionTarget {
+        override val title: String = playlist.name
+    }
+
+    data class CategoryTarget(val type: String, val item: MetadataCategoryItem) : SearchActionTarget {
+        override val title: String = item.name.substringAfterLast('/').ifBlank { item.name }
+    }
 }

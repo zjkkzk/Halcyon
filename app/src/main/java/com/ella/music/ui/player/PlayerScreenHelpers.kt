@@ -16,7 +16,6 @@ import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -27,6 +26,7 @@ import com.ella.music.R
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 
@@ -146,32 +146,41 @@ internal fun setPlayerSystemBars(activity: Activity?, view: View) {
 @Composable
 internal fun rememberBluetoothOutputName(): String? {
     val context = LocalContext.current
-    return remember {
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        val devices = audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty()
-        val bluetooth = devices.firstOrNull { device ->
-            device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                device.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-                device.type == AudioDeviceInfo.TYPE_BLE_SPEAKER ||
-                device.type == AudioDeviceInfo.TYPE_BLE_BROADCAST
+    return produceState(initialValue = context.currentOutputDisplayName(), context) {
+        while (true) {
+            value = context.currentOutputDisplayName()
+            delay(2_000L)
         }
-        val headphones = devices.firstOrNull { device ->
-            device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
-                device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
-        }
-        val usb = devices.firstOrNull { device ->
-            device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
-                device.type == AudioDeviceInfo.TYPE_USB_HEADSET
-        }
-        val speaker = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-        when {
-            bluetooth != null -> bluetooth.outputDisplayName(context, R.string.player_output_bluetooth)
-            headphones != null -> headphones.outputDisplayName(context, R.string.player_output_headphones)
-            usb != null -> usb.outputDisplayName(context, R.string.player_output_usb_audio)
-            speaker != null -> context.getString(R.string.player_output_speaker)
-            else -> null
-        }
+    }.value
+}
+
+private fun Context.currentOutputDisplayName(): String? {
+    val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    val devices = runCatching {
+        audioManager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty()
+    }.getOrDefault(emptyArray())
+    val bluetooth = devices.firstOrNull { device ->
+        device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+            device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+            device.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+            device.type == AudioDeviceInfo.TYPE_BLE_SPEAKER ||
+            device.type == AudioDeviceInfo.TYPE_BLE_BROADCAST
+    }
+    val headphones = devices.firstOrNull { device ->
+        device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+            device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+    }
+    val usb = devices.firstOrNull { device ->
+        device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+            device.type == AudioDeviceInfo.TYPE_USB_HEADSET
+    }
+    val speaker = devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+    return when {
+        bluetooth != null -> bluetooth.outputDisplayName(this, R.string.player_output_bluetooth)
+        headphones != null -> headphones.outputDisplayName(this, R.string.player_output_headphones)
+        usb != null -> usb.outputDisplayName(this, R.string.player_output_usb_audio)
+        speaker != null -> getString(R.string.player_output_speaker)
+        else -> null
     }
 }
 
@@ -180,7 +189,21 @@ private fun AudioDeviceInfo.outputDisplayName(context: Context, fallbackRes: Int
         ?.toString()
         ?.trim()
         ?.takeIf { it.isNotBlank() }
+        ?.takeUnless { it.isLikelyLocalDeviceModelName() }
         ?: context.getString(fallbackRes)
+
+private fun String.isLikelyLocalDeviceModelName(): Boolean {
+    val normalized = trim()
+    if (normalized.isBlank()) return false
+    val candidates = listOf(
+        Build.MODEL,
+        Build.DEVICE,
+        Build.PRODUCT,
+        Build.BOARD,
+        Build.HARDWARE
+    ).map { it.orEmpty().trim() }.filter { it.isNotBlank() }
+    return candidates.any { normalized.equals(it, ignoreCase = true) }
+}
 
 internal fun AudioInfo.isHiResLogoTrack(): Boolean {
     val summary = audioQualitySummary(this)

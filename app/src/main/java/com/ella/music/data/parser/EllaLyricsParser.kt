@@ -14,6 +14,7 @@ import kotlin.math.abs
 internal object EllaLyricsParser {
     private val lrcTimePattern = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,6}))?]""")
     private val lrcMetaPattern = Regex("""\[(ti|ar|al|by|offset|re|ve):\s*(.*)]""", RegexOption.IGNORE_CASE)
+    private val lrcGenericMetaPattern = Regex("""^\[[A-Za-z][A-Za-z0-9 _\-]*:[^\]]*]$""")
     private val timedWordMarkerPattern = Regex("""<([^>]+)>|\[([^\]]+)]""")
     private val backgroundLinePattern = Regex("""^\[bg:\s*(.*)]$""", RegexOption.IGNORE_CASE)
     private val lyricifySyllablePattern = Regex("""(.*?)\((\d+),(\d+)\)""")
@@ -879,6 +880,17 @@ internal object EllaLyricsParser {
         line.cleanLyricText()
             .replace(Regex("""\s+"""), "")
             .let { it == "//" || it == "／／" }
+
+    fun isIgnorableRawLyricLine(line: String): Boolean {
+        val trimmed = line.trim()
+        if (trimmed.isBlank()) return true
+        if (lrcGenericMetaPattern.matches(trimmed)) return true
+        val withoutTimes = lrcTimePattern.replace(trimmed, "").trim()
+        return withoutTimes != trimmed && (
+            withoutTimes.isBlank() ||
+                isPlaceholderOnlyLine(withoutTimes)
+            )
+    }
 
     private fun String.cleanTimedLyricText(): String =
         replace(timedWordMarkerPattern) { match ->

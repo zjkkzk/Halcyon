@@ -64,6 +64,7 @@ import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyGridScrollIndicator
+import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
 import com.ella.music.ui.components.ellaPageBackground
@@ -464,6 +465,7 @@ fun AlbumScreen(
                     fastIndexLetters.forEachIndexed { index, letter -> putIfAbsent(letter, index) }
                 }
             }
+            val showAlbumSideIndex = sortedAlbums.size > 30
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -482,7 +484,10 @@ fun AlbumScreen(
                         columns = GridCells.Fixed(safeGridColumns),
                         state = gridState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 160.dp)
+                        contentPadding = PaddingValues(
+                            end = if (showAlbumSideIndex) SideIndexListEndPadding else 0.dp,
+                            bottom = 160.dp
+                        )
                     ) {
                         items(
                             items = sortedAlbums,
@@ -519,7 +524,7 @@ fun AlbumScreen(
                     }
                 }
 
-                if ((sortMode == AlbumSortMode.Name || sortMode == AlbumSortMode.Artist) && sortedAlbums.size > 30) {
+                if ((sortMode == AlbumSortMode.Name || sortMode == AlbumSortMode.Artist) && showAlbumSideIndex) {
                     FastIndexBar(
                         letters = fastIndexLetters,
                         modifier = Modifier
@@ -534,7 +539,7 @@ fun AlbumScreen(
                             }
                         }
                     )
-                } else if (sortedAlbums.size > 30) {
+                } else if (showAlbumSideIndex) {
                     LazyGridScrollIndicator(
                         state = gridState,
                         modifier = Modifier

@@ -458,7 +458,7 @@ internal fun CoverPlayerPage(
                             .padding(horizontal = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(22.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -584,7 +584,7 @@ internal fun CoverPlayerPage(
                             onClearQueue = onClearQueue,
                             modifier = Modifier.height(92.dp)
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
