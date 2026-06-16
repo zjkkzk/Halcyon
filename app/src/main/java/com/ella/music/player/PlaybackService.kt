@@ -769,7 +769,24 @@ class PlaybackService : MediaLibraryService() {
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .joinToString(" ")
+            .stripInlineOplusLrcTimestamps()
             .takeIf { it.isNotBlank() }
+    }
+
+    private fun String.stripInlineOplusLrcTimestamps(): String {
+        fun String.isOplusTimestampMarker(): Boolean {
+            return matches(Regex("""\d{1,3}:\d{1,2}(?:[.:]\d{1,6})?"""))
+        }
+
+        return replace(Regex("""\[([^\]]+)]|<([^>]+)>""")) { match ->
+            val marker = match.groupValues.getOrNull(1).orEmpty()
+                .ifBlank { match.groupValues.getOrNull(2).orEmpty() }
+                .trim()
+                .replace(',', '.')
+            if (marker.isOplusTimestampMarker()) "" else match.value
+        }
+            .replace(Regex("""[ \t\r\n]+"""), " ")
+            .trim()
     }
 
     private fun Long.toOplusLrcTimestamp(): String {

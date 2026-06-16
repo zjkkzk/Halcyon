@@ -72,7 +72,9 @@ internal object EllaLyricsParser {
         }
 
         return LrcParser.LrcResult(
-            lyrics = mergeCompanionLines(lines).shiftedBy(-offset),
+            lyrics = mergeCompanionLines(lines)
+                .filterNot { it.isSynchronizedCreditLine() }
+                .shiftedBy(-offset),
             title = title,
             artist = artist,
             album = album,
@@ -998,6 +1000,47 @@ internal object EllaLyricsParser {
         (text.cleanLyricText().length * 150L).coerceIn(180L, 2_200L)
 
     private fun String.isUsefulMainText(): Boolean = isNotBlank() && !isMusicSymbolOnly()
+
+    private fun LyricLine.isSynchronizedCreditLine(): Boolean {
+        if (isTtml || backgroundText?.isNotBlank() == true) return false
+        val primary = text.cleanLyricText()
+        val secondary = translation?.cleanLyricText().orEmpty()
+        if (secondary.looksLikeCreditText()) return true
+        if (!primary.looksLikeCreditText()) return false
+        return secondary.isBlank()
+    }
+
+    private fun String.looksLikeCreditText(): Boolean {
+        val normalized = cleanLyricText()
+            .replace('：', ':')
+            .trim()
+        if (normalized.isBlank()) return false
+        val compact = normalized.replace(Regex("""\s+"""), " ")
+        val lower = compact.lowercase()
+        return lower.startsWith("lyrics by:") ||
+            lower.startsWith("lyric by:") ||
+            lower.startsWith("written by:") ||
+            lower.startsWith("writer:") ||
+            lower.startsWith("composer:") ||
+            lower.startsWith("composed by:") ||
+            lower.startsWith("produced by:") ||
+            lower.startsWith("producer:") ||
+            lower.startsWith("arranged by:") ||
+            lower.startsWith("arranger:") ||
+            lower.startsWith("music by:") ||
+            lower.startsWith("vocal:") ||
+            lower.startsWith("vocals:") ||
+            lower.startsWith("作词:") ||
+            lower.startsWith("作曲:") ||
+            lower.startsWith("编曲:") ||
+            lower.startsWith("制作人:") ||
+            lower.startsWith("制作:") ||
+            lower.startsWith("原唱:") ||
+            lower.startsWith("演唱:") ||
+            lower.startsWith("词:") ||
+            lower.startsWith("曲:") ||
+            lower.contains("享有本翻译作品的著作权")
+    }
 
     private fun String.isMusicSymbolOnly(): Boolean {
         val content = trim()
