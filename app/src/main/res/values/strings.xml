@@ -446,7 +446,7 @@
     <string name="folder_add_custom_directory">添加自定义目录</string>
     <string name="folder_scanning_library">正在扫描音乐库...</string>
     <string name="library_scan_started">正在扫描音乐库…</string>
-    <string name="library_scan_finished_summary">扫描完成：共 %1$d 首，新增 %2$d，修改 %3$d，删除 %4$d，失败 %5$d</string>
+    <string name="library_scan_finished_summary">扫描完成：共 %1$d 首，新增 %2$d，修改 %3$d，删除 %4$d</string>
     <string name="folder_use_android_media_library">使用 Android 媒体库</string>
     <string name="folder_scan_android_media_summary">扫描系统媒体库中的所有音乐</string>
     <string name="folder_scan_custom_folders_summary">仅扫描已添加的 %1$d 个自定义文件夹</string>

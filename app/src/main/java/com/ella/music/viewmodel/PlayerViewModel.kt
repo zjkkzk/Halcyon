@@ -584,17 +584,27 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun startPositionUpdates() {
+        if (positionUpdateJob?.isActive == true) return
         positionUpdateJob = viewModelScope.launch {
             while (isActive) {
-                playerManager.updatePosition()
-                updateCurrentLyricIndex()
-                updatePlaybackStats()
-                updateSleepTimer()
+                runCatching {
+                    playerManager.updatePosition()
+                    updateCurrentLyricIndex()
+                    updatePlaybackStats()
+                    updateSleepTimer()
 
-                if (lyriconBridge.isEnabled()) {
-                    lyriconBridge.sendPosition(playerManager.currentPosition.value)
+                    if (lyriconBridge.isEnabled()) {
+                        lyriconBridge.sendPosition(playerManager.currentPosition.value)
+                    }
+                    updateDesktopLyricFrame()
+                }.onFailure { error ->
+                    AppLogStore.warn(
+                        getApplication(),
+                        "PlayerPosition",
+                        "Position update loop iteration failed; keeping ticker alive",
+                        error
+                    )
                 }
-                updateDesktopLyricFrame()
 
                 delay(50)
             }
@@ -1090,7 +1100,10 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     /** Re-establish the media controller if the playback session was torn down in the background. */
     fun ensurePlayerConnected() {
         playerManager.ensureConnected()
+        startPositionUpdates()
     }
+
+    fun livePositionMs(): Long = playerManager.livePositionMs()
 
     fun playQueueIndex(index: Int) {
         if (!lazyOnlineQueueController.playIndex(index)) playerManager.playQueueIndex(index)

@@ -48,6 +48,7 @@ import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.ConfirmDangerDialog
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixMenuItem
+import com.ella.music.ui.components.rememberSongDeleteRequester
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SongSelectionActionRow
@@ -64,6 +65,12 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.icon.extended.Playlist
+import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -86,6 +93,7 @@ fun LibrarySearchScreen(
     val albums by mainViewModel.albums.collectAsState()
     val playlists by mainViewModel.playlists.collectAsState()
     val currentSong by playerViewModel.currentSong.collectAsState()
+    val requestDeleteSongs = rememberSongDeleteRequester(mainViewModel)
     val lyricSourceMode by mainViewModel.settingsManager.lyricSourceMode.collectAsState(initial = SettingsManager.LYRIC_SOURCE_AUTO)
     val showPlayNextInLists by mainViewModel.settingsManager.showPlayNextInLists.collectAsState(initial = false)
     var query by remember(initialQuery) { mutableStateOf(initialQuery.orEmpty()) }
@@ -95,6 +103,7 @@ fun LibrarySearchScreen(
     var actionTarget by remember { mutableStateOf<SearchActionTarget?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
     var createPlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var history by remember { mutableStateOf(loadSearchHistory(context)) }
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
     var selectionMode by remember { mutableStateOf(false) }
@@ -282,6 +291,25 @@ fun LibrarySearchScreen(
         }
     }
 
+    fun selectedSearchSongs(): List<Song> =
+        songResults
+            .map { it.song }
+            .distinctBy { it.searchIdentityKey() }
+            .filter { it.searchIdentityKey() in selectedSongKeys }
+
+    fun selectedOrToast(): List<Song> {
+        val selected = selectedSearchSongs()
+        if (selected.isEmpty()) {
+            Toast.makeText(context, R.string.library_select_songs_first, Toast.LENGTH_SHORT).show()
+        }
+        return selected
+    }
+
+    fun finishSelectionMode() {
+        selectionMode = false
+        selectedSongKeys = emptySet()
+    }
+
     fun commitSearch(text: String = query) {
         val value = text.trim()
         if (value.isBlank()) return
@@ -415,6 +443,87 @@ fun LibrarySearchScreen(
                 onSelectAll = ::toggleSelectAllSongResults,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    val selected = selectedOrToast()
+                    if (selected.isNotEmpty()) {
+                        playerViewModel.playNext(selected)
+                        Toast.makeText(context, R.string.song_more_added_to_play_next, Toast.LENGTH_SHORT).show()
+                        finishSelectionMode()
+                    }
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Play,
+                        contentDescription = stringResource(R.string.song_more_play_next),
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = {
+                    val selected = selectedOrToast()
+                    if (selected.isNotEmpty()) {
+                        playlistPickerSongs = selected
+                    }
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Add,
+                        contentDescription = stringResource(R.string.player_add_to_playlist),
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = {
+                    val selected = selectedOrToast()
+                    if (selected.isNotEmpty()) {
+                        playerViewModel.addToPlaylist(selected)
+                        Toast.makeText(context, R.string.song_more_added_to_queue, Toast.LENGTH_SHORT).show()
+                        finishSelectionMode()
+                    }
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Playlist,
+                        contentDescription = stringResource(R.string.common_add_to_queue),
+                        tint = MiuixTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = {
+                    val selected = selectedOrToast()
+                    if (selected.isNotEmpty()) shareLocalSongs(context, selected)
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Share,
+                        contentDescription = stringResource(R.string.common_share),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = {
+                    val selected = selectedOrToast()
+                    if (selected.isNotEmpty()) pendingDeleteSongs = selected
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Delete,
+                        contentDescription = stringResource(R.string.common_delete),
+                        tint = androidx.compose.ui.graphics.Color(0xFFE5484D),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = ::finishSelectionMode) {
+                    Icon(
+                        imageVector = MiuixIcons.Regular.Close,
+                        contentDescription = stringResource(R.string.common_exit_selection),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
         }
 
         LazyColumn(
@@ -678,6 +787,7 @@ fun LibrarySearchScreen(
                     }
                     playlistPickerSongs = null
                     Toast.makeText(context, context.getString(R.string.player_added_to_playlists, selectedPlaylists.size), Toast.LENGTH_SHORT).show()
+                    finishSelectionMode()
                 }
             )
         }
@@ -691,6 +801,7 @@ fun LibrarySearchScreen(
                     if (playlist != null) mainViewModel.addSongsToPlaylist(playlist.id, songsToAdd)
                 }
                 createPlaylistSongs = null
+                finishSelectionMode()
             }
         )
     }
@@ -714,6 +825,19 @@ fun LibrarySearchScreen(
             history = emptyList()
             saveSearchHistory(context, emptyList())
             showClearHistoryConfirm = false
+        }
+    )
+
+    ConfirmDangerDialog(
+        show = pendingDeleteSongs.isNotEmpty(),
+        title = stringResource(R.string.song_more_delete_song_title),
+        message = stringResource(R.string.library_delete_selected_message, pendingDeleteSongs.size),
+        confirmText = stringResource(R.string.song_more_delete_permanently),
+        onDismiss = { pendingDeleteSongs = emptyList() },
+        onConfirm = {
+            requestDeleteSongs(pendingDeleteSongs)
+            pendingDeleteSongs = emptyList()
+            finishSelectionMode()
         }
     )
 }

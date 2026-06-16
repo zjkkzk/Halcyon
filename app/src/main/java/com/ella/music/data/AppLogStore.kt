@@ -250,7 +250,7 @@ object AppLogStore {
         scopeDescription: String? = null
     ): File {
         val dir = File(context.cacheDir, "shared_logs").apply { mkdirs() }
-        val file = File(dir, "ella-log-${exportTimeFormat()}.txt")
+        val file = File(dir, "halcyon-log-${exportTimeFormat()}.txt")
         file.writeText(buildDetailedReport(context, entries, scopeDescription))
         return file
     }

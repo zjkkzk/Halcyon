@@ -28,6 +28,7 @@ import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -35,17 +36,19 @@ internal fun rememberThrottledPlayerPosition(
     positionFlow: StateFlow<Long>,
     isPlaying: Boolean,
     anchorKey: Any?,
+    livePositionProvider: () -> Long = { positionFlow.value },
     intervalMs: Long = 250L
 ): Long {
     val latestPlaying by rememberUpdatedState(isPlaying)
+    val latestLivePositionProvider by rememberUpdatedState(livePositionProvider)
     return produceState(initialValue = positionFlow.value, positionFlow, anchorKey) {
         var lastUiTickMs = 0L
         var lastLoggedTickMs = 0L
-        positionFlow.collect { positionMs ->
+        fun applyPosition(positionMs: Long) {
             val now = SystemClock.elapsedRealtime()
             val reset = positionMs < value || kotlin.math.abs(positionMs - value) > 1_500L
             val shouldUpdate = reset || !latestPlaying || now - lastUiTickMs >= intervalMs
-            if (!shouldUpdate) return@collect
+            if (!shouldUpdate) return
 
             val previousTickMs = lastUiTickMs
             value = positionMs
@@ -55,6 +58,17 @@ internal fun rememberThrottledPlayerPosition(
                 Log.d("PlayerScreenPerf", "PlayerScreen position ui tick interval=${interval}ms")
                 lastLoggedTickMs = now
             }
+        }
+        launch {
+            positionFlow.collect { positionMs ->
+                applyPosition(positionMs)
+            }
+        }
+        while (true) {
+            if (latestPlaying) {
+                applyPosition(latestLivePositionProvider())
+            }
+            delay(intervalMs)
         }
     }.value
 }

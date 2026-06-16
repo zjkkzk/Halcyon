@@ -439,8 +439,7 @@ fun EllaApp(
                     summary.total,
                     summary.added,
                     summary.updated,
-                    summary.deleted,
-                    summary.failed
+                    summary.deleted
                 ),
                 Toast.LENGTH_LONG
             ).show()

@@ -173,7 +173,8 @@ fun PlayerScreen(
     val currentPosition = rememberThrottledPlayerPosition(
         positionFlow = playerViewModel.currentPosition,
         isPlaying = isPlaying,
-        anchorKey = currentSong?.id
+        anchorKey = currentSong?.id,
+        livePositionProvider = playerViewModel::livePositionMs
     )
     val duration by playerViewModel.duration.collectAsState()
     val shuffleEnabled by playerViewModel.shuffleEnabled.collectAsState()

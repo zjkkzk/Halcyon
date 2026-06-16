@@ -441,7 +441,7 @@
     <string name="folder_add_custom_directory">Add custom directory</string>
     <string name="folder_scanning_library">Scanning music library...</string>
     <string name="library_scan_started">Scanning music library…</string>
-    <string name="library_scan_finished_summary">Scan complete: %1$d songs, %2$d added, %3$d updated, %4$d deleted, %5$d failed</string>
+    <string name="library_scan_finished_summary">Scan complete: %1$d songs, %2$d added, %3$d updated, %4$d deleted</string>
     <string name="folder_use_android_media_library">Use Android media library</string>
     <string name="folder_scan_android_media_summary">Scan all music in the system media library</string>
     <string name="folder_scan_custom_folders_summary">Only scan %1$d added custom folders</string>

@@ -144,7 +144,7 @@ private fun writeLyricShareCard(context: Context, bitmap: Bitmap): Uri {
         deleteRecursively()
         mkdirs()
     }
-    val file = File(dir, "ella_lyric_${System.currentTimeMillis()}.png")
+    val file = File(dir, "halcyon_lyric_${System.currentTimeMillis()}.png")
     FileOutputStream(file).use { output ->
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
     }
