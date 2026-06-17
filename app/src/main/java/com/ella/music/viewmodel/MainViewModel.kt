@@ -114,42 +114,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun scanFromCurrentSettings(fullRescan: Boolean = false, deepRescan: Boolean = fullRescan) {
-        val minDuration = settingsManager.minDurationSec.first() * 1000L
-        val includeFolders = settingsManager.scanIncludeFolders.first().toFolderFilterList()
-        val excludeFolders = settingsManager.scanExcludeFolders.first().toFolderFilterList()
-        val useAndroidMediaLibrary = settingsManager.useAndroidMediaLibrary.first()
-        val count = repository.scanMusic(
-            minDuration,
-            if (useAndroidMediaLibrary) emptyList() else includeFolders.ifEmpty { listOf("__ella_no_custom_folder__") },
-            excludeFolders,
-            fullRescan = fullRescan,
-            deepRescan = deepRescan
-        )
-        if (count == 0 && useAndroidMediaLibrary && includeFolders.isNotEmpty()) {
-            repository.scanMusic(
+        repository.startScanning()
+        try {
+            val minDuration = settingsManager.minDurationSec.first() * 1000L
+            val includeFolders = settingsManager.scanIncludeFolders.first().toFolderFilterList()
+            val excludeFolders = settingsManager.scanExcludeFolders.first().toFolderFilterList()
+            val useAndroidMediaLibrary = settingsManager.useAndroidMediaLibrary.first()
+            val summary = repository.scanMusic(
                 minDuration,
-                includeFolders,
+                if (useAndroidMediaLibrary) emptyList() else includeFolders.ifEmpty { listOf("__ella_no_custom_folder__") },
                 excludeFolders,
                 fullRescan = fullRescan,
                 deepRescan = deepRescan
             )
-        }
-        // Scan USB folders via SAF
-        val usbFolderUris = settingsManager.usbFolderUris.first()
-            .split('\n')
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-        if (usbFolderUris.isNotEmpty()) {
-            val uris = usbFolderUris.mapNotNull { runCatching { Uri.parse(it) }.getOrNull() }
-            repository.scanUsbFolders(
-                usbUris = uris,
-                minDurationMs = minDuration,
-                deepMetadata = deepRescan
-            )
-        }
-        preloadLibrarySearchSnapshot()
-        withContext(Dispatchers.IO) {
-            prewarmLibraryAnalysisCache(getApplication(), songs.value, this@MainViewModel)
+            if (summary.total == 0 && useAndroidMediaLibrary && includeFolders.isNotEmpty()) {
+                repository.scanMusic(
+                    minDuration,
+                    includeFolders,
+                    excludeFolders,
+                    fullRescan = fullRescan,
+                    deepRescan = deepRescan
+                )
+            }
+            val usbFolderUris = settingsManager.usbFolderUris.first()
+                .split('\n')
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            if (usbFolderUris.isNotEmpty()) {
+                val uris = usbFolderUris.mapNotNull { runCatching { Uri.parse(it) }.getOrNull() }
+                repository.scanUsbFolders(
+                    usbUris = uris,
+                    minDurationMs = minDuration,
+                    deepMetadata = deepRescan
+                )
+            }
+            repository.emitScanSummary(summary)
+            preloadLibrarySearchSnapshot()
+            withContext(Dispatchers.IO) {
+                prewarmLibraryAnalysisCache(getApplication(), songs.value, this@MainViewModel)
+            }
+        } finally {
+            repository.finishScanning()
         }
     }
 

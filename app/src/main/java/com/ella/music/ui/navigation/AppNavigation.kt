@@ -379,7 +379,10 @@ fun AppNavigation(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
                 onBack = { navController.popBackStack() },
-                onNavigateToPlayer = onNavigateToPlayer
+                onNavigateToPlayer = onNavigateToPlayer,
+                onNavigateToFolder = { path ->
+                    navController.navigate(Screen.FolderDetail.createRoute(path))
+                }
             )
         }
 

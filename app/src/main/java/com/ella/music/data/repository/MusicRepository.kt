@@ -182,6 +182,19 @@ class MusicRepository(private val context: Context) {
     private val _scanSummaryEvents = MutableSharedFlow<MusicScanSummary>(extraBufferCapacity = 1)
     val scanSummaryEvents: SharedFlow<MusicScanSummary> = _scanSummaryEvents.asSharedFlow()
 
+    fun startScanning() {
+        _isScanning.value = true
+        _scanProgress.value = 0
+    }
+
+    fun emitScanSummary(summary: MusicScanSummary) {
+        _scanSummaryEvents.tryEmit(summary)
+    }
+
+    fun finishScanning() {
+        _isScanning.value = false
+    }
+
     private val lyricsCache = ConcurrentHashMap<String, List<LyricLine>>()
     private val lyricFormatAvailabilityCache = ConcurrentHashMap<String, LyricFormatAvailability>()
     private val audioInfoCache = ConcurrentHashMap<String, AudioInfo>()
@@ -218,61 +231,45 @@ class MusicRepository(private val context: Context) {
         excludeFolders: List<String> = emptyList(),
         fullRescan: Boolean = false,
         deepRescan: Boolean = fullRescan
-    ): Int {
-        _isScanning.value = true
-        _scanProgress.value = 0
-        try {
-            val mode = if (includeFolders.isEmpty()) "media_library" else "custom_folders"
-            val previousSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
-            AppLogStore.info(
-                context,
-                "MusicScanner",
-                "Start scan mode=$mode minDuration=${minDurationMs}ms include=${includeFolders.size} exclude=${excludeFolders.size} fullRescan=$fullRescan deepRescan=$deepRescan",
-                AppLogType.LIBRARY
+    ): MusicScanSummary {
+        val mode = if (includeFolders.isEmpty()) "media_library" else "custom_folders"
+        val previousSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
+        AppLogStore.info(
+            context,
+            "MusicScanner",
+            "Start scan mode=$mode minDuration=${minDurationMs}ms include=${includeFolders.size} exclude=${excludeFolders.size} fullRescan=$fullRescan deepRescan=$deepRescan",
+            AppLogType.LIBRARY
+        )
+        val scanResult = if (fullRescan || deepRescan) {
+            val scannedSongs = scanner.scanAllSongs(
+                minDurationMs = minDurationMs,
+                includeFolders = includeFolders,
+                excludeFolders = excludeFolders,
+                deepMetadata = true
+            ) { count -> _scanProgress.value = count }
+                .map { song -> song.withRepositoryTags() }
+            LibraryScanResult(
+                songs = scannedSongs,
+                summary = buildFullScanSummary(previousSongs, scannedSongs, fullRescan = true)
             )
-            val scanResult = if (fullRescan || deepRescan) {
-                val scannedSongs = scanner.scanAllSongs(
-                    minDurationMs = minDurationMs,
-                    includeFolders = includeFolders,
-                    excludeFolders = excludeFolders,
-                    deepMetadata = true
-                ) { count -> _scanProgress.value = count }
-                    .map { song -> song.withRepositoryTags() }
-                LibraryScanResult(
-                    songs = scannedSongs,
-                    summary = buildFullScanSummary(previousSongs, scannedSongs, fullRescan = true)
-                )
-            } else {
-                synchronizeLibrary(
-                    minDurationMs = minDurationMs,
-                    includeFolders = includeFolders,
-                    excludeFolders = excludeFolders
-                )
-            }
-            val scannedSongs = scanResult.songs
-            _songs.value = scannedSongs
-            _albums.value = scannedSongs.toAlbums()
-            saveLibraryCache(scannedSongs, _albums.value)
-            _scanSummaryEvents.tryEmit(scanResult.summary.copy(total = scannedSongs.size))
-            AppLogStore.info(
-                context,
-                "MusicScanner",
-                "Scan finished mode=$mode songs=${scannedSongs.size} albums=${_albums.value.size}",
-                AppLogType.LIBRARY
+        } else {
+            synchronizeLibrary(
+                minDurationMs = minDurationMs,
+                includeFolders = includeFolders,
+                excludeFolders = excludeFolders
             )
-            return scannedSongs.size
-        } catch (error: Throwable) {
-            AppLogStore.error(
-                context,
-                "MusicScanner",
-                "Scan failed: ${error.message ?: error.javaClass.name}",
-                error,
-                AppLogType.LIBRARY
-            )
-            throw error
-        } finally {
-            _isScanning.value = false
         }
+        val scannedSongs = scanResult.songs
+        _songs.value = scannedSongs
+        _albums.value = scannedSongs.toAlbums()
+        saveLibraryCache(scannedSongs, _albums.value)
+        AppLogStore.info(
+            context,
+            "MusicScanner",
+            "Scan finished mode=$mode songs=${scannedSongs.size} albums=${_albums.value.size}",
+            AppLogType.LIBRARY
+        )
+        return scanResult.summary.copy(total = scannedSongs.size)
     }
 
     /**
@@ -282,63 +279,43 @@ class MusicRepository(private val context: Context) {
         usbUris: List<android.net.Uri>,
         minDurationMs: Long = 0,
         deepMetadata: Boolean = false
-    ): Int {
-        if (usbUris.isEmpty()) return _songs.value.size
-        _isScanning.value = true
-        _scanProgress.value = 0
-        try {
-            val existingSongs = _songs.value
-            val existingPaths = existingSongs.map { it.path }.toSet()
-            val usbSongs = mutableListOf<Song>()
-            for (uri in usbUris) {
-                val accessible = scanner.isUsbUriAccessible(uri)
-                if (!accessible) {
-                    AppLogStore.info(
-                        context,
-                        "MusicScanner",
-                        "USB URI not accessible, skipping: $uri",
-                        AppLogType.LIBRARY
-                    )
-                    continue
-                }
-                val found = scanner.scanUsbFolder(
-                    treeUri = uri,
-                    minDurationMs = minDurationMs,
-                    deepMetadata = deepMetadata
-                ) { count -> _scanProgress.value = count }
-                usbSongs.addAll(found.filter { it.path !in existingPaths })
-            }
-            if (usbSongs.isNotEmpty()) {
-                val merged = existingSongs + usbSongs
-                _songs.value = merged
-                _albums.value = merged.toAlbums()
-                saveLibraryCache(merged, _albums.value)
-                _scanSummaryEvents.tryEmit(
-                    MusicScanSummary(
-                        total = merged.size,
-                        added = usbSongs.size
-                    )
-                )
+    ): MusicScanSummary {
+        if (usbUris.isEmpty()) return MusicScanSummary(total = _songs.value.size)
+        val existingSongs = _songs.value
+        val existingPaths = existingSongs.map { it.path }.toSet()
+        val usbSongs = mutableListOf<Song>()
+        for (uri in usbUris) {
+            val accessible = scanner.isUsbUriAccessible(uri)
+            if (!accessible) {
                 AppLogStore.info(
                     context,
                     "MusicScanner",
-                    "USB scan finished: ${usbSongs.size} new songs from ${usbUris.size} folders, total=${merged.size}",
+                    "USB URI not accessible, skipping: $uri",
                     AppLogType.LIBRARY
                 )
+                continue
             }
-            return _songs.value.size
-        } catch (error: Throwable) {
-            AppLogStore.error(
+            val found = scanner.scanUsbFolder(
+                treeUri = uri,
+                minDurationMs = minDurationMs,
+                deepMetadata = deepMetadata
+            ) { count -> _scanProgress.value = count }
+            usbSongs.addAll(found.filter { it.path !in existingPaths })
+        }
+        if (usbSongs.isNotEmpty()) {
+            val merged = existingSongs + usbSongs
+            _songs.value = merged
+            _albums.value = merged.toAlbums()
+            saveLibraryCache(merged, _albums.value)
+            AppLogStore.info(
                 context,
                 "MusicScanner",
-                "USB scan failed: ${error.message ?: error.javaClass.name}",
-                error,
+                "USB scan finished: ${usbSongs.size} new songs from ${usbUris.size} folders, total=${merged.size}",
                 AppLogType.LIBRARY
             )
-            throw error
-        } finally {
-            _isScanning.value = false
+            return MusicScanSummary(total = merged.size, added = usbSongs.size)
         }
+        return MusicScanSummary(total = _songs.value.size)
     }
 
     private suspend fun synchronizeLibrary(

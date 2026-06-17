@@ -473,6 +473,14 @@
     <string name="folder_playlist_selected_count">已选择 %1$d 个文件夹</string>
     <string name="folder_playlist_empty_songs">这些文件夹里暂时没有歌曲</string>
     <string name="folder_playlist_save_failed">请填写名称并至少选择一个文件夹</string>
+    <string name="folder_playlist_sort_folder_count">文件夹数</string>
+    <string name="folder_playlist_tab_songs">歌曲</string>
+    <string name="folder_playlist_tab_folders">文件夹</string>
+    <string name="folder_playlist_associate">关联到文件夹歌单</string>
+    <string name="folder_playlist_associate_done">已关联到「%1$s」</string>
+    <string name="folder_playlist_more_share">分享</string>
+    <string name="folder_playlist_more_refresh">刷新</string>
+    <string name="folder_playlist_more_pin">置顶</string>
     <string name="playlist_name_exists">歌单名已存在</string>
     <string name="folder_playlist_delete_title">删除文件夹歌单</string>
     <string name="folder_playlist_delete_message">确定要删除「%1$s」吗？不会删除音乐文件。</string>

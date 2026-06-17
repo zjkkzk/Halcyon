@@ -198,7 +198,7 @@ class HalcyonMcpServer(
 
     private fun registerResources() {
         server.addResource(
-            uri = "ella://playback/current",
+            uri = "halcyon://playback/current",
             name = "Current Playback",
             description = "Currently playing track and playback state",
             mimeType = "application/json"
@@ -215,12 +215,12 @@ class HalcyonMcpServer(
                 })
             } else """{"status":"idle"}"""
             ReadResourceResult(contents = listOf(
-                TextResourceContents(text = text, uri = "ella://playback/current", mimeType = "application/json")
+                TextResourceContents(text = text, uri = "halcyon://playback/current", mimeType = "application/json")
             ))
         }
 
         server.addResource(
-            uri = "ella://library/stats",
+            uri = "halcyon://library/stats",
             name = "Library Stats",
             description = "Music library statistics",
             mimeType = "application/json"
@@ -232,7 +232,7 @@ class HalcyonMcpServer(
                 put("total_albums", JsonPrimitive(songs.map { it.album }.distinct().size))
             })
             ReadResourceResult(contents = listOf(
-                TextResourceContents(text = text, uri = "ella://library/stats", mimeType = "application/json")
+                TextResourceContents(text = text, uri = "halcyon://library/stats", mimeType = "application/json")
             ))
         }
     }

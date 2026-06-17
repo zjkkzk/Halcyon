@@ -122,10 +122,8 @@ import com.ella.music.ui.components.simpleLuminance
 import com.ella.music.ui.components.updateEllaDynamicShortcuts
 import com.ella.music.ui.navigation.AppNavigation
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
-import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE_NEW
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION
-import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION_NEW
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_SHUFFLE_ALL
 import com.ella.music.ui.player.PlayerScreen
@@ -496,9 +494,7 @@ fun EllaApp(
             }
         }
         currentProcessingIntent.value?.removeExtra(EXTRA_SHORTCUT_ACTION)
-        currentProcessingIntent.value?.removeExtra(EXTRA_SHORTCUT_ACTION_NEW)
         currentProcessingIntent.value?.removeExtra(EXTRA_SHORTCUT_ROUTE)
-        currentProcessingIntent.value?.removeExtra(EXTRA_SHORTCUT_ROUTE_NEW)
         currentProcessingIntent.value?.setData(null)
     }
 

@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
-import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE_NEW
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_SHUFFLE_ALL
@@ -12,26 +11,24 @@ import java.net.URLDecoder
 
 internal fun Intent.resolveShortcutRoute(): String {
     val uri = data
-    if (uri != null && uri.scheme in setOf("ella", "halcyon")) {
+    if (uri != null && uri.scheme == "halcyon") {
         uri.toHalcyonRoute()?.let { return it }
         uri.getQueryParameter("route")
             ?.takeIf { it.isNotBlank() }
             ?.let { return it }
     }
     return getStringExtra(EXTRA_SHORTCUT_ROUTE)
-        ?: getStringExtra(EXTRA_SHORTCUT_ROUTE_NEW)
         ?: ""
 }
 
 internal fun Intent.resolveShortcutAction(): String {
-    data?.takeIf { it.scheme in setOf("ella", "halcyon") }?.let { uri ->
+    data?.takeIf { it.scheme == "halcyon" }?.let { uri ->
         when (uri.host.orEmpty()) {
             "play" -> return SHORTCUT_ACTION_PLAY
             "shuffle_all" -> return SHORTCUT_ACTION_SHUFFLE_ALL
         }
     }
     return getStringExtra(com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION)
-        ?: getStringExtra(com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION_NEW)
         ?: ""
 }
 

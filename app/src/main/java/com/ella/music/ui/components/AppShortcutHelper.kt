@@ -10,9 +10,7 @@ import com.ella.music.MainActivity
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION
-import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ACTION_NEW
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
-import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE_NEW
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_SHUFFLE_ALL
@@ -96,7 +94,6 @@ fun requestPinnedEllaShortcut(
     val intent = Intent(context, MainActivity::class.java).apply {
         action = Intent.ACTION_VIEW
         putExtra(EXTRA_SHORTCUT_ROUTE, route)
-        putExtra(EXTRA_SHORTCUT_ROUTE_NEW, route)
     }
     val shortcutLabel = label.shortcutLabelForRoute(route)
     val appName = context.getString(R.string.app_name)
@@ -111,7 +108,7 @@ fun requestPinnedEllaShortcut(
 }
 
 private fun String.toShortcutId(): String =
-    "ella_${replace(Regex("[^A-Za-z0-9_.-]"), "_").take(80)}"
+    "halcyon_${replace(Regex("[^A-Za-z0-9_.-]"), "_").take(80)}"
 
 private fun Context.buildEllaShortcut(
     id: String,
@@ -129,7 +126,6 @@ private fun Context.buildEllaShortcut(
             Intent(this, MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 putExtra(EXTRA_SHORTCUT_ROUTE, route)
-                putExtra(EXTRA_SHORTCUT_ROUTE_NEW, route)
             }
         )
         .setRank(rank)
@@ -152,7 +148,6 @@ private fun Context.buildEllaActionShortcut(
             Intent(this, MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 putExtra(EXTRA_SHORTCUT_ACTION, shortcutAction)
-                putExtra(EXTRA_SHORTCUT_ACTION_NEW, shortcutAction)
             }
         )
         .setRank(rank)

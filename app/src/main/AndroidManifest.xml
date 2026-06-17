@@ -68,13 +68,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="ella" android:host="search" />
                 <data android:scheme="halcyon" android:host="search" />
                 <data android:scheme="halcyon" />
-                <data android:scheme="ella" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.ella.music.action.SHORTCUT" />
                 <action android:name="com.halcyon.action.SHORTCUT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

@@ -468,6 +468,14 @@
     <string name="folder_playlist_selected_count">%1$d folders selected</string>
     <string name="folder_playlist_empty_songs">No songs in these folders yet</string>
     <string name="folder_playlist_save_failed">Enter a name and select at least one folder</string>
+    <string name="folder_playlist_sort_folder_count">Folder count</string>
+    <string name="folder_playlist_tab_songs">Songs</string>
+    <string name="folder_playlist_tab_folders">Folders</string>
+    <string name="folder_playlist_associate">Link to folder playlist</string>
+    <string name="folder_playlist_associate_done">Linked to \"%1$s\"</string>
+    <string name="folder_playlist_more_share">Share</string>
+    <string name="folder_playlist_more_refresh">Refresh</string>
+    <string name="folder_playlist_more_pin">Pin</string>
     <string name="playlist_name_exists">Playlist name already exists</string>
     <string name="folder_playlist_delete_title">Delete folder playlist</string>
     <string name="folder_playlist_delete_message">Delete \"%1$s\"? Music files will not be deleted.</string>
