@@ -51,7 +51,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
 @Composable
-fun EqualizerScreen(onBack: () -> Unit) {
+fun EqualizerScreen(
+    onBack: () -> Unit,
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -96,7 +99,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
 
             val caps = capabilities
             if (caps == null || !caps.supported) {
-                SettingsCardGroup {
+                SettingsCardGroup(highlight = highlightKey == "equalizer_unavailable") {
                     Text(
                         text = stringResource(R.string.equalizer_unavailable),
                         fontSize = 13.sp,
@@ -109,7 +112,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
             }
 
             SmallTitle(text = stringResource(R.string.equalizer_section_eq))
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "equalizer") {
                 Column {
                     SwitchPreference(
                         title = stringResource(R.string.equalizer_master),
@@ -143,7 +146,7 @@ fun EqualizerScreen(onBack: () -> Unit) {
                 }
             }
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "equalizer_bands") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

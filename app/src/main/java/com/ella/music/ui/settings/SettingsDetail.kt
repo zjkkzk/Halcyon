@@ -52,6 +52,8 @@ fun SettingsDetailScreen(
     playerViewModel: PlayerViewModel? = null,
     showOnlyLyrics: Boolean = false,
     mode: SettingsDetailMode = SettingsDetailMode.AppearanceHome,
+    initialHomeDisplay: Boolean = false,
+    highlightKey: String? = null,
     onNavigateToScanFolders: (() -> Unit)? = null,
     onNavigateToLyricPluginSources: () -> Unit = {}
 ) {
@@ -69,6 +71,9 @@ fun SettingsDetailScreen(
     val homeOnlineTileOrder by settingsManager.homeOnlineTileOrder.collectAsState(initial = SettingsManager.DEFAULT_HOME_ONLINE_TILE_ORDER)
     val homeHiddenOnlineTiles by settingsManager.homeHiddenOnlineTiles.collectAsState(initial = "")
     val homeTilePinButtonsVisible by settingsManager.homeTilePinButtonsVisible.collectAsState(initial = false)
+    val homeCardColor by settingsManager.homeCardColor.collectAsState(initial = "")
+    val homeCardOpacity by settingsManager.homeCardOpacity.collectAsState(initial = 58)
+    val homeTileColors by settingsManager.homeTileColors.collectAsState(initial = "")
     val homeSectionItems = listOf(
         HomePreferenceItem("library", stringResource(R.string.settings_home_section_library), stringResource(R.string.settings_home_section_library_summary)),
         HomePreferenceItem("online", stringResource(R.string.settings_home_section_online), stringResource(R.string.settings_home_section_online_summary)),
@@ -79,6 +84,7 @@ fun SettingsDetailScreen(
         HomePreferenceItem("album", stringResource(R.string.settings_library_tile_album), stringResource(R.string.settings_library_tile_album_summary)),
         HomePreferenceItem("folder", stringResource(R.string.settings_library_tile_folder), stringResource(R.string.settings_library_tile_folder_summary)),
         HomePreferenceItem("folder_tree", stringResource(R.string.settings_library_tile_folder_tree), stringResource(R.string.settings_library_tile_folder_tree_summary)),
+        HomePreferenceItem("folder_playlist", stringResource(R.string.settings_library_tile_folder_playlist), stringResource(R.string.settings_library_tile_folder_playlist_summary)),
         HomePreferenceItem("playlist", stringResource(R.string.settings_library_tile_playlist), stringResource(R.string.settings_library_tile_playlist_summary)),
         HomePreferenceItem("analytics", stringResource(R.string.settings_library_tile_analytics), stringResource(R.string.settings_library_tile_analytics_summary)),
         HomePreferenceItem("genre", stringResource(R.string.settings_library_tile_genre), stringResource(R.string.settings_library_tile_genre_summary)),
@@ -92,7 +98,7 @@ fun SettingsDetailScreen(
         HomePreferenceItem("emby", stringResource(R.string.remote_source_emby), stringResource(R.string.remote_source_emby_summary)),
         HomePreferenceItem("webdav", "WebDAV", stringResource(R.string.home_connect_cloud_music))
     )
-    var showHomeDisplayPage by remember { mutableStateOf(false) }
+    var showHomeDisplayPage by remember(initialHomeDisplay) { mutableStateOf(initialHomeDisplay) }
     val contentScrollState = rememberScrollState()
     LaunchedEffect(showHomeDisplayPage) {
         contentScrollState.scrollTo(0)
@@ -115,7 +121,7 @@ fun SettingsDetailScreen(
             },
             color = pageBackground,
             navigationIcon = {
-                IconButton(onClick = { if (showHomeDisplayPage) showHomeDisplayPage = false else onBack() }) {
+                IconButton(onClick = { if (showHomeDisplayPage && !initialHomeDisplay) showHomeDisplayPage = false else onBack() }) {
                     Icon(
                         imageVector = MiuixIcons.Regular.Back,
                         contentDescription = stringResource(R.string.common_back),
@@ -146,6 +152,10 @@ fun SettingsDetailScreen(
                     onlineOrder = homeOnlineTileOrder,
                     hiddenOnlineTiles = homeHiddenOnlineTiles,
                     tilePinButtonsVisible = homeTilePinButtonsVisible,
+                    homeCardColor = homeCardColor,
+                    homeCardOpacity = homeCardOpacity,
+                    homeTileColors = homeTileColors,
+                    highlightKey = highlightKey,
                     onHiddenSectionsChange = { value ->
                         scope.launch { settingsManager.setHomeHiddenSections(value) }
                     },
@@ -166,6 +176,15 @@ fun SettingsDetailScreen(
                     },
                     onTilePinButtonsVisibleChange = { value ->
                         scope.launch { settingsManager.setHomeTilePinButtonsVisible(value) }
+                    },
+                    onHomeCardColorChange = { value ->
+                        scope.launch { settingsManager.setHomeCardColor(value) }
+                    },
+                    onHomeCardOpacityChange = { value ->
+                        scope.launch { settingsManager.setHomeCardOpacity(value) }
+                    },
+                    onHomeTileColorChange = { id, value ->
+                        scope.launch { settingsManager.setHomeTileColor(id, value) }
                     }
                 )
                 Spacer(modifier = Modifier.height(160.dp))
@@ -174,8 +193,8 @@ fun SettingsDetailScreen(
 
             when (effectiveMode) {
                 SettingsDetailMode.AppearanceHome -> {
-                    SettingsAppearanceSection()
-                    SettingsCardGroup {
+                    SettingsAppearanceSection(highlightKey = highlightKey)
+                    SettingsCardGroup(highlight = highlightKey == "lyric_font") {
                         ArrowPreference(
                             title = stringResource(R.string.settings_font_settings),
                             summary = lyricFontName.ifBlank { stringResource(R.string.settings_system_default) },
@@ -183,27 +202,30 @@ fun SettingsDetailScreen(
                         )
                     }
                     SettingsHomeCustomizeSection(
+                        highlightKey = highlightKey,
                         onOpenHomeDisplay = { showHomeDisplayPage = true }
                     )
                 }
                 SettingsDetailMode.LibraryScanning -> {
                     SettingsLibrarySourceSection(
+                        highlightKey = highlightKey,
                         onOpenScanFolders = onNavigateToScanFolders
                     )
-                    SettingsScanSection()
-                    SettingsTagScrapingSection()
-                    SettingsDesktopShortcutSection()
+                    SettingsScanSection(highlightKey = highlightKey)
+                    SettingsTagScrapingSection(highlightKey = highlightKey)
+                    SettingsDesktopShortcutSection(highlightKey = highlightKey)
                 }
                 SettingsDetailMode.Integrations -> {
-                    SettingsAiInterpretationSection()
-                    SettingsMcpSection()
+                    SettingsAiInterpretationSection(highlightKey = highlightKey)
+                    SettingsMcpSection(highlightKey = highlightKey)
                 }
                 SettingsDetailMode.Lyrics -> {
                     SettingsLyricsSection(
                         playerViewModel = playerViewModel,
+                        highlightKey = highlightKey,
                         onNavigateToLyricPluginSources = onNavigateToLyricPluginSources
                     )
-                    SettingsLyricShareSection()
+                    SettingsLyricShareSection(highlightKey = highlightKey)
                 }
             }
 

@@ -3,6 +3,7 @@ package com.ella.music.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,9 +35,13 @@ import com.ella.music.ui.components.EllaMiuixAction
 import com.ella.music.ui.components.EllaMiuixActionRow
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import kotlinx.coroutines.flow.Flow
+import org.json.JSONObject
 import sh.calvin.reorderable.ReorderableColumn
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.ColorPicker
+import top.yukonga.miuix.kmp.basic.ColorSpace
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
@@ -73,13 +80,20 @@ internal fun HomeDisplaySettingsPage(
     onlineOrder: String,
     hiddenOnlineTiles: String,
     tilePinButtonsVisible: Boolean,
+    homeCardColor: String,
+    homeCardOpacity: Int,
+    homeTileColors: String,
+    highlightKey: String? = null,
     onHiddenSectionsChange: (String) -> Unit,
     onHiddenTilesChange: (String) -> Unit,
     onHiddenOnlineTilesChange: (String) -> Unit,
     onSectionOrderChange: (String) -> Unit,
     onTileOrderChange: (String) -> Unit,
     onOnlineOrderChange: (String) -> Unit,
-    onTilePinButtonsVisibleChange: (Boolean) -> Unit
+    onTilePinButtonsVisibleChange: (Boolean) -> Unit,
+    onHomeCardColorChange: (String) -> Unit,
+    onHomeCardOpacityChange: (Int) -> Unit,
+    onHomeTileColorChange: (String, String) -> Unit
 ) {
     val orderedSections = remember(sectionItems, sectionOrder) {
         sectionItems.orderedByCsv(sectionOrder, SettingsManager.DEFAULT_HOME_SECTION_ORDER)
@@ -93,11 +107,27 @@ internal fun HomeDisplaySettingsPage(
     val hiddenSectionIds = remember(hiddenSections) { hiddenSections.csvIdSet() }
     val hiddenTileIds = remember(hiddenTiles) { hiddenTiles.csvIdSet() }
     val hiddenOnlineTileIds = remember(hiddenOnlineTiles) { hiddenOnlineTiles.csvIdSet() }
+    val tileColorMap = remember(homeTileColors) { homeTileColors.parseHomeTileColorStrings() }
+    val highlightTileColors = highlightKey == "home_tile_colors"
+
+    if (highlightTileColors) {
+        HomeTileColorSettings(
+            tileItems = orderedTiles + orderedOnlineTiles,
+            homeCardColor = homeCardColor,
+            homeCardOpacity = homeCardOpacity,
+            tileColorMap = tileColorMap,
+            highlight = true,
+            onHomeCardColorChange = onHomeCardColorChange,
+            onHomeCardOpacityChange = onHomeCardOpacityChange,
+            onHomeTileColorChange = onHomeTileColorChange
+        )
+    }
 
     HomeDisplayGroup(
         title = stringResource(R.string.settings_home_sections_title),
         items = orderedSections,
         hiddenIds = hiddenSectionIds,
+        highlight = highlightKey == "home_sections",
         onHiddenIdsChange = onHiddenSectionsChange,
         onOrderChange = onSectionOrderChange
     )
@@ -106,6 +136,7 @@ internal fun HomeDisplaySettingsPage(
         title = null,
         items = orderedTiles,
         hiddenIds = hiddenTileIds,
+        highlight = highlightKey == "home_library_tiles",
         onHiddenIdsChange = onHiddenTilesChange,
         onOrderChange = onTileOrderChange
     )
@@ -114,10 +145,11 @@ internal fun HomeDisplaySettingsPage(
         title = null,
         items = orderedOnlineTiles,
         hiddenIds = hiddenOnlineTileIds,
+        highlight = highlightKey == "home_online_tiles",
         onHiddenIdsChange = onHiddenOnlineTilesChange,
         onOrderChange = onOnlineOrderChange
     )
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "home_tile_pin_buttons") {
         SwitchPreference(
             title = stringResource(R.string.settings_home_tile_pin_buttons),
             summary = stringResource(R.string.settings_home_tile_pin_buttons_summary),
@@ -125,6 +157,141 @@ internal fun HomeDisplaySettingsPage(
             onCheckedChange = onTilePinButtonsVisibleChange
         )
     }
+    if (!highlightTileColors) {
+        HomeTileColorSettings(
+            tileItems = orderedTiles + orderedOnlineTiles,
+            homeCardColor = homeCardColor,
+            homeCardOpacity = homeCardOpacity,
+            tileColorMap = tileColorMap,
+            highlight = false,
+            onHomeCardColorChange = onHomeCardColorChange,
+            onHomeCardOpacityChange = onHomeCardOpacityChange,
+            onHomeTileColorChange = onHomeTileColorChange
+        )
+    }
+}
+
+@Composable
+private fun HomeTileColorSettings(
+    tileItems: List<HomePreferenceItem>,
+    homeCardColor: String,
+    homeCardOpacity: Int,
+    tileColorMap: Map<String, String>,
+    highlight: Boolean,
+    onHomeCardColorChange: (String) -> Unit,
+    onHomeCardOpacityChange: (Int) -> Unit,
+    onHomeTileColorChange: (String, String) -> Unit
+) {
+    var colorTarget by remember { mutableStateOf<HomeColorTarget?>(null) }
+    SmallTitle(text = stringResource(R.string.settings_home_tile_colors_title))
+    SettingsCardGroup(highlight = highlight) {
+        Column {
+            BasicComponent(
+                title = stringResource(R.string.settings_home_card_color),
+                summary = homeCardColor.ifBlank { stringResource(R.string.settings_home_card_color_default) },
+                modifier = Modifier.clickable { colorTarget = HomeColorTarget.Global }
+            )
+            SettingsIntSliderPreference(
+                title = stringResource(R.string.settings_home_card_opacity),
+                summary = stringResource(R.string.settings_home_card_opacity_summary),
+                value = homeCardOpacity,
+                valueRange = 20..100,
+                valueText = "$homeCardOpacity%",
+                onValueChange = onHomeCardOpacityChange
+            )
+            tileItems.forEach { item ->
+                HomeTileColorRow(
+                    item = item,
+                    color = tileColorMap[item.id],
+                    onClick = { colorTarget = HomeColorTarget.Tile(item) }
+                )
+            }
+        }
+    }
+
+    val target = colorTarget
+    EllaMiuixBottomSheet(
+        show = target != null,
+        title = when (target) {
+            HomeColorTarget.Global -> stringResource(R.string.settings_home_card_color)
+            is HomeColorTarget.Tile -> target.item.title
+            null -> ""
+        },
+        onDismissRequest = { colorTarget = null }
+    ) {
+        val saved = when (target) {
+            HomeColorTarget.Global -> homeCardColor
+            is HomeColorTarget.Tile -> tileColorMap[target.item.id].orEmpty()
+            null -> ""
+        }
+        val currentColor = remember(target, saved) {
+            saved.parseHomeDisplayColorOrNull() ?: Color(0xFF2B2B31)
+        }
+        var pickerColor by remember(target, currentColor) { mutableStateOf(currentColor) }
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            ColorPicker(
+                color = pickerColor,
+                onColorChanged = { pickerColor = it },
+                colorSpace = ColorSpace.HSV,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val value = "#%08X".format(pickerColor.toArgb())
+                    when (target) {
+                        HomeColorTarget.Global -> onHomeCardColorChange(value)
+                        is HomeColorTarget.Tile -> onHomeTileColorChange(target.item.id, value)
+                        null -> Unit
+                    }
+                    colorTarget = null
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.common_confirm))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    when (target) {
+                        HomeColorTarget.Global -> onHomeCardColorChange("")
+                        is HomeColorTarget.Tile -> onHomeTileColorChange(target.item.id, "")
+                        null -> Unit
+                    }
+                    colorTarget = null
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = stringResource(R.string.common_reset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTileColorRow(
+    item: HomePreferenceItem,
+    color: String?,
+    onClick: () -> Unit
+) {
+    BasicComponent(
+        title = item.title,
+        summary = color ?: stringResource(R.string.settings_home_tile_color_default),
+        modifier = Modifier.clickable(onClick = onClick),
+        endActions = {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(color?.parseHomeDisplayColorOrNull() ?: MiuixTheme.colorScheme.primary.copy(alpha = 0.32f))
+            )
+        }
+    )
+}
+
+private sealed class HomeColorTarget {
+    data object Global : HomeColorTarget()
+    data class Tile(val item: HomePreferenceItem) : HomeColorTarget()
 }
 
 @Composable
@@ -132,6 +299,7 @@ private fun HomeDisplayGroup(
     title: String?,
     items: List<HomePreferenceItem>,
     hiddenIds: Set<String>,
+    highlight: Boolean = false,
     onHiddenIdsChange: (String) -> Unit,
     onOrderChange: (String) -> Unit
 ) {
@@ -140,7 +308,7 @@ private fun HomeDisplayGroup(
     if (title != null) {
         SmallTitle(text = title)
     }
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlight) {
         Column {
             Row(
                 modifier = Modifier
@@ -353,6 +521,24 @@ private fun String.csvIdSet(): Set<String> =
         .map { it.trim().lowercase(Locale.ROOT) }
         .filter { it.isNotBlank() }
         .toSet()
+
+private fun String.parseHomeTileColorStrings(): Map<String, String> =
+    runCatching {
+        val json = JSONObject(this)
+        buildMap {
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = json.optString(key).trim()
+                if (value.matches(Regex("""#[0-9A-Fa-f]{8}"""))) put(key, value.uppercase(Locale.ROOT))
+            }
+        }
+    }.getOrDefault(emptyMap())
+
+private fun String.parseHomeDisplayColorOrNull(): Color? {
+    val normalized = trim().takeIf { it.isNotBlank() } ?: return null
+    return runCatching { Color(android.graphics.Color.parseColor(normalized)) }.getOrNull()
+}
 
 private fun String.csvIds(defaultValue: String): List<String> {
     val ids = csvIdSet().toList()

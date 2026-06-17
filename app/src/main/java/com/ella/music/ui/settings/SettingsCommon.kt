@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,17 +28,37 @@ import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun SettingsCardGroup(content: @Composable () -> Unit) {
+internal fun SettingsCardGroup(
+    highlight: Boolean = false,
+    content: @Composable () -> Unit
+) {
     val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     val cardColor = if (isDark) Color(0xFF1D1D21) else Color(0xFFFFFFFF)
+    val highlightColor = if (isDark) {
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.28f)
+    } else {
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+    }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    var lit by remember(highlight) { mutableStateOf(false) }
+    LaunchedEffect(highlight) {
+        if (!highlight) return@LaunchedEffect
+        bringIntoViewRequester.bringIntoView()
+        repeat(4) {
+            lit = !lit
+            delay(180)
+        }
+        lit = false
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
             .padding(bottom = 14.dp),
         cornerRadius = 16.dp,
         insideMargin = PaddingValues(0.dp),
         colors = CardDefaults.defaultColors(
-            color = cardColor
+            color = if (lit) highlightColor else cardColor
         )
     ) {
         content()

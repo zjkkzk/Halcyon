@@ -160,6 +160,7 @@ internal fun HomeTileGrid(
                         }
                     } else null,
                     cardColor = cardColor,
+                    tileColor = tile.color,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -305,14 +306,15 @@ private fun HomeTile(
     onClick: () -> Unit,
     onPinClick: (() -> Unit)? = null,
     cardColor: Color = MiuixTheme.colorScheme.surfaceContainer,
+    tileColor: Color = MiuixTheme.colorScheme.primary,
     modifier: Modifier = Modifier
 ) {
+    val background = tileColor.copy(alpha = if (MiuixTheme.colorScheme.background.luminance() < 0.5f) 0.28f else 0.18f)
     Column(
         modifier = modifier
             .height(96.dp)
             .clip(RoundedCornerShape(16.dp))
-            // Neutral card surface (Monet-tinted when dynamic color is on), matching the playlist page.
-            .background(cardColor)
+            .background(Brush.linearGradient(listOf(background, cardColor)))
             .combinedClickable(onClick = onClick, onLongClick = onPinClick)
             .padding(14.dp),
         verticalArrangement = Arrangement.SpaceBetween
@@ -322,7 +324,7 @@ private fun HomeTile(
                 text = title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = MiuixTheme.colorScheme.onSurface,
+                color = if (tileColor.luminance() < 0.35f) Color.White else MiuixTheme.colorScheme.onSurface,
                 maxLines = 1,
                 modifier = Modifier.weight(1f)
             )

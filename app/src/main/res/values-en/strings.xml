@@ -14,6 +14,9 @@
     <string name="select_folder">Select folder</string>
     <string name="scan_music">Scan music</string>
     <string name="settings">Settings</string>
+    <string name="settings_search_placeholder">Search settings</string>
+    <string name="settings_search_results">Search results</string>
+    <string name="settings_search_no_results">No matching settings</string>
     <string name="about">About</string>
     <string name="version">Version</string>
     <string name="app_description">A clean and elegant local music player</string>
@@ -456,6 +459,17 @@
     <string name="folder_usb_removed">USB directory removed</string>
     <string name="folder_remove_usb_folder_title">Remove USB directory</string>
     <string name="folder_remove_usb_folder_message">Remove this USB directory? Files on the USB drive will not be deleted.</string>
+    <string name="folder_playlist_title">Folder playlists</string>
+    <string name="folder_playlist_create">New folder playlist</string>
+    <string name="folder_playlist_edit">Edit folder playlist</string>
+    <string name="folder_playlist_empty">No folder playlists yet</string>
+    <string name="folder_playlist_card_summary">%1$d folders · %2$d songs</string>
+    <string name="folder_playlist_detail_summary">%1$d linked folders · %2$d songs</string>
+    <string name="folder_playlist_selected_count">%1$d folders selected</string>
+    <string name="folder_playlist_empty_songs">No songs in these folders yet</string>
+    <string name="folder_playlist_save_failed">Enter a name and select at least one folder</string>
+    <string name="folder_playlist_delete_title">Delete folder playlist</string>
+    <string name="folder_playlist_delete_message">Delete \"%1$s\"? Music files will not be deleted.</string>
     <string name="folder_show_folder">Show folder</string>
     <string name="folder_hide_folder">Hide folder</string>
     <string name="folder_remove_scan_folder_title">Remove scan directory</string>
@@ -576,6 +590,8 @@
     <string name="settings_library_tile_folder_summary">Browse by folder category</string>
     <string name="settings_library_tile_folder_tree">Folder tree</string>
     <string name="settings_library_tile_folder_tree_summary">Browse nested directories</string>
+    <string name="settings_library_tile_folder_playlist">Folder playlists</string>
+    <string name="settings_library_tile_folder_playlist_summary">Combine multiple folders into dynamic playlists</string>
     <string name="settings_library_tile_playlist">Playlists</string>
     <string name="settings_library_tile_playlist_summary">Favorites and custom playlists</string>
     <string name="settings_library_tile_analytics">Listening stats</string>
@@ -673,7 +689,7 @@
     <string name="settings_color_warm_yellow">Warm yellow</string>
     <string name="settings_color_orange">Orange</string>
     <string name="settings_home_sections_order_summary">Use English commas: library,online,recent</string>
-    <string name="settings_home_library_grid_order_summary">artist,album,folder,folder_tree,playlist,analytics,genre,year,composer,lyricist</string>
+    <string name="settings_home_library_grid_order_summary">artist,album,folder,folder_tree,folder_playlist,playlist,analytics,genre,year,composer,lyricist</string>
     <string name="common_select_all">Select all</string>
     <string name="common_invert_selection">Invert selection</string>
     <string name="player_choose_metadata_editor">Choose metadata editor</string>
@@ -733,6 +749,7 @@
     <string name="home_count_albums">%1$d albums</string>
     <string name="home_count_folders">%1$d folders</string>
     <string name="home_count_playlists">%1$d playlists</string>
+    <string name="home_count_folder_playlists">%1$d folder playlists</string>
     <string name="home_count_genres">%1$d genres</string>
     <string name="home_browse_nested_folders">Browse nested folders</string>
     <string name="home_analytics_summary">History and heatmap</string>
@@ -1480,6 +1497,9 @@
     <string name="settings_home_card_color_default">Follow theme default</string>
     <string name="settings_home_card_opacity">Home card opacity</string>
     <string name="settings_home_card_opacity_summary">Adjust the background opacity of home library and online music cards.</string>
+    <string name="settings_home_tile_colors_title">Tile colors</string>
+    <string name="settings_home_tile_colors_summary">Customize each home library and online music tile color.</string>
+    <string name="settings_home_tile_color_default">Use default color</string>
     <string name="song_more_metadata_section_cover">Song cover</string>
     <string name="song_more_metadata_cover_empty">No cover</string>
     <string name="song_more_metadata_cover_choose">Choose cover</string>

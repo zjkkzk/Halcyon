@@ -12,11 +12,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +39,7 @@ import com.ella.music.ui.components.EllaMiuixDialogActions
 import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.ScanRefreshIconButton
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -40,6 +50,7 @@ import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Folder
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 @Composable
@@ -66,12 +77,15 @@ internal fun ScanStatusCard(scanProgress: Int) {
 internal fun MediaSourceModeCard(
     useAndroidMediaLibrary: Boolean,
     customFolderCount: Int,
+    highlight: Boolean = false,
     onUseAndroidMediaLibraryChange: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .scanHighlightBringIntoView(highlight)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = CardDefaults.defaultColors(color = scanHighlightCardColor(highlight))
     ) {
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
             SwitchPreference(
@@ -91,6 +105,7 @@ internal fun MediaSourceModeCard(
 @Composable
 internal fun UsbFoldersCard(
     usbFolderUris: List<String>,
+    highlight: Boolean = false,
     onRemove: (String) -> Unit,
     scanEnabled: Boolean,
     onScan: () -> Unit,
@@ -99,7 +114,9 @@ internal fun UsbFoldersCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .scanHighlightBringIntoView(highlight)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = CardDefaults.defaultColors(color = scanHighlightCardColor(highlight))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,6 +190,7 @@ internal fun UsbFoldersCard(
 internal fun SavedScanFoldersCard(
     folders: List<String>,
     hiddenFolders: Set<String>,
+    highlight: Boolean = false,
     onVisibilityChange: (String, Boolean) -> Unit,
     onRemove: (String) -> Unit,
     scanEnabled: Boolean,
@@ -182,7 +200,9 @@ internal fun SavedScanFoldersCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .scanHighlightBringIntoView(highlight)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = CardDefaults.defaultColors(color = scanHighlightCardColor(highlight))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -294,12 +314,15 @@ internal fun FolderVisibilityCheckbox(
 @Composable
 internal fun BlockedFoldersEntryCard(
     count: Int,
+    highlight: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .scanHighlightBringIntoView(highlight)
             .padding(horizontal = 12.dp, vertical = 4.dp),
+        colors = CardDefaults.defaultColors(color = scanHighlightCardColor(highlight)),
         onClick = onClick
     ) {
         Row(
@@ -338,6 +361,37 @@ internal fun BlockedFoldersEntryCard(
             )
         }
     }
+}
+
+@Composable
+private fun scanHighlightCardColor(highlight: Boolean): Color {
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    val cardColor = if (isDark) Color(0xFF1D1D21) else Color(0xFFFFFFFF)
+    val highlightColor = if (isDark) {
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.28f)
+    } else {
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.16f)
+    }
+    var lit by remember(highlight) { mutableStateOf(false) }
+    LaunchedEffect(highlight) {
+        if (!highlight) return@LaunchedEffect
+        repeat(4) {
+            lit = !lit
+            delay(180)
+        }
+        lit = false
+    }
+    return if (lit) highlightColor else cardColor
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.scanHighlightBringIntoView(highlight: Boolean): Modifier {
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(highlight) {
+        if (highlight) requester.bringIntoView()
+    }
+    return bringIntoViewRequester(requester)
 }
 
 @Composable

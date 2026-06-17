@@ -14,6 +14,9 @@
     <string name="select_folder">选择文件夹</string>
     <string name="scan_music">扫描音乐</string>
     <string name="settings">设置</string>
+    <string name="settings_search_placeholder">搜索设置项</string>
+    <string name="settings_search_results">搜索结果</string>
+    <string name="settings_search_no_results">没有找到相关设置</string>
     <string name="about">关于</string>
     <string name="version">版本</string>
     <string name="app_description">一款简洁优雅的本地音乐播放器</string>
@@ -461,6 +464,17 @@
     <string name="folder_usb_removed">USB 目录已移除</string>
     <string name="folder_remove_usb_folder_title">移除 USB 目录</string>
     <string name="folder_remove_usb_folder_message">确定要移除这个 USB 目录吗？USB 驱动器上的文件不会被删除。</string>
+    <string name="folder_playlist_title">文件夹歌单</string>
+    <string name="folder_playlist_create">新建文件夹歌单</string>
+    <string name="folder_playlist_edit">编辑文件夹歌单</string>
+    <string name="folder_playlist_empty">还没有文件夹歌单</string>
+    <string name="folder_playlist_card_summary">%1$d 个文件夹 · %2$d 首歌曲</string>
+    <string name="folder_playlist_detail_summary">%1$d 个关联文件夹 · %2$d 首歌曲</string>
+    <string name="folder_playlist_selected_count">已选择 %1$d 个文件夹</string>
+    <string name="folder_playlist_empty_songs">这些文件夹里暂时没有歌曲</string>
+    <string name="folder_playlist_save_failed">请填写名称并至少选择一个文件夹</string>
+    <string name="folder_playlist_delete_title">删除文件夹歌单</string>
+    <string name="folder_playlist_delete_message">确定要删除「%1$s」吗？不会删除音乐文件。</string>
     <string name="folder_show_folder">显示文件夹</string>
     <string name="folder_hide_folder">隐藏文件夹</string>
     <string name="folder_remove_scan_folder_title">移除扫描目录</string>
@@ -593,6 +607,8 @@
     <string name="settings_library_tile_folder_summary">按文件夹分类浏览</string>
     <string name="settings_library_tile_folder_tree">文件夹层次结构</string>
     <string name="settings_library_tile_folder_tree_summary">按嵌套目录浏览</string>
+    <string name="settings_library_tile_folder_playlist">文件夹歌单</string>
+    <string name="settings_library_tile_folder_playlist_summary">按多个文件夹组合成动态歌单</string>
     <string name="settings_library_tile_playlist">歌单</string>
     <string name="settings_library_tile_playlist_summary">收藏与自建歌单</string>
     <string name="settings_library_tile_analytics">听歌统计</string>
@@ -690,7 +706,7 @@
     <string name="settings_color_warm_yellow">暖黄色</string>
     <string name="settings_color_orange">橙色</string>
     <string name="settings_home_sections_order_summary">用英文逗号分隔：library,online,recent</string>
-    <string name="settings_home_library_grid_order_summary">artist,album,folder,folder_tree,playlist,analytics,genre,year,composer,lyricist</string>
+    <string name="settings_home_library_grid_order_summary">artist,album,folder,folder_tree,folder_playlist,playlist,analytics,genre,year,composer,lyricist</string>
     <string name="common_select_all">全选</string>
     <string name="common_invert_selection">反选</string>
     <string name="player_choose_metadata_editor">选择元数据编辑器</string>
@@ -755,6 +771,7 @@
     <string name="home_count_albums">%1$d 张</string>
     <string name="home_count_folders">%1$d 个</string>
     <string name="home_count_playlists">%1$d 个</string>
+    <string name="home_count_folder_playlists">%1$d 个</string>
     <string name="home_count_genres">%1$d 种</string>
     <string name="home_browse_nested_folders">按嵌套目录浏览</string>
     <string name="home_analytics_summary">历史和热力图</string>
@@ -843,6 +860,9 @@
     <string name="settings_home_card_color_default">跟随主题默认色</string>
     <string name="settings_home_card_opacity">首页功能卡片透明度</string>
     <string name="settings_home_card_opacity_summary">调节音乐库和在线音乐功能卡片的背景透明度</string>
+    <string name="settings_home_tile_colors_title">功能块颜色</string>
+    <string name="settings_home_tile_colors_summary">自定义首页每一个音乐库和在线音乐功能块颜色</string>
+    <string name="settings_home_tile_color_default">使用默认颜色</string>
     <string name="settings_hi_res_logo">Hi-Res 封面标识</string>
     <string name="settings_hi_res_logo_summary">非沉浸播放页中，Hi-Res 音质歌曲的封面右下角显示小标识</string>
     <string name="settings_hi_res_logo_image">选择 Hi-Res 标识图片</string>

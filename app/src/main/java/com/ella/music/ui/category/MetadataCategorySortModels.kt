@@ -50,9 +50,14 @@ internal fun MetadataCategorySortMode.displayLabel(type: String): String {
     }
 }
 
-internal fun List<MetadataCategoryItem>.sortedForCategory(mode: MetadataCategorySortMode): List<MetadataCategoryItem> {
+internal fun List<MetadataCategoryItem>.sortedForCategory(
+    type: String,
+    mode: MetadataCategorySortMode
+): List<MetadataCategoryItem> {
+    fun MetadataCategoryItem.nameSortKey(): String =
+        (if (type == "folder") name.substringAfterLast('/').ifBlank { name } else name).musicSortKey()
     return when (mode) {
-        MetadataCategorySortMode.Name -> sortedBy { it.name.musicSortKey() }
+        MetadataCategorySortMode.Name -> sortedBy { it.nameSortKey() }
         MetadataCategorySortMode.NameDesc -> sortedByDescending { it.name.toIntOrNull() ?: Int.MIN_VALUE }
         MetadataCategorySortMode.SongCount -> sortedByDescending { it.songCount }
         MetadataCategorySortMode.AlbumCount -> sortedByDescending { it.albumCount }
@@ -152,8 +157,10 @@ internal fun List<com.ella.music.data.model.Song>.sortedForMetadataDetail(
     }
 }
 
-internal fun MetadataCategoryItem.categoryIndexLetter(): String =
-    name.musicSortKey().toFastIndexSection()
+internal fun MetadataCategoryItem.categoryIndexLetter(type: String): String {
+    val displayName = if (type == "folder") name.substringAfterLast('/').ifBlank { name } else name
+    return displayName.musicSortKey().toFastIndexSection()
+}
 
 internal fun Song.metadataDetailIndexLetter(mode: MetadataDetailSongSortMode): String {
     val sortText = when (mode) {

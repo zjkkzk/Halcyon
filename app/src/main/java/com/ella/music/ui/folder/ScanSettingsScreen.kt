@@ -45,7 +45,8 @@ import java.util.Locale
 fun ScanSettingsScreen(
     mainViewModel: MainViewModel,
     onBack: () -> Unit,
-    showBackButton: Boolean = true
+    showBackButton: Boolean = true,
+    highlightKey: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -155,6 +156,7 @@ fun ScanSettingsScreen(
                 MediaSourceModeCard(
                     useAndroidMediaLibrary = useAndroidMediaLibrary,
                     customFolderCount = savedFolders.size,
+                    highlight = highlightKey == "scan_media_source",
                     onUseAndroidMediaLibraryChange = { enabled ->
                         scope.launch {
                             mainViewModel.settingsManager.setUseAndroidMediaLibrary(enabled)
@@ -168,6 +170,7 @@ fun ScanSettingsScreen(
                 SavedScanFoldersCard(
                     folders = savedFolders,
                     hiddenFolders = blockedFolderKeys,
+                    highlight = highlightKey == "scan_folders",
                     onVisibilityChange = { folderPath, visible ->
                         scope.launch {
                             val normalizedPath = folderPath.normalizeFolderPath()
@@ -196,6 +199,7 @@ fun ScanSettingsScreen(
             item {
                 BlockedFoldersEntryCard(
                     count = blockedFolders.size,
+                    highlight = highlightKey == "scan_blocked_folders",
                     onClick = { showBlockedDialog = true }
                 )
             }
@@ -204,6 +208,7 @@ fun ScanSettingsScreen(
                 item {
                     UsbFoldersCard(
                         usbFolderUris = usbFolderUris,
+                        highlight = highlightKey == "scan_usb_folders",
                         onRemove = { uri -> pendingRemoveUsbUri = uri },
                         scanEnabled = !isScanning,
                         onScan = { mainViewModel.scanMusic() },

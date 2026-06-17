@@ -47,7 +47,9 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
 @Composable
-internal fun SettingsAppearanceSection() {
+internal fun SettingsAppearanceSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -241,11 +243,10 @@ internal fun SettingsAppearanceSection() {
         onImagePersisted = settingsManager::setHiResLogoUri
     )
     val dynamicCoverPermissionLauncher = rememberDynamicCoverPermissionLauncher(settingsManager)
-    var showHomeCardColorPicker by remember { mutableStateOf(false) }
 
     SmallTitle(text = stringResource(R.string.settings_appearance))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "appearance") {
         Column {
             WindowSpinnerPreference(
                 title = stringResource(R.string.settings_theme_mode),
@@ -495,19 +496,6 @@ internal fun SettingsAppearanceSection() {
                 enabled = beautifulLyricsBackground,
                 onValueChange = { scope.launch { settingsManager.setPlayerBeautifulLyricsBrightness(it) } }
             )
-            ArrowPreference(
-                title = stringResource(R.string.settings_home_card_color),
-                summary = homeCardColor.ifBlank { stringResource(R.string.settings_home_card_color_default) },
-                onClick = { showHomeCardColorPicker = true }
-            )
-            SettingsIntSliderPreference(
-                title = stringResource(R.string.settings_home_card_opacity),
-                summary = stringResource(R.string.settings_home_card_opacity_summary),
-                value = homeCardOpacity,
-                valueRange = 20..100,
-                valueText = "$homeCardOpacity%",
-                onValueChange = { scope.launch { settingsManager.setHomeCardOpacity(it) } }
-            )
             WindowSpinnerPreference(
                 title = stringResource(R.string.settings_category_grid_columns),
                 summary = stringResource(
@@ -637,49 +625,6 @@ internal fun SettingsAppearanceSection() {
                     scope.launch { settingsManager.setPlayerShowSongAnnotation(it) }
                 }
             )
-        }
-    }
-
-    EllaMiuixBottomSheet(
-        show = showHomeCardColorPicker,
-        title = stringResource(R.string.settings_home_card_color),
-        onDismissRequest = { showHomeCardColorPicker = false }
-    ) {
-        val currentColor = remember(homeCardColor) { homeCardColor.parseSettingsColorOrNull() ?: Color(0xFF2B2B31) }
-        var pickerColor by remember(showHomeCardColorPicker, currentColor) { mutableStateOf(currentColor) }
-        Column(
-            modifier = androidx.compose.ui.Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-        ) {
-            ColorPicker(
-                color = pickerColor,
-                onColorChanged = { pickerColor = it },
-                colorSpace = ColorSpace.HSV,
-                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    showHomeCardColorPicker = false
-                    scope.launch {
-                        settingsManager.setHomeCardColor("#%08X".format(pickerColor.toArgb()))
-                    }
-                },
-                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-            ) {
-                Text(text = stringResource(R.string.common_confirm))
-            }
-            Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    showHomeCardColorPicker = false
-                    scope.launch { settingsManager.setHomeCardColor("") }
-                },
-                modifier = androidx.compose.ui.Modifier.fillMaxWidth()
-            ) {
-                Text(text = stringResource(R.string.common_reset))
-            }
         }
     }
 

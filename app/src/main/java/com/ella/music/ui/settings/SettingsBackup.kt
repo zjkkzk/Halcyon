@@ -56,7 +56,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun BackupSettingsScreen(
     onBack: () -> Unit,
-    mainViewModel: MainViewModel? = null
+    mainViewModel: MainViewModel? = null,
+    highlightKey: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -249,7 +250,7 @@ fun BackupSettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
             SmallTitle(text = stringResource(R.string.settings_backup_settings_section))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "backup_settings") {
                 Column {
                     ArrowPreference(
                         title = stringResource(R.string.settings_backup_export_settings_title),
@@ -270,7 +271,7 @@ fun BackupSettingsScreen(
 
             SmallTitle(text = stringResource(R.string.settings_backup_playback_section))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "backup_playback") {
                 Column {
                     ArrowPreference(
                         title = stringResource(R.string.settings_backup_export_playback_title),
@@ -284,7 +285,7 @@ fun BackupSettingsScreen(
 
             SmallTitle(text = stringResource(R.string.settings_backup_webdav_section))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "backup_webdav") {
                 Column {
                     SplitSettingTextField(
                         label = stringResource(R.string.settings_backup_webdav_url_label),

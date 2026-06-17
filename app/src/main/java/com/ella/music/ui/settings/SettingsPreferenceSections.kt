@@ -20,6 +20,7 @@ import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 
 @Composable
 internal fun SettingsHomeCustomizeSection(
+    highlightKey: String? = null,
     onOpenHomeDisplay: () -> Unit
 ) {
     val context = LocalContext.current
@@ -30,7 +31,7 @@ internal fun SettingsHomeCustomizeSection(
 
     SmallTitle(text = stringResource(R.string.settings_home_customize))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "home_customize") {
         Column {
             SwitchPreference(
                 title = stringResource(R.string.settings_daily_mix),
@@ -59,11 +60,12 @@ internal fun SettingsHomeCustomizeSection(
 
 @Composable
 internal fun SettingsLibrarySourceSection(
+    highlightKey: String? = null,
     onOpenScanFolders: (() -> Unit)?
 ) {
     SmallTitle(text = stringResource(R.string.settings_library_source))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "library_source") {
         Column {
             ArrowPreference(
                 title = stringResource(R.string.settings_scan_folders),
@@ -75,7 +77,9 @@ internal fun SettingsLibrarySourceSection(
 }
 
 @Composable
-internal fun SettingsAiInterpretationSection() {
+internal fun SettingsAiInterpretationSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -85,7 +89,7 @@ internal fun SettingsAiInterpretationSection() {
 
     SmallTitle(text = stringResource(R.string.settings_ai_interpretation))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "ai") {
         Column {
             SplitSettingTextField(
                 label = "OpenAI API Key",
@@ -110,7 +114,9 @@ internal fun SettingsAiInterpretationSection() {
 }
 
 @Composable
-internal fun SettingsMcpSection() {
+internal fun SettingsMcpSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -118,7 +124,7 @@ internal fun SettingsMcpSection() {
 
     SmallTitle(text = stringResource(R.string.settings_mcp_server))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "mcp") {
         Column {
             SwitchPreference(
                 title = stringResource(R.string.settings_mcp_server),
@@ -140,7 +146,9 @@ internal fun SettingsMcpSection() {
 }
 
 @Composable
-internal fun SettingsLyricShareSection() {
+internal fun SettingsLyricShareSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -148,7 +156,7 @@ internal fun SettingsLyricShareSection() {
 
     SmallTitle(text = stringResource(R.string.settings_lyric_share_card))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "lyric_share") {
         Column {
             SplitSettingTextField(
                 label = stringResource(R.string.settings_lyric_share_custom_info),
@@ -161,7 +169,9 @@ internal fun SettingsLyricShareSection() {
 }
 
 @Composable
-internal fun SettingsTagScrapingSection() {
+internal fun SettingsTagScrapingSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -201,7 +211,7 @@ internal fun SettingsTagScrapingSection() {
 
     SmallTitle(text = stringResource(R.string.settings_tag_scraping))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "tag_scraping") {
         Column {
             WindowSpinnerPreference(
                 title = stringResource(R.string.settings_metadata_editor),
@@ -234,7 +244,9 @@ internal fun SettingsTagScrapingSection() {
 }
 
 @Composable
-internal fun SettingsDesktopShortcutSection() {
+internal fun SettingsDesktopShortcutSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -244,7 +256,7 @@ internal fun SettingsDesktopShortcutSection() {
 
     SmallTitle(text = stringResource(R.string.settings_desktop_shortcuts))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "desktop_shortcuts") {
         Column {
             SplitSettingTextField(
                 label = stringResource(R.string.settings_shortcut_library),
@@ -272,7 +284,9 @@ internal fun SettingsDesktopShortcutSection() {
 }
 
 @Composable
-internal fun SettingsScanSection() {
+internal fun SettingsScanSection(
+    highlightKey: String? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -287,7 +301,7 @@ internal fun SettingsScanSection() {
 
     SmallTitle(text = stringResource(R.string.settings_scan))
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "scan") {
         Column {
             SwitchPreference(
                 title = stringResource(R.string.settings_auto_scan),

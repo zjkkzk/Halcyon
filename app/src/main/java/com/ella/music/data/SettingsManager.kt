@@ -18,6 +18,9 @@ import com.ella.music.player.AudioEffectSettings
 import com.ella.music.plugin.source.LyricoPluginManager
 import com.ella.music.data.remote.RemoteMusicProvider
 import com.ella.music.data.remote.RemoteMusicSourceConfig
+import com.ella.music.data.model.FolderPlaylist
+import com.ella.music.data.model.toFolderPlaylistJson
+import com.ella.music.data.model.toFolderPlaylists
 import androidx.annotation.StringRes
 import com.ella.music.R
 import org.json.JSONObject
@@ -150,6 +153,7 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYER_BEAUTIFUL_LYRICS_BRIGHTNESS = intPreferencesKey("player_beautiful_lyrics_brightness")
         val KEY_HOME_CARD_COLOR = stringPreferencesKey("home_card_color")
         val KEY_HOME_CARD_OPACITY = intPreferencesKey("home_card_opacity")
+        val KEY_HOME_TILE_COLORS = stringPreferencesKey("home_tile_colors")
         val KEY_HI_RES_LOGO_ENABLED = booleanPreferencesKey("hi_res_logo_enabled")
         val KEY_HI_RES_LOGO_URI = stringPreferencesKey("hi_res_logo_uri")
         val KEY_MCP_SERVER_ENABLED = booleanPreferencesKey("mcp_server_enabled")
@@ -233,6 +237,7 @@ class SettingsManager(private val context: Context) {
         val KEY_HOME_HIDDEN_LIBRARY_TILES = stringPreferencesKey("home_hidden_library_tiles")
         val KEY_HOME_ONLINE_TILE_ORDER = stringPreferencesKey("home_online_tile_order")
         val KEY_HOME_HIDDEN_ONLINE_TILES = stringPreferencesKey("home_hidden_online_tiles")
+        val KEY_FOLDER_PLAYLISTS = stringPreferencesKey("folder_playlists")
         val KEY_HOME_TILE_PIN_BUTTONS_VISIBLE = booleanPreferencesKey("home_tile_pin_buttons_visible")
         val KEY_NOTIFICATION_PERMISSION_PROMPT_HANDLED = booleanPreferencesKey("notification_permission_prompt_handled")
 
@@ -343,7 +348,7 @@ class SettingsManager(private val context: Context) {
         fun defaultShortcutFolderLabel(context: Context): String =
             context.getString(DEFAULT_SHORTCUT_FOLDER_LABEL_RES)
         const val DEFAULT_HOME_SECTION_ORDER = "library,online,recent"
-        const val DEFAULT_HOME_LIBRARY_TILE_ORDER = "artist,album,folder,folder_tree,playlist,analytics,genre,year,composer,lyricist"
+        const val DEFAULT_HOME_LIBRARY_TILE_ORDER = "artist,album,folder,folder_tree,folder_playlist,playlist,analytics,genre,year,composer,lyricist"
         const val DEFAULT_HOME_ONLINE_TILE_ORDER = "lx,navidrome,emby,webdav"
 
         val LYRIC_SOURCE_PRIORITY_IDS = listOf(
@@ -614,6 +619,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_HOME_CARD_COLOR] ?: "" }
     val homeCardOpacity: Flow<Int> =
         context.dataStore.data.map { it[KEY_HOME_CARD_OPACITY]?.coerceIn(20, 100) ?: 58 }
+    val homeTileColors: Flow<String> =
+        context.dataStore.data.map { it[KEY_HOME_TILE_COLORS] ?: "" }
     val hiResLogoEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_HI_RES_LOGO_ENABLED] ?: false }
     val hiResLogoUri: Flow<String> =
@@ -763,6 +770,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_HOME_HIDDEN_ONLINE_TILES] ?: "" }
     val homeTilePinButtonsVisible: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_HOME_TILE_PIN_BUTTONS_VISIBLE] ?: false }
+    val folderPlaylists: Flow<List<FolderPlaylist>> =
+        context.dataStore.data.map { it[KEY_FOLDER_PLAYLISTS].orEmpty().toFolderPlaylists() }
     fun metadataCategorySortIndex(type: String): Flow<Int> =
         context.dataStore.data.map { it[metadataCategorySortKey(type)] ?: 0 }
 
@@ -1251,6 +1260,16 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_HOME_CARD_OPACITY] = opacity.coerceIn(20, 100) }
     }
 
+    suspend fun setHomeTileColor(tileId: String, color: String) {
+        val safeId = tileId.trim().lowercase(Locale.ROOT).takeIf { it.matches(Regex("""[a-z0-9_]+""")) } ?: return
+        val safeColor = color.trim().takeIf { it.isBlank() || it.matches(Regex("""#[0-9A-Fa-f]{8}""")) } ?: return
+        context.dataStore.edit { prefs ->
+            val json = runCatching { JSONObject(prefs[KEY_HOME_TILE_COLORS].orEmpty()) }.getOrElse { JSONObject() }
+            if (safeColor.isBlank()) json.remove(safeId) else json.put(safeId, safeColor.uppercase(Locale.ROOT))
+            if (json.length() == 0) prefs.remove(KEY_HOME_TILE_COLORS) else prefs[KEY_HOME_TILE_COLORS] = json.toString()
+        }
+    }
+
     suspend fun setHiResLogoEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_HI_RES_LOGO_ENABLED] = enabled }
     }
@@ -1684,6 +1703,51 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_HOME_TILE_PIN_BUTTONS_VISIBLE] = visible }
     }
 
+    suspend fun upsertFolderPlaylist(
+        playlistId: String?,
+        name: String,
+        folders: List<String>
+    ): FolderPlaylist? {
+        val safeName = name.trim()
+        val safeFolders = folders
+            .map { it.replace('\\', '/').trim().trimEnd('/').ifBlank { "/" } }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase(Locale.ROOT) }
+        if (safeName.isBlank() || safeFolders.isEmpty()) return null
+        var saved: FolderPlaylist? = null
+        context.dataStore.edit { prefs ->
+            val now = System.currentTimeMillis()
+            val current = prefs[KEY_FOLDER_PLAYLISTS].orEmpty().toFolderPlaylists()
+            val existing = playlistId?.let { id -> current.firstOrNull { it.id == id } }
+            val nextItem = FolderPlaylist(
+                id = existing?.id ?: "folder-playlist-$now",
+                name = safeName,
+                folders = safeFolders,
+                createdAt = existing?.createdAt ?: now,
+                updatedAt = now
+            )
+            saved = nextItem
+            val next = if (existing == null) {
+                current + nextItem
+            } else {
+                current.map { if (it.id == existing.id) nextItem else it }
+            }
+            prefs[KEY_FOLDER_PLAYLISTS] = next.toFolderPlaylistJson()
+        }
+        return saved
+    }
+
+    suspend fun deleteFolderPlaylist(playlistId: String) {
+        val safeId = playlistId.trim()
+        if (safeId.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val next = prefs[KEY_FOLDER_PLAYLISTS].orEmpty()
+                .toFolderPlaylists()
+                .filterNot { it.id == safeId }
+            if (next.isEmpty()) prefs.remove(KEY_FOLDER_PLAYLISTS) else prefs[KEY_FOLDER_PLAYLISTS] = next.toFolderPlaylistJson()
+        }
+    }
+
     suspend fun setMetadataCategorySortIndex(type: String, index: Int) {
         context.dataStore.edit { it[metadataCategorySortKey(type)] = index.coerceAtLeast(0) }
     }
@@ -1884,8 +1948,10 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_PLAYER_BACKGROUND_DIM)
             setInt(KEY_AUDIO_VISUALIZER_OPACITY)
             setInt(KEY_HOME_CARD_OPACITY)
+            setString(KEY_HOME_TILE_COLORS)
             setString(KEY_HOME_ONLINE_TILE_ORDER)
             setString(KEY_HOME_HIDDEN_ONLINE_TILES)
+            setString(KEY_FOLDER_PLAYLISTS)
             setInt(KEY_PLAYER_BEAUTIFUL_LYRICS_SPEED)
             setInt(KEY_PLAYER_BEAUTIFUL_LYRICS_BLUR)
             setInt(KEY_PLAYER_BEAUTIFUL_LYRICS_BRIGHTNESS)

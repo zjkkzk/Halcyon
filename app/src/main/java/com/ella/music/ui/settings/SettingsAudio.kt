@@ -42,7 +42,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun AudioSettingsScreen(
     onBack: () -> Unit,
     playerViewModel: PlayerViewModel? = null,
-    onNavigateToEqualizer: () -> Unit = {}
+    onNavigateToEqualizer: () -> Unit = {},
+    highlightKey: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -175,7 +176,7 @@ fun AudioSettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
             SmallTitle(text = stringResource(R.string.equalizer_section_effects))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "audio_effects") {
                 ArrowPreference(
                     title = stringResource(R.string.equalizer_screen_title),
                     summary = stringResource(R.string.settings_audio_equalizer_summary),
@@ -185,7 +186,7 @@ fun AudioSettingsScreen(
 
             SmallTitle(text = stringResource(R.string.settings_playback_section))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "audio_playback") {
                 Column {
                     SwitchPreference(
                         title = stringResource(R.string.settings_gapless_playback),
@@ -255,7 +256,7 @@ fun AudioSettingsScreen(
 
             SmallTitle(text = stringResource(R.string.settings_system_section))
 
-            SettingsCardGroup {
+            SettingsCardGroup(highlight = highlightKey == "audio_system") {
                 Column {
                     SwitchPreference(
                         title = stringResource(R.string.settings_disable_audio_focus),

@@ -103,7 +103,6 @@ import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import java.util.Locale
 
 @Composable
 fun FolderDetailScreen(
@@ -149,7 +148,7 @@ fun FolderDetailScreen(
     var scrollToTopRequest by remember { mutableStateOf(0) }
 
     val childFolders = remember(songs, normalizedFolderPath) {
-        songs.childFoldersOf(context, normalizedFolderPath).sortedBy { it.name.lowercase(Locale.ROOT) }
+        songs.childFoldersOf(context, normalizedFolderPath).sortedBy { it.name.musicSortKey() }
     }
     val directSongs = remember(songs, normalizedFolderPath) {
         songs.directSongsInFolder(normalizedFolderPath)

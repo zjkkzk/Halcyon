@@ -31,6 +31,7 @@ import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 @Composable
 internal fun SettingsLyricsSection(
     playerViewModel: PlayerViewModel?,
+    highlightKey: String? = null,
     onNavigateToLyricPluginSources: () -> Unit = {}
 ) {
     SmallTitle(text = stringResource(R.string.settings_lyrics))
@@ -42,7 +43,7 @@ internal fun SettingsLyricsSection(
     var showBlacklistSheet by remember { mutableStateOf(false) }
     var blacklistDraft by remember(lyricLineBlacklist) { mutableStateOf(lyricLineBlacklist.joinToString("\n")) }
 
-    SettingsCardGroup {
+    SettingsCardGroup(highlight = highlightKey == "lyric_basic" || highlightKey == "lyric_plugin_sources") {
         Column {
             ArrowPreference(
                 title = stringResource(R.string.settings_lyric_plugin_sources),
@@ -66,9 +67,29 @@ internal fun SettingsLyricsSection(
                     showBlacklistSheet = true
                 }
             )
+        }
+    }
+
+    SettingsCardGroup(highlight = highlightKey == "mini_lyrics") {
+        Column {
             SettingsMiniLyricsControls()
+        }
+    }
+
+    SettingsCardGroup(highlight = highlightKey == "lyricon") {
+        Column {
             SettingsLyriconControls(playerViewModel = playerViewModel)
+        }
+    }
+
+    SettingsCardGroup(highlight = highlightKey == "desktop_lyric") {
+        Column {
             SettingsDesktopLyricControls(playerViewModel = playerViewModel)
+        }
+    }
+
+    SettingsCardGroup(highlight = highlightKey == "lyric_output" || highlightKey == "coloros_lock_screen_lyric") {
+        Column {
             SettingsLyricOutputControls(playerViewModel = playerViewModel)
         }
     }

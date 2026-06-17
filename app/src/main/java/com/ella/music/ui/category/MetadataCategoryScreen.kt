@@ -142,7 +142,7 @@ fun MetadataCategoryScreen(
     val sortIndex by sortIndexFlow.collectAsState(initial = 0)
     val availableSortModes = remember(type) { MetadataCategorySortMode.entries.filter { it.availableFor(type) } }
     val sortMode = availableSortModes.getOrElse(sortIndex) { MetadataCategorySortMode.Name }
-    val sortedItems = remember(items, sortMode) { items.sortedForCategory(sortMode) }
+    val sortedItems = remember(items, type, sortMode) { items.sortedForCategory(type, sortMode) }
     val playlists by mainViewModel.playlists.collectAsState()
     val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
     val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
@@ -335,7 +335,7 @@ fun MetadataCategoryScreen(
                 sortMode == MetadataCategorySortMode.Name &&
                 displayedItems.size > 30
             val categoryIndexLetters = remember(displayedItems, showCategoryIndexBar) {
-                if (showCategoryIndexBar) displayedItems.map { it.categoryIndexLetter() } else emptyList()
+                if (showCategoryIndexBar) displayedItems.map { it.categoryIndexLetter(type) } else emptyList()
             }
             val categoryIndexTargets = remember(categoryIndexLetters) {
                 buildMap {
