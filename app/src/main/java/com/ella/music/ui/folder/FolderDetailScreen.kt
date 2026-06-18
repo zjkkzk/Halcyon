@@ -168,19 +168,7 @@ fun FolderDetailScreen(
         }
     }
     val sortedSongs = remember(filteredSongs, sortMode) {
-        when (sortMode) {
-            FolderSongSortMode.Title -> filteredSongs.sortedBy { it.title.musicSortKey() }
-            FolderSongSortMode.FileName -> filteredSongs.sortedBy {
-                it.fileName.ifBlank { it.path.substringAfterLast('/') }.musicSortKey()
-            }
-            FolderSongSortMode.Duration -> filteredSongs.sortedByDescending { it.duration }
-            FolderSongSortMode.YearAsc -> filteredSongs.sortedByReleaseDate(ascending = true)
-            FolderSongSortMode.YearDesc -> filteredSongs.sortedByReleaseDate(ascending = false)
-            FolderSongSortMode.DateAdded -> filteredSongs.sortedByDescending { it.dateAdded }
-            FolderSongSortMode.DateAddedAsc -> filteredSongs.sortedBy { it.dateAdded }
-            FolderSongSortMode.DateModified -> filteredSongs.sortedByDescending { it.dateModified }
-            FolderSongSortMode.DateModifiedAsc -> filteredSongs.sortedBy { it.dateModified }
-        }
+        filteredSongs.sortedForFolderDetail(sortMode)
     }
     fun clearSelection() {
         selectedIds = emptySet()

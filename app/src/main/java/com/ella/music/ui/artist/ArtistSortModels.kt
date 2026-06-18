@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import com.ella.music.R
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.Song
+import com.ella.music.ui.listmodel.SortDirection
+import com.ella.music.ui.listmodel.sortedByReleaseDate
 import java.util.Locale
 
 internal enum class ArtistDetailSongSortMode(@param:StringRes val labelRes: Int) {
@@ -30,8 +32,8 @@ internal fun List<Song>.sortedForArtistDetail(mode: ArtistDetailSongSortMode): L
         )
         ArtistDetailSongSortMode.FileName -> sortedBy { it.fileName.ifBlank { it.path.substringAfterLast('/') }.lowercase(Locale.ROOT) }
         ArtistDetailSongSortMode.Duration -> sortedByDescending { it.duration }
-        ArtistDetailSongSortMode.YearAsc -> sortedByReleaseDate(ascending = true)
-        ArtistDetailSongSortMode.YearDesc -> sortedByReleaseDate(ascending = false)
+        ArtistDetailSongSortMode.YearAsc -> sortedByReleaseDate(SortDirection.Ascending)
+        ArtistDetailSongSortMode.YearDesc -> sortedByReleaseDate(SortDirection.Descending)
         ArtistDetailSongSortMode.DateAdded -> sortedByDescending { it.dateAdded }
         ArtistDetailSongSortMode.DateAddedAsc -> sortedBy { it.dateAdded }
         ArtistDetailSongSortMode.DateModified -> sortedByDescending { it.dateModified }
@@ -60,22 +62,3 @@ internal fun List<Album>.sortedForArtistAlbumDetail(
     }
 }
 
-internal fun List<Song>.sortedByReleaseDate(ascending: Boolean): List<Song> {
-    val comparator = if (ascending) {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenBy { it.releaseYearOrNull() ?: Int.MAX_VALUE }
-    } else {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenByDescending { it.releaseYearOrNull() ?: Int.MIN_VALUE }
-    }
-    return sortedWith(
-        comparator
-            .thenBy { it.album.lowercase(Locale.ROOT) }
-            .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
-            .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
-            .thenBy { it.title.lowercase(Locale.ROOT) }
-    )
-}
-
-internal fun Song.releaseYearOrNull(): Int? =
-    Regex("""\d{4}""").find(year)?.value?.toIntOrNull()

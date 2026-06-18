@@ -5,6 +5,12 @@ import com.ella.music.R
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.formatPlaybackDuration
+import com.ella.music.ui.listmodel.LibraryListSorter
+import com.ella.music.ui.listmodel.SongDisplaySpec
+import com.ella.music.ui.listmodel.SongSortField
+import com.ella.music.ui.listmodel.SortDirection
+import com.ella.music.ui.listmodel.SortSpec
+import com.ella.music.ui.listmodel.songDisplaySpecFor
 import java.util.Locale
 
 internal enum class PlaylistSortMode(val labelRes: Int) {
@@ -113,39 +119,12 @@ internal fun List<Song>.sortedForPlaylistDetail(mode: PlaylistSongSortMode): Lis
         PlaylistSongSortMode.Custom -> this
         PlaylistSongSortMode.CustomDesc -> asReversed()
         PlaylistSongSortMode.AddedAt -> this
-        PlaylistSongSortMode.Title -> sortedBy { it.title.lowercase() }
-        PlaylistSongSortMode.FileName -> sortedBy { song ->
-            song.fileName.ifBlank { song.path.substringAfterLast('/') }.lowercase()
-        }
-        PlaylistSongSortMode.Duration -> sortedByDescending { it.duration }
-        PlaylistSongSortMode.YearAsc -> sortedByReleaseDate(ascending = true)
-        PlaylistSongSortMode.YearDesc -> sortedByReleaseDate(ascending = false)
-        PlaylistSongSortMode.DateAdded -> sortedByDescending { it.dateAdded }
-        PlaylistSongSortMode.DateAddedAsc -> sortedBy { it.dateAdded }
-        PlaylistSongSortMode.DateModified -> sortedByDescending { it.dateModified }
-        PlaylistSongSortMode.DateModifiedAsc -> sortedBy { it.dateModified }
+        else -> LibraryListSorter.sortSongs(this, mode.toSongSortSpec()).items
     }
 }
 
-private fun List<Song>.sortedByReleaseDate(ascending: Boolean): List<Song> {
-    val comparator = if (ascending) {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenBy { it.releaseYearOrNull() ?: Int.MAX_VALUE }
-    } else {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenByDescending { it.releaseYearOrNull() ?: Int.MIN_VALUE }
-    }
-    return sortedWith(
-        comparator
-            .thenBy { it.album.lowercase() }
-            .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
-            .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
-            .thenBy { it.title.lowercase() }
-    )
-}
-
-private fun Song.releaseYearOrNull(): Int? =
-    Regex("""\d{4}""").find(year)?.value?.toIntOrNull()
+internal fun PlaylistSongSortMode.songDisplaySpec(): SongDisplaySpec =
+    songDisplaySpecFor(toSongSortSpec())
 
 internal fun Long.formatPlaylistDuration(): String {
     return formatPlaybackDuration()
@@ -159,3 +138,29 @@ internal fun Song?.playlistCoverModel(): Any? {
 
 internal fun String.safePlaylistFileName(): String =
     replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().ifBlank { "Halcyon Playlist" }
+
+private fun PlaylistSongSortMode.toSongSortSpec(): SortSpec<SongSortField> =
+    SortSpec(
+        field = when (this) {
+            PlaylistSongSortMode.Title -> SongSortField.Title
+            PlaylistSongSortMode.FileName -> SongSortField.FileName
+            PlaylistSongSortMode.Duration -> SongSortField.Duration
+            PlaylistSongSortMode.YearAsc,
+            PlaylistSongSortMode.YearDesc -> SongSortField.Year
+            PlaylistSongSortMode.DateAdded,
+            PlaylistSongSortMode.DateAddedAsc -> SongSortField.DateAdded
+            PlaylistSongSortMode.DateModified,
+            PlaylistSongSortMode.DateModifiedAsc -> SongSortField.DateModified
+            PlaylistSongSortMode.Custom,
+            PlaylistSongSortMode.CustomDesc,
+            PlaylistSongSortMode.AddedAt -> SongSortField.Custom
+        },
+        direction = when (this) {
+            PlaylistSongSortMode.Duration,
+            PlaylistSongSortMode.YearDesc,
+            PlaylistSongSortMode.DateAdded,
+            PlaylistSongSortMode.DateModified,
+            PlaylistSongSortMode.CustomDesc -> SortDirection.Descending
+            else -> SortDirection.Ascending
+        }
+    )

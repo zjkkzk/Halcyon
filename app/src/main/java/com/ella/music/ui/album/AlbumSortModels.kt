@@ -1,12 +1,10 @@
 package com.ella.music.ui.album
 
-import android.icu.text.Transliterator
 import com.ella.music.R
 import com.ella.music.data.model.Album
 import com.ella.music.data.model.formatPlaybackDuration
 import com.ella.music.ui.components.toFastIndexSection
-import com.ella.music.ui.components.toFastIndexSortableKey
-import java.util.Locale
+import com.ella.music.ui.listmodel.MusicSortKeyNormalizer
 
 internal enum class AlbumSortMode(val labelRes: Int) {
     Name(R.string.album_sort_name),
@@ -48,43 +46,5 @@ internal fun Album.indexLetter(sortMode: AlbumSortMode): String {
 }
 
 internal fun String.musicSortKey(): String {
-    val text = trim()
-    if (text.isBlank()) return ""
-    if (text.isAsciiSortable()) return text.toFastIndexSortableKey()
-
-    AlbumSortKeyCache[text]?.let { return it }
-
-    val latin = runCatching {
-        AlbumSortTransliterator.value.transliterate(text)
-    }.getOrDefault(text)
-
-    return latin.toFastIndexSortableKey().also {
-        AlbumSortKeyCache[text] = it
-    }
-}
-
-private fun String.isAsciiSortable(): Boolean {
-    return all { it.code in 0x20..0x7E }
-}
-
-private object AlbumSortTransliterator {
-    val value: Transliterator by lazy {
-        Transliterator.getInstance("Any-Latin; Latin-ASCII; NFD; [:Nonspacing Mark:] Remove; NFC")
-    }
-}
-
-private object AlbumSortKeyCache {
-    private const val MaxSize = 4096
-
-    private val values = object : LinkedHashMap<String, String>(MaxSize, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
-            return size > MaxSize
-        }
-    }
-
-    operator fun get(key: String): String? = synchronized(values) { values[key] }
-
-    operator fun set(key: String, value: String) {
-        synchronized(values) { values[key] = value }
-    }
+    return MusicSortKeyNormalizer.normalize(this)
 }

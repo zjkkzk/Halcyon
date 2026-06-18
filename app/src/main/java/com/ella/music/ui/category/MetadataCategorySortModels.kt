@@ -8,6 +8,8 @@ import com.ella.music.data.model.Song
 import com.ella.music.data.model.formatPlaybackDuration
 import com.ella.music.ui.components.toFastIndexSection
 import com.ella.music.ui.folder.musicSortKey
+import com.ella.music.ui.listmodel.SortDirection
+import com.ella.music.ui.listmodel.sortedByReleaseDate
 import com.ella.music.viewmodel.MetadataCategoryItem
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -148,8 +150,8 @@ internal fun List<com.ella.music.data.model.Song>.sortedForMetadataDetail(
             song.fileName.ifBlank { song.path.substringAfterLast('/') }.musicSortKey()
         }
         MetadataDetailSongSortMode.Duration -> sortedByDescending { it.duration }
-        MetadataDetailSongSortMode.YearAsc -> sortedByReleaseDate(ascending = true)
-        MetadataDetailSongSortMode.YearDesc -> sortedByReleaseDate(ascending = false)
+        MetadataDetailSongSortMode.YearAsc -> sortedByReleaseDate(SortDirection.Ascending)
+        MetadataDetailSongSortMode.YearDesc -> sortedByReleaseDate(SortDirection.Descending)
         MetadataDetailSongSortMode.DateAdded -> sortedByDescending { it.dateAdded }
         MetadataDetailSongSortMode.DateAddedAsc -> sortedBy { it.dateAdded }
         MetadataDetailSongSortMode.DateModified -> sortedByDescending { it.dateModified }
@@ -216,26 +218,6 @@ internal fun List<Album>.sortedForMetadataAlbumDetail(
         MetadataDetailAlbumSortMode.Name -> sortedBy { it.name.lowercase(Locale.ROOT) }
     }
 }
-
-internal fun List<Song>.sortedByReleaseDate(ascending: Boolean): List<Song> {
-    val comparator = if (ascending) {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenBy { it.releaseYearOrNull() ?: Int.MAX_VALUE }
-    } else {
-        compareBy<Song> { it.releaseYearOrNull() == null }
-            .thenByDescending { it.releaseYearOrNull() ?: Int.MIN_VALUE }
-    }
-    return sortedWith(
-        comparator
-            .thenBy { it.album.lowercase(Locale.ROOT) }
-            .thenBy { if (it.discNumber > 0) it.discNumber else Int.MAX_VALUE }
-            .thenBy { if (it.trackNumber > 0) it.trackNumber else Int.MAX_VALUE }
-            .thenBy { it.title.lowercase(Locale.ROOT) }
-    )
-}
-
-internal fun Song.releaseYearOrNull(): Int? =
-    Regex("""\d{4}""").find(year)?.value?.toIntOrNull()
 
 @Composable
 internal fun String.categoryTitle(): String {
