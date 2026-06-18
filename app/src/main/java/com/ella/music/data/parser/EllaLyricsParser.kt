@@ -36,10 +36,14 @@ internal object EllaLyricsParser {
         var artist: String? = null
         var album: String? = null
         var offset = 0L
+        var companionTargetIndexes = emptyList<Int>()
 
         content.lines().forEach { raw ->
             val line = raw.trim()
-            if (line.isBlank()) return@forEach
+            if (line.isBlank()) {
+                companionTargetIndexes = emptyList()
+                return@forEach
+            }
 
             lrcMetaPattern.matchEntire(line)?.let { match ->
                 when (match.groupValues[1].lowercase()) {
@@ -48,22 +52,45 @@ internal object EllaLyricsParser {
                     "al" -> album = match.groupValues[2].trim()
                     "offset" -> offset = match.groupValues[2].trim().toLongOrNull() ?: 0L
                 }
+                companionTargetIndexes = emptyList()
+                return@forEach
+            }
+            parseTimestampOnlyLine(line)?.let { endMs ->
+                lines.applyLineEnd(companionTargetIndexes, endMs)
+                companionTargetIndexes = emptyList()
                 return@forEach
             }
             val withoutTimes = lrcTimePattern.replace(line, "").trim()
             val hasTimestamps = withoutTimes != line.trim()
             if (hasTimestamps && isPlaceholderOnlyLine(withoutTimes)) {
+                val endMs = parseLrcTime(lrcTimePattern.findAll(line).last().groupValues)
+                if (endMs > 0L) {
+                    lines.applyLineEnd(companionTargetIndexes, endMs)
+                }
+                companionTargetIndexes = emptyList()
                 return@forEach
             }
             if (hasTimestamps && withoutTimes.isBlank()) {
+                companionTargetIndexes = emptyList()
                 return@forEach
             }
             if (lrcGenericMetaPattern.matches(line)) {
+                companionTargetIndexes = emptyList()
                 return@forEach
             }
-            if (ignoreHeaderTags && isHeaderTagLine(line)) return@forEach
+            if (ignoreHeaderTags && isHeaderTagLine(line)) {
+                companionTargetIndexes = emptyList()
+                return@forEach
+            }
 
-            lines += parseLrcLine(line)
+            val parsed = parseLrcLine(line)
+            if (parsed.isNotEmpty()) {
+                val firstIndex = lines.size
+                lines += parsed
+                companionTargetIndexes = (firstIndex until lines.size).toList()
+            } else if (!lines.appendUntimedTranslation(companionTargetIndexes, line)) {
+                companionTargetIndexes = emptyList()
+            }
         }
 
         return LrcParser.LrcResult(
@@ -76,11 +103,46 @@ internal object EllaLyricsParser {
         )
     }
 
+    private fun parseTimestampOnlyLine(line: String): Long? {
+        val times = lrcTimePattern.findAll(line).toList()
+        if (times.isEmpty()) return null
+        var cursor = 0
+        times.forEach { match ->
+            if (line.substring(cursor, match.range.first).isNotBlank()) return null
+            cursor = match.range.last + 1
+        }
+        if (line.substring(cursor).isNotBlank()) return null
+        return parseLrcTime(times.last().groupValues)
+    }
+
     private fun String?.mergeLyricCompanionText(text: String?): String? =
         listOfNotNull(this?.takeIf { it.isNotBlank() }, text?.takeIf { it.isNotBlank() })
             .distinct()
             .joinToString("\n")
             .takeIf { it.isNotBlank() }
+
+    private fun MutableList<LyricLine>.applyLineEnd(indexes: List<Int>, endMs: Long) {
+        indexes.forEach { index ->
+            val line = getOrNull(index) ?: return@forEach
+            if (endMs > line.timeMs) {
+                this[index] = line.copy(endMs = line.endMs ?: endMs)
+            }
+        }
+    }
+
+    private fun MutableList<LyricLine>.appendUntimedTranslation(indexes: List<Int>, rawLine: String): Boolean {
+        if (indexes.isEmpty()) return false
+        val (_, content) = rawLine.extractLrcAgent()
+        val text = content.cleanLyricText()
+        if (text.isIgnorableLyricText()) return false
+        indexes.forEach { index ->
+            val line = getOrNull(index) ?: return@forEach
+            this[index] = line.copy(
+                translation = line.translation.mergeLyricCompanionText(text)
+            )
+        }
+        return true
+    }
 
     private fun parseLrcLine(line: String): List<LyricLine> {
         backgroundLinePattern.matchEntire(line)?.let { match ->
