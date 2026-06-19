@@ -14,13 +14,13 @@ import com.ella.music.ui.components.buildLyriconRichLineConfig
 import com.ella.music.ui.components.loadAndroidTypeface
 import com.ella.music.ui.components.toLyriconWords
 import com.ella.music.ui.components.toLyriconSong
-import io.github.proify.lyricon.lyric.view.RawsLyricView
+import io.github.proify.lyricon.lyric.view.LyricView
 import kotlin.math.roundToInt
 
 internal class DesktopSmoothLyricView(context: Context) : FrameLayout(context) {
     var windowTouchHandler: ((View, MotionEvent) -> Boolean)? = null
 
-    private val lyricView = RawsLyricView(context).apply {
+    private val lyricView = LyricView(context).apply {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT

@@ -16,7 +16,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-val appVersionName = "1.1.96"
+val appVersionName = "1.1.97"
 
 fun variantChannelMarker(variantName: String): String =
     when (variantName.lowercase(Locale.US)) {
@@ -107,7 +107,7 @@ android {
         applicationId = "com.ella.music"
         minSdk = 29
         targetSdk = 37
-        versionCode = 26
+        versionCode = 27
         versionName = appVersionName
     }
 

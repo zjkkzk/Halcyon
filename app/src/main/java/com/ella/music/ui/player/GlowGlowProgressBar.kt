@@ -17,7 +17,7 @@ import android.view.animation.DecelerateInterpolator
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-class SuperIslandGlowProgressBar @JvmOverloads constructor(
+class GlowGlowProgressBar @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0

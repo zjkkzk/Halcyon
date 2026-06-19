@@ -18,7 +18,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.LyricLine
-import io.github.proify.lyricon.lyric.view.RawsLyricView
+import io.github.proify.lyricon.lyric.view.LyricView
 import top.yukonga.miuix.kmp.basic.Text
 import kotlin.math.abs
 
@@ -127,7 +127,7 @@ fun SmoothLyricView(
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            RawsLyricView(context).apply {
+            LyricView(context).apply {
                 layoutParams = android.view.ViewGroup.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -156,16 +156,16 @@ fun SmoothLyricView(
             view.updateAnchorOffset(view.height * anchorOffsetRatio)
             view.setTopContentPadding(with(density) { topContentPadding.toPx() })
             view.updateDisplayTranslation(showTranslation, showPronunciation)
-            view.onLineClickListener = object : RawsLyricView.OnLineClickListener {
+            view.onLineClickListener = object : LyricView.OnLineClickListener {
                 override fun onLineClick(beginMs: Long) {
                     val line = lyrics.minByOrNull { abs(it.timeMs - beginMs) }
                     if (line != null) onLineClick(line)
                 }
             }
-            view.onLineDoubleClickListener = RawsLyricView.OnLineDoubleClickListener {
+            view.onLineDoubleClickListener = LyricView.OnLineDoubleClickListener {
                 onLineDoubleClick()
             }
-            view.onLineLongClickListener = RawsLyricView.OnLineLongClickListener { beginMs ->
+            view.onLineLongClickListener = LyricView.OnLineLongClickListener { beginMs ->
                 val line = lyrics.minByOrNull { abs(it.timeMs - beginMs) }
                 if (line != null) onLineLongClick(line)
             }

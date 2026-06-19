@@ -148,8 +148,8 @@ internal fun GlowSeekBar(
     ) {
         AndroidView(
             factory = { context ->
-                SuperIslandGlowProgressBar(context).apply {
-                    shaderMode = SuperIslandGlowProgressBar.ShaderMode.HIGH_END
+                GlowGlowProgressBar(context).apply {
+                    shaderMode = GlowGlowProgressBar.ShaderMode.HIGH_END
                     trackHeightPx = resources.displayMetrics.density * 4.5f
                     trackHorizontalPaddingPx = 0f
                     headGlowAlpha = 1f
