@@ -426,7 +426,7 @@ int decodePacket(FfmpegDecoderContext* decoderContext, AVPacket* packet,
         return AUDIO_DECODER_ERROR_OTHER;
       }
     }
-    result = swr_convert(resampleContext, &outputBuffer, bufferOutSize,
+    result = swr_convert(resampleContext, &outputBuffer, outSamples,
                          (const uint8_t**)frame->data, frame->nb_samples);
     av_frame_unref(frame);
     if (result < 0) {
@@ -439,8 +439,9 @@ int decodePacket(FfmpegDecoderContext* decoderContext, AVPacket* packet,
            available);
       return AUDIO_DECODER_ERROR_INVALID_DATA;
     }
-    outputBuffer += bufferOutSize;
-    outSize += bufferOutSize;
+    int bytesWritten = outSampleSize * channelCount * result;
+    outputBuffer += bytesWritten;
+    outSize += bytesWritten;
   }
   return outSize;
 }
