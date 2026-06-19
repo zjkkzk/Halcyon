@@ -479,7 +479,7 @@ class SettingsManager(private val context: Context) {
     val themeMode: Flow<Int> = context.dataStore.data.map { it[KEY_THEME_MODE] ?: 0 }
     val monetColorMode: Flow<Int> = context.dataStore.data.map { it[KEY_MONET_COLOR_MODE] ?: 0 }
     val playerBackgroundTheme: Flow<Int> =
-        context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_THEME] ?: PLAYER_BG_THEME_DARK }
+        context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_THEME] ?: PLAYER_BG_THEME_FOLLOW_SYSTEM }
     val appLanguage: Flow<String> =
         context.dataStore.data.map { it[KEY_APP_LANGUAGE] ?: APP_LANGUAGE_SYSTEM }
     val bottomBarGlassEffect: Flow<BottomBarGlassEffect> = context.dataStore.data.map { preferences ->
@@ -640,7 +640,7 @@ class SettingsManager(private val context: Context) {
     val playerBackgroundDim: Flow<Int> =
         context.dataStore.data.map { it[KEY_PLAYER_BACKGROUND_DIM]?.coerceIn(0, 80) ?: 26 }
     val playerBeautifulLyricsBackground: Flow<Boolean> =
-        context.dataStore.data.map { it[KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND] ?: false }
+        context.dataStore.data.map { it[KEY_PLAYER_BEAUTIFUL_LYRICS_BACKGROUND] ?: true }
     val playerBeautifulLyricsSpeed: Flow<Int> =
         context.dataStore.data.map { it[KEY_PLAYER_BEAUTIFUL_LYRICS_SPEED]?.coerceIn(5, 60) ?: 25 }
     val playerBeautifulLyricsBlur: Flow<Int> =
@@ -669,7 +669,7 @@ class SettingsManager(private val context: Context) {
     val lyricShareCustomInfo: Flow<String> =
         context.dataStore.data.map { it[KEY_LYRIC_SHARE_CUSTOM_INFO] ?: "" }
     val showAlbumArtists: Flow<Boolean> =
-        context.dataStore.data.map { it[KEY_SHOW_ALBUM_ARTISTS] ?: false }
+        context.dataStore.data.map { it[KEY_SHOW_ALBUM_ARTISTS] ?: true }
     val metadataEditorId: Flow<String> =
         context.dataStore.data.map { it[KEY_METADATA_EDITOR_ID] ?: "" }
     val lyricTimingEditorId: Flow<String> =
@@ -1913,6 +1913,7 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_SORT_PLAYLIST_DETAIL_SONG)
             setInt(KEY_CATEGORY_GRID_COLUMNS)
             setInt(KEY_MINI_PLAYER_LYRIC_SECONDARY)
+            setInt(KEY_PLAYER_PROGRESS_BAR_STYLE)
             setInt(KEY_DESKTOP_LYRIC_STATUS_BAR_TOP_OFFSET)
             setInt(KEY_DESKTOP_LYRIC_STATUS_BAR_POSITION)
             setInt(KEY_DESKTOP_LYRIC_STATUS_BAR_WIDTH)

@@ -1538,4 +1538,7 @@
     <string name="song_more_metadata_no_ttml_lyrics">无 TTML 歌词</string>
     <string name="song_more_metadata_section_lyrics">歌词</string>
     <string name="song_more_metadata_ttml_lyrics">TTML 歌词</string>
-</resources>
+    <string name="settings_progress_bar_style">Progress bar style</string>
+    <string name="settings_progress_bar_glow">Glow</string>
+    <string name="settings_progress_bar_comet">Comet</string>
+    <string name="easter_egg_activated">Easter egg activated ✨</string></resources>

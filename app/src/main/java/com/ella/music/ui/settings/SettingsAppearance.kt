@@ -72,7 +72,7 @@ internal fun SettingsAppearanceSection(
     val playerBackgroundUri by settingsManager.playerBackgroundUri.collectAsState(initial = "")
     val playerBackgroundOpacity by settingsManager.playerBackgroundOpacity.collectAsState(initial = 100)
     val playerBackgroundDim by settingsManager.playerBackgroundDim.collectAsState(initial = 26)
-    val beautifulLyricsBackground by settingsManager.playerBeautifulLyricsBackground.collectAsState(initial = false)
+    val beautifulLyricsBackground by settingsManager.playerBeautifulLyricsBackground.collectAsState(initial = true)
     val beautifulLyricsSpeed by settingsManager.playerBeautifulLyricsSpeed.collectAsState(initial = 25)
     val beautifulLyricsBlur by settingsManager.playerBeautifulLyricsBlur.collectAsState(initial = 32)
     val beautifulLyricsBrightness by settingsManager.playerBeautifulLyricsBrightness.collectAsState(initial = 70)
@@ -90,10 +90,10 @@ internal fun SettingsAppearanceSection(
     val playerCoverSwipeEnabled by settingsManager.playerCoverSwipeEnabled.collectAsState(initial = true)
     val playlistSpecialEntriesVisible by settingsManager.playlistSpecialEntriesVisible.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
-    val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
+    val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = true)
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
-    val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_DARK)
+    val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_FOLLOW_SYSTEM)
 
     val themeLabels = listOf(
         stringResource(R.string.theme_follow_system),

@@ -174,6 +174,7 @@ internal fun LandscapeCoverPlayerPage(
             onNext = onNext,
             onLyricLineClick = onLyricLineClick,
             onLyricLineLongClick = onLyricLineLongClick,
+            onShowLyrics = onShowLyrics,
             onArtist = onArtist,
             drawBackground = drawBackground,
             modifier = modifier
@@ -473,6 +474,7 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
     onNext: () -> Unit,
     onLyricLineClick: (LyricLine) -> Unit,
     onLyricLineLongClick: (LyricLine) -> Unit,
+    onShowLyrics: () -> Unit,
     onArtist: () -> Unit,
     drawBackground: Boolean,
     modifier: Modifier = Modifier
@@ -564,8 +566,23 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                             Brush.horizontalGradient(
                                 colorStops = arrayOf(
                                     0.00f to Color.Transparent,
-                                    0.72f to Color.Transparent,
-                                    1.00f to palette.middle.copy(alpha = 0.56f)
+                                    0.58f to Color.Transparent,
+                                    0.90f to palette.middle.copy(alpha = 0.42f),
+                                    1.00f to palette.middle.copy(alpha = 0.92f)
+                                )
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.00f to Color.Black.copy(alpha = 0.08f),
+                                    0.52f to Color.Transparent,
+                                    0.84f to palette.middle.copy(alpha = 0.36f),
+                                    1.00f to palette.middle.copy(alpha = 0.78f)
                                 )
                             )
                         )
@@ -595,14 +612,6 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    CompactLandscapeIconButton(onClick = onPrevious) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_skip_previous),
-                            contentDescription = stringResource(R.string.common_previous),
-                            tint = palette.onBackground.copy(alpha = 0.94f),
-                            modifier = Modifier.size(27.dp)
-                        )
-                    }
                     CompactLandscapeIconButton(onClick = onPlayPause) {
                         CenteredPlayPauseGlyph(
                             isPlaying = isPlaying,
@@ -630,7 +639,7 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(top = 58.dp, end = 218.dp),
+                        .padding(top = 18.dp, end = 176.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text(
@@ -672,13 +681,26 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                     }
                 }
 
+                GlowSeekBar(
+                    value = if (duration > 0L) currentPosition.toFloat() / duration.toFloat() else 0f,
+                    onSeek = onSeek,
+                    accent = palette.accent,
+                    allowTapSeek = playerTapSeekEnabled,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .fillMaxWidth()
+                        .padding(start = 0.dp, end = 0.dp, bottom = 8.dp)
+                        .height(24.dp)
+                )
+
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .fillMaxSize()
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(top = 106.dp, bottom = 62.dp)
+                        .padding(top = 106.dp, bottom = 42.dp)
                 ) {
                     if (lyrics.isNotEmpty()) {
                         SmoothLyricView(
@@ -714,43 +736,13 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                             fontWeight = FontWeight.Bold,
                             fontFamily = fontFamily,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.align(Alignment.Center)
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .playerNoIndicationClick(onShowLyrics)
                         )
                     }
                 }
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .height(58.dp)
-                .background(Color.Black.copy(alpha = 0.20f))
-                .padding(horizontal = 15.dp, vertical = 8.dp)
-        ) {
-            GlowSeekBar(
-                value = if (duration > 0L) currentPosition.toFloat() / duration.toFloat() else 0f,
-                onSeek = onSeek,
-                accent = palette.accent,
-                allowTapSeek = playerTapSeekEnabled,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(24.dp)
-            )
-            Text(
-                text = "${formatTime(currentPosition)} / ${
-                    if (showTotalDuration) formatTime(duration.coerceAtLeast(0L))
-                    else "-${formatTime((duration - currentPosition).coerceAtLeast(0L))}"
-                }",
-                color = palette.onBackground.copy(alpha = 0.74f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.BottomEnd)
-            )
         }
     }
 }

@@ -405,6 +405,16 @@ internal fun CoverPlayerPage(
                                         }
                                     )
                             )
+                        } else if (lyrics.isEmpty()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            MiniNoLyricsPreview(
+                                contentColor = pagePalette.onBackground,
+                                fontWeight = fontWeight,
+                                onClick = onShowLyrics,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (compactWindow) 40.dp else 150.dp)
+                            )
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
@@ -544,6 +554,16 @@ internal fun CoverPlayerPage(
                                             miniLyricsPreviewHeight(effectiveMiniLyricLine, showTranslation, showPronunciation, compact = true)
                                         }
                                     )
+                            )
+                        } else if (lyrics.isEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            MiniNoLyricsPreview(
+                                contentColor = pagePalette.onBackground,
+                                fontWeight = fontWeight,
+                                onClick = onShowLyrics,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (compactWindow) 40.dp else 150.dp)
                             )
                         } else {
                             Spacer(modifier = Modifier.height(12.dp))

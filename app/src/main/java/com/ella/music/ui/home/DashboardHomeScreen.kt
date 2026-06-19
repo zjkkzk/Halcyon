@@ -76,7 +76,7 @@ fun HomeScreen(
     val settingsManager = remember(context) { SettingsManager.getInstance(context) }
     val folderPlaylists by settingsManager.folderPlaylists.collectAsState(initial = emptyList())
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
-    val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = false)
+    val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = true)
     val tagIgnoreCase by settingsManager.tagIgnoreCase.collectAsState(initial = false)
     val homeDailyMixVisible by settingsManager.homeDailyMixVisible.collectAsState(initial = true)
     val homeAiMixVisible by settingsManager.homeAiMixVisible.collectAsState(initial = true)

@@ -1,14 +1,21 @@
 package com.ella.music.ui.player
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.LyricLine
 import com.ella.music.ui.components.SmoothLyricView
+import top.yukonga.miuix.kmp.basic.Text
 
 internal fun miniLyricsPreviewHeight(
     line: LyricLine?,
@@ -98,6 +105,30 @@ internal fun MiniLyricsPreview(
         lineGapDp = if (singleLinePreview) 4f else if (compact) 5f else 7f,
         modifier = modifier.fillMaxWidth()
     )
+}
+
+@Composable
+internal fun MiniNoLyricsPreview(
+    contentColor: Color,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .playerNoIndicationClick(onClick),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = stringResource(R.string.player_no_lyrics),
+            color = contentColor.copy(alpha = 0.68f),
+            fontSize = 23.sp,
+            fontWeight = fontWeight,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 internal fun LyricLine.hasMiniLyric(): Boolean {
