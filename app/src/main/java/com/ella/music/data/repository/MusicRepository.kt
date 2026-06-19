@@ -199,6 +199,9 @@ class MusicRepository(private val context: Context) {
             "Start scan mode=$mode minDuration=${minDurationMs}ms include=${includeFolders.size} exclude=${excludeFolders.size} fullRescan=$fullRescan deepRescan=$deepRescan",
             AppLogType.LIBRARY
         )
+        if (fullRescan || deepRescan) {
+            clearScanMetadataCaches()
+        }
         val scanResult = if (fullRescan || deepRescan) {
             val scannedSongs = scanner.scanAllSongs(
                 minDurationMs = minDurationMs,
@@ -1015,6 +1018,17 @@ class MusicRepository(private val context: Context) {
         lyricsManager.clearCache()
         coverArtManager.clearCache()
         snapshotManager.clearCache()
+        audioTagRepository.clearCache()
+        audioInfoCache.clear()
+        tagInfoCache.clear()
+        replayGainCache.clear()
+        replayGainMissingCache.clear()
+    }
+
+    private fun clearScanMetadataCaches() {
+        lyricsManager.clearCache()
+        coverArtManager.clearCache()
+        audioTagRepository.clearCache()
         audioInfoCache.clear()
         tagInfoCache.clear()
         replayGainCache.clear()

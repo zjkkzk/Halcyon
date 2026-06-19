@@ -199,9 +199,15 @@ class MusicScanner(private val context: Context) {
         val tagInfo = if (shouldDeepRead) readTagsBlocking(item.path) else null
 
         if (tagInfo != null) {
-            if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
-            if (isMissingArtistTag(artist)) artist = tagInfo.artist.orEmpty()
-            if (isMissingAlbumTag(album)) album = tagInfo.album.orEmpty()
+            if (deepMetadata) {
+                title = tagInfo.title.orEmpty()
+                artist = tagInfo.artist.orEmpty()
+                album = tagInfo.album.orEmpty()
+            } else {
+                if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
+                if (isMissingArtistTag(artist)) artist = tagInfo.artist.orEmpty()
+                if (isMissingAlbumTag(album)) album = tagInfo.album.orEmpty()
+            }
             albumArtist = tagInfo.albumArtist.orEmpty()
             genre = tagInfo.genre.orEmpty()
             year = tagInfo.year.orEmpty().normalizeYear()
@@ -376,9 +382,15 @@ class MusicScanner(private val context: Context) {
                 val tagInfo = if (shouldDeepRead) readTagsBlocking(path) else null
 
                 if (tagInfo != null) {
-                    if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
-                    if (isMissingArtistTag(artist)) artist = tagInfo.artist.orEmpty()
-                    if (isMissingAlbumTag(album)) album = tagInfo.album.orEmpty()
+                    if (deepMetadata) {
+                        title = tagInfo.title.orEmpty()
+                        artist = tagInfo.artist.orEmpty()
+                        album = tagInfo.album.orEmpty()
+                    } else {
+                        if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
+                        if (isMissingArtistTag(artist)) artist = tagInfo.artist.orEmpty()
+                        if (isMissingAlbumTag(album)) album = tagInfo.album.orEmpty()
+                    }
                     albumArtist = tagInfo.albumArtist.orEmpty()
                     genre = tagInfo.genre.orEmpty()
                     year = tagInfo.year.orEmpty().normalizeYear()

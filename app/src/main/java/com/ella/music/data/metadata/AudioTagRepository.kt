@@ -215,6 +215,14 @@ class AudioTagRepository(
         }
     }
 
+    fun clearCache() {
+        coverDataCache.evictAll()
+        coverBitmapCache.evictAll()
+        lyricsCache.evictAll()
+        tagsCache.evictAll()
+        qualityCache.evictAll()
+    }
+
     private suspend fun <T> readWithFallback(
         label: String,
         path: String,
