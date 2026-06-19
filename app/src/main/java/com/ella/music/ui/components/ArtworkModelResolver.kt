@@ -2,9 +2,11 @@ package com.ella.music.ui.components
 
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import com.ella.music.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,6 +32,27 @@ fun rememberSongArtworkState(
 ): SongArtworkState {
     val coverUrl = song?.coverUrl?.takeIf { it.isNotBlank() }
     val preferEmbedded = song?.prefersEmbeddedArtwork() == true
+    val cacheKey = remember(
+        song?.id,
+        song?.path,
+        song?.dateModified,
+        song?.fileSize,
+        coverUrl,
+        albumArtUri,
+        usage
+    ) {
+        song?.let { current ->
+            listOf(
+                usage.name,
+                current.id.toString(),
+                current.path,
+                current.dateModified.toString(),
+                current.fileSize.toString(),
+                coverUrl.orEmpty(),
+                albumArtUri?.toString().orEmpty()
+            ).joinToString("|")
+        }
+    }
     val shouldTryEmbedded = song != null &&
         coverUrl == null &&
         loadCoverArt != null &&
@@ -41,7 +64,10 @@ fun rememberSongArtworkState(
             ArtworkUsage.ArtistImage -> albumArtUri == null || preferEmbedded
             ArtworkUsage.MiniPlayer -> albumArtUri == null || preferEmbedded
         }
-    val initialModel = when {
+    val cachedModel = remember(cacheKey) {
+        cacheKey?.let(ArtworkModelMemoryCache::get)
+    }
+    val initialModel = cachedModel ?: when {
         usage == ArtworkUsage.ListThumbnail && shouldTryEmbedded -> coverUrl
         else -> coverUrl ?: albumArtUri
     }
@@ -78,6 +104,9 @@ fun rememberSongArtworkState(
                 preferEmbedded -> embeddedCover ?: albumArtUri
                 else -> albumArtUri ?: embeddedCover
             }
+            if (resolved != null && cacheKey != null) {
+                ArtworkModelMemoryCache.put(cacheKey, resolved)
+            }
             SongArtworkState(
                 model = resolved,
                 showDefaultCover = showDefaultWhenMissing && resolved == null
@@ -101,3 +130,15 @@ private val embeddedArtworkExtensions = setOf(
     "aif",
     "aiff"
 )
+
+private object ArtworkModelMemoryCache {
+    private val cache = LruCache<String, Any>(96)
+
+    @Synchronized
+    fun get(key: String): Any? = cache.get(key)
+
+    @Synchronized
+    fun put(key: String, model: Any) {
+        cache.put(key, model)
+    }
+}

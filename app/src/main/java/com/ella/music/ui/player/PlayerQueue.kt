@@ -148,6 +148,16 @@ internal fun PlayerQueueMenu(
                     color = MiuixTheme.colorScheme.primary
                 )
             }
+            if (playlist.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "${(currentIndex + 1).coerceAtLeast(1)} / ${playlist.size}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             if (playlist.isNotEmpty()) {
                 Box(
