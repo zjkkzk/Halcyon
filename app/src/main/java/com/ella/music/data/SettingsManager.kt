@@ -117,6 +117,9 @@ class SettingsManager(private val context: Context) {
         val KEY_MINI_PLAYER_LYRICS_ENABLED = booleanPreferencesKey("mini_player_lyrics_enabled")
         val KEY_MINI_PLAYER_RIGHT_BUTTON = intPreferencesKey("mini_player_right_button")
         val KEY_TRANSPORT_BUTTON_OUTLINES = booleanPreferencesKey("transport_button_outlines")
+        val KEY_PLAYER_PROGRESS_BAR_STYLE = intPreferencesKey("player_progress_bar_style")
+        const val PROGRESS_BAR_STYLE_GLOW = 0
+        const val PROGRESS_BAR_STYLE_COMET = 1
         val KEY_PLAYER_TAP_SEEK_ENABLED = booleanPreferencesKey("player_tap_seek_enabled")
         val KEY_PLAYER_SHOW_TOTAL_DURATION = booleanPreferencesKey("player_show_total_duration")
         val KEY_PLAYER_SHOW_SONG_ANNOTATION = booleanPreferencesKey("player_show_song_annotation")
@@ -548,6 +551,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_MINI_PLAYER_RIGHT_BUTTON] ?: MINI_PLAYER_RIGHT_NEXT }
     val transportButtonOutlines: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_TRANSPORT_BUTTON_OUTLINES] ?: false }
+    val playerProgressBarStyle: Flow<Int> =
+        context.dataStore.data.map { it[KEY_PLAYER_PROGRESS_BAR_STYLE] ?: PROGRESS_BAR_STYLE_GLOW }
     val playerTapSeekEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_TAP_SEEK_ENABLED] ?: true }
     val playerShowTotalDuration: Flow<Boolean> =
@@ -1046,6 +1051,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setTransportButtonOutlines(enabled: Boolean) {
         context.dataStore.edit { it[KEY_TRANSPORT_BUTTON_OUTLINES] = enabled }
+    }
+
+    suspend fun setPlayerProgressBarStyle(style: Int) {
+        context.dataStore.edit { it[KEY_PLAYER_PROGRESS_BAR_STYLE] = style }
     }
 
     suspend fun setPlayerHdrGlow(enabled: Boolean) {

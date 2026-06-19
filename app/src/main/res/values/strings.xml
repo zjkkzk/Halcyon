@@ -482,6 +482,10 @@
     <string name="folder_playlist_more_refresh">刷新</string>
     <string name="folder_playlist_more_pin">置顶</string>
     <string name="playlist_name_exists">歌单名已存在</string>
+    <string name="settings_progress_bar_style">进度条样式</string>
+    <string name="settings_progress_bar_glow">辉光</string>
+    <string name="settings_progress_bar_comet">彗星</string>
+    <string name="easter_egg_activated">彩蛋已激活 ✨</string>
     <string name="folder_playlist_delete_title">删除文件夹歌单</string>
     <string name="folder_playlist_delete_message">确定要删除「%1$s」吗？不会删除音乐文件。</string>
     <string name="folder_show_folder">显示文件夹</string>

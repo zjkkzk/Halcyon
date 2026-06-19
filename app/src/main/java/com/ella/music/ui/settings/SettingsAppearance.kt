@@ -77,6 +77,7 @@ internal fun SettingsAppearanceSection(
     val beautifulLyricsBlur by settingsManager.playerBeautifulLyricsBlur.collectAsState(initial = 32)
     val beautifulLyricsBrightness by settingsManager.playerBeautifulLyricsBrightness.collectAsState(initial = 70)
     val homeCardColor by settingsManager.homeCardColor.collectAsState(initial = "")
+    val playerProgressBarStyle by settingsManager.playerProgressBarStyle.collectAsState(initial = SettingsManager.PROGRESS_BAR_STYLE_GLOW)
     val homeCardOpacity by settingsManager.homeCardOpacity.collectAsState(initial = 58)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
     val hiResLogoEnabled by settingsManager.hiResLogoEnabled.collectAsState(initial = false)
@@ -321,6 +322,22 @@ internal fun SettingsAppearanceSection(
                     }
                 )
             }
+            WindowSpinnerPreference(
+                title = stringResource(R.string.settings_progress_bar_style),
+                summary = if (playerProgressBarStyle == SettingsManager.PROGRESS_BAR_STYLE_GLOW) {
+                    stringResource(R.string.settings_progress_bar_glow)
+                } else {
+                    stringResource(R.string.settings_progress_bar_comet)
+                },
+                items = listOf(
+                    DropdownItem(title = stringResource(R.string.settings_progress_bar_glow)),
+                    DropdownItem(title = stringResource(R.string.settings_progress_bar_comet)),
+                ),
+                selectedIndex = playerProgressBarStyle,
+                onSelectedIndexChange = { index ->
+                    scope.launch { settingsManager.setPlayerProgressBarStyle(index) }
+                }
+            )
             SwitchPreference(
                 title = stringResource(R.string.settings_hide_system_bars),
                 summary = stringResource(R.string.settings_hide_system_bars_summary),

@@ -1,5 +1,7 @@
 package com.ella.music.ui.about
 
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,12 +16,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +36,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.BuildConfig
 import com.ella.music.R
+import com.ella.music.data.SettingsManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import com.ella.music.ui.effect.BgEffectBackground
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -128,6 +138,9 @@ private fun AboutContent(
     val isDark = colorScheme.background.luminance() < 0.5f
     val blurEnable by remember { mutableStateOf(isRenderEffectSupported()) }
     val shaderSupported = remember { isRuntimeShaderSupported() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
     val uriHandler = LocalUriHandler.current
 
     val density = LocalDensity.current
@@ -137,6 +150,16 @@ private fun AboutContent(
     val heroBottomPadding = 112.dp
 
     val titleBlend = remember(isDark) { aboutTitleBlendColors(isDark) }
+
+    var halcyonTapCount by remember { mutableIntStateOf(0) }
+    var showEasterEggToast by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showEasterEggToast) {
+        if (showEasterEggToast) {
+            Toast.makeText(context, context.getString(R.string.easter_egg_activated), Toast.LENGTH_SHORT).show()
+            showEasterEggToast = false
+        }
+    }
     val cardBlendColors = remember(isDark) { aboutCardBlendColors(isDark) }
 
     BgEffectBackground(
@@ -164,6 +187,22 @@ private fun AboutContent(
             Text(
                 modifier = Modifier
                     .padding(top = 0.dp, bottom = 5.dp)
+                    .clickable {
+                        halcyonTapCount++
+                        if (halcyonTapCount >= 7) {
+                            halcyonTapCount = 0
+                            showEasterEggToast = true
+                            scope.launch {
+                                settingsManager.setPlayerProgressBarStyle(
+                                    if (settingsManager.playerProgressBarStyle.first() == SettingsManager.PROGRESS_BAR_STYLE_GLOW) {
+                                        SettingsManager.PROGRESS_BAR_STYLE_COMET
+                                    } else {
+                                        SettingsManager.PROGRESS_BAR_STYLE_GLOW
+                                    }
+                                )
+                            }
+                        }
+                    }
                     .then(
                         if (blurEnable) Modifier.textureBlur(
                             backdrop = backdrop,
