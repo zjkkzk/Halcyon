@@ -27,6 +27,7 @@ internal class OPlusLyricHandler(
     companion object {
         private const val TAG = "PlaybackService"
         private const val TIMING_TAG = "EllaPlaybackTiming"
+        private const val OPLUS_LYRIC_PATCH_SEQUENCE_KEY = "com.ella.music.extra.OPLUS_LYRIC_PATCH_SEQUENCE"
         const val OPLUS_LYRIC_INFO_KEY = "lyricInfo"
         const val OPLUS_RAW_LYRIC_KEY = OPlusLyricPayload.RAW_LYRIC_INFO_KEY
     }
@@ -37,6 +38,7 @@ internal class OPlusLyricHandler(
     private var oplusLyricInfoPendingSongKey: String? = null
     private var oplusLyricInfoSongKey: String? = null
     private var oplusLyricInfoJson: String? = null
+    private var oplusLyricInfoPublishSequence = 0L
     private val oplusLyricInfoPrefetchJobs = mutableMapOf<String, Job>()
     private val oplusLyricInfoCache = object : LinkedHashMap<String, String?>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String?>): Boolean = size > 24
@@ -71,6 +73,7 @@ internal class OPlusLyricHandler(
 
         if (oplusLyricInfoSongKey == songKey) {
             applyCurrentOplusLyricInfo(currentPlayer, song, oplusLyricInfoJson)
+            scheduleOplusLyricInfoReapply(songKey)
             prefetchAdjacentOplusLyricInfo(currentPlayer)
             return
         }
@@ -80,6 +83,7 @@ internal class OPlusLyricHandler(
             oplusLyricInfoSongKey = songKey
             oplusLyricInfoJson = cachedJson
             applyCurrentOplusLyricInfo(currentPlayer, song, cachedJson)
+            scheduleOplusLyricInfoReapply(songKey)
             prefetchAdjacentOplusLyricInfo(currentPlayer)
             return
         }
@@ -123,10 +127,8 @@ internal class OPlusLyricHandler(
         refreshCurrentOplusLyricInfo(player)
         oplusLyricInfoRefreshJob?.cancel()
         oplusLyricInfoRefreshJob = serviceScope.launch {
-            for (delayMs in listOf(120L, 420L, 1_000L, 2_200L)) {
-                delay(delayMs)
-                refreshCurrentOplusLyricInfo()
-            }
+            delay(OPlusLyricPublishPolicy.COMPAT_REAPPLY_DELAY_MS)
+            refreshCurrentOplusLyricInfo()
         }
     }
 
@@ -149,14 +151,12 @@ internal class OPlusLyricHandler(
         if (oplusLyricInfoJson.isNullOrBlank()) return
 
         oplusLyricInfoReapplyJob = serviceScope.launch {
-            for (delayMs in listOf(600L, 1_600L, 3_500L, 7_000L, 12_000L)) {
-                delay(delayMs)
-                if (!colorOsLockScreenLyricEnabled || oplusLyricInfoSongKey != songKey) return@launch
-                val player = playerProvider() ?: return@launch
-                val song = player.currentMediaItem?.toSongFromMediaItemExtras() ?: return@launch
-                if (song.playbackStackKey() != songKey) return@launch
-                applyCurrentOplusLyricInfo(player, song, oplusLyricInfoJson)
-            }
+            delay(OPlusLyricPublishPolicy.COMPAT_REAPPLY_DELAY_MS)
+            if (!colorOsLockScreenLyricEnabled || oplusLyricInfoSongKey != songKey) return@launch
+            val player = playerProvider() ?: return@launch
+            val song = player.currentMediaItem?.toSongFromMediaItemExtras() ?: return@launch
+            if (song.playbackStackKey() != songKey) return@launch
+            applyCurrentOplusLyricInfo(player, song, oplusLyricInfoJson, force = true)
         }
     }
 
@@ -240,7 +240,12 @@ internal class OPlusLyricHandler(
             .distinct()
     }
 
-    private fun applyCurrentOplusLyricInfo(player: Player, song: Song, lyricInfoJson: String?) {
+    private fun applyCurrentOplusLyricInfo(
+        player: Player,
+        song: Song,
+        lyricInfoJson: String?,
+        force: Boolean = false
+    ) {
         val index = player.currentMediaItemIndex
         val currentItem = player.currentMediaItem ?: return
         if (index == C.INDEX_UNSET || !currentItem.matchesSong(song)) return
@@ -249,15 +254,23 @@ internal class OPlusLyricHandler(
         val currentJson = extras.getString(OPLUS_LYRIC_INFO_KEY)
         val rawLyric = lyricInfoJson?.let { OPlusLyricPayload.rawLyric(it) }
         val currentRawLyric = extras.getString(OPLUS_RAW_LYRIC_KEY)
-        if (lyricInfoJson.isNullOrBlank()) {
-            if (!extras.containsKey(OPLUS_LYRIC_INFO_KEY) && !extras.containsKey(OPLUS_RAW_LYRIC_KEY)) return
-            extras.remove(OPLUS_LYRIC_INFO_KEY)
-            extras.remove(OPLUS_RAW_LYRIC_KEY)
-        } else {
-            if (currentJson == lyricInfoJson && currentRawLyric == rawLyric) return
-            extras.putString(OPLUS_LYRIC_INFO_KEY, lyricInfoJson)
-            rawLyric?.let { extras.putString(OPLUS_RAW_LYRIC_KEY, it) }
+        when (OPlusLyricPublishPolicy.actionFor(currentJson, currentRawLyric, lyricInfoJson, rawLyric)) {
+            OPlusLyricPublishAction.None -> if (!force || lyricInfoJson.isNullOrBlank()) return
+            OPlusLyricPublishAction.Clear -> {
+                extras.remove(OPLUS_LYRIC_INFO_KEY)
+                extras.remove(OPLUS_RAW_LYRIC_KEY)
+            }
+            OPlusLyricPublishAction.Write -> {
+                val targetLyricInfo = lyricInfoJson ?: return
+                extras.putString(OPLUS_LYRIC_INFO_KEY, targetLyricInfo)
+                if (rawLyric != null) {
+                    extras.putString(OPLUS_RAW_LYRIC_KEY, rawLyric)
+                } else {
+                    extras.remove(OPLUS_RAW_LYRIC_KEY)
+                }
+            }
         }
+        extras.putLong(OPLUS_LYRIC_PATCH_SEQUENCE_KEY, ++oplusLyricInfoPublishSequence)
         extras.markMetadataOnlyPatch(PATCH_REASON_OPLUS_LYRIC)
 
         val updatedMetadata = currentItem.mediaMetadata.buildUpon()
@@ -281,11 +294,19 @@ internal class OPlusLyricHandler(
         if (!mediaItem.matchesSong(song)) return
         val extras = Bundle(mediaItem.mediaMetadata.extras ?: Bundle.EMPTY)
         val rawLyric = OPlusLyricPayload.rawLyric(lyricInfoJson)
-        if (extras.getString(OPLUS_LYRIC_INFO_KEY) == lyricInfoJson &&
-            extras.getString(OPLUS_RAW_LYRIC_KEY) == rawLyric
-        ) return
+        val action = OPlusLyricPublishPolicy.actionFor(
+            currentLyricInfo = extras.getString(OPLUS_LYRIC_INFO_KEY),
+            currentRawLyric = extras.getString(OPLUS_RAW_LYRIC_KEY),
+            targetLyricInfo = lyricInfoJson,
+            targetRawLyric = rawLyric
+        )
+        if (action == OPlusLyricPublishAction.None) return
         extras.putString(OPLUS_LYRIC_INFO_KEY, lyricInfoJson)
-        rawLyric?.let { extras.putString(OPLUS_RAW_LYRIC_KEY, it) }
+        if (rawLyric != null) {
+            extras.putString(OPLUS_RAW_LYRIC_KEY, rawLyric)
+        } else {
+            extras.remove(OPLUS_RAW_LYRIC_KEY)
+        }
         extras.markMetadataOnlyPatch(PATCH_REASON_OPLUS_LYRIC)
 
         val updatedItem = mediaItem.buildUpon()

@@ -7,12 +7,10 @@ import java.util.Locale
 
 internal object OPlusLyricPayload {
     const val RAW_LYRIC_INFO_KEY = "rawLyric"
-    const val TRANSLATION_LYRIC_INFO_KEY = "translationLyric"
 
     fun build(song: Song, lyrics: List<LyricLine>): String? {
         val lrc = lyrics.toOplusLrc().takeIf { it.isNotBlank() } ?: return null
         val rawLyric = lyrics.toOplusRawLyric().takeIf { it.isNotBlank() } ?: lrc
-        val translationLyric = lyrics.toOplusTranslationLyric().takeIf { it.isNotBlank() }
         val fields = mutableListOf(
             "songName" to song.title,
             "artist" to song.artist,
@@ -20,9 +18,6 @@ internal object OPlusLyricPayload {
             "lyric" to lrc,
             RAW_LYRIC_INFO_KEY to rawLyric
         )
-        if (translationLyric != null) {
-            fields += TRANSLATION_LYRIC_INFO_KEY to translationLyric
-        }
         return buildJsonObject(*fields.toTypedArray())
     }
 
@@ -64,22 +59,21 @@ internal object OPlusLyricPayload {
             }
     }
 
-    private fun List<LyricLine>.toOplusTranslationLyric(): String {
-        return mapNotNull { line ->
-            val translation = line.translation.toOplusLrcTextOrNull()
-                ?.takeIf { it != line.primaryOplusTextOrNull() }
-                ?: return@mapNotNull null
-            line.rawLyricStartMs() to translation
+    private fun List<LyricLine>.toOplusRawLyric(): String {
+        return flatMap { line ->
+            listOfNotNull(
+                line.toOplusRawMainLine(),
+                line.toOplusRawTranslationLine()
+            )
         }
-            .sortedBy { it.first }
-            .joinToString("\n") { (timeMs, text) ->
-                "${timeMs.toOplusLrcTimestamp(precision = TimestampPrecision.Milli)}$text"
-            }
+            .joinToString("\n")
     }
 
-    private fun List<LyricLine>.toOplusRawLyric(): String {
-        return mapNotNull { line -> line.toOplusRawMainLine() }
-            .joinToString("\n")
+    private fun LyricLine.toOplusRawTranslationLine(): String? {
+        val translation = translation.toOplusLrcTextOrNull()
+            ?.takeIf { it != primaryOplusTextOrNull() }
+            ?: return null
+        return "${rawLyricStartMs().toOplusLrcTimestamp(precision = TimestampPrecision.Milli)}$translation"
     }
 
     private fun LyricLine.toOplusRawMainLine(): String? {

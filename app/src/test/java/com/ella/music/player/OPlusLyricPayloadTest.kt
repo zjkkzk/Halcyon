@@ -30,11 +30,39 @@ class OPlusLyricPayloadTest {
         val json = payload ?: error("payload is null")
         assertEquals("[00:01.00]Hello world", OPlusLyricPayload.stringField(json, "lyric"))
         assertEquals(
-            "[00:01.000]Hello [00:01.500]world[00:02.200]",
+            "[00:01.000]Hello [00:01.500]world[00:02.200]\n[00:01.000]你好世界",
             OPlusLyricPayload.stringField(json, "rawLyric")
         )
-        assertEquals("[00:01.000]你好世界", OPlusLyricPayload.stringField(json, "translationLyric"))
+        assertEquals(null, OPlusLyricPayload.stringField(json, "translationLyric"))
         assertTrue(OPlusLyricPayload.matchesSong(json, song))
+    }
+
+    @Test
+    fun translationIsEmbeddedInRawLyricForModuleWordModel() {
+        val payload = OPlusLyricPayload.build(
+            song = song(),
+            lyrics = listOf(
+                LyricLine(
+                    timeMs = 2_000L,
+                    text = "Sincronia; Ascenso; Lazo",
+                    words = listOf(
+                        LyricWord("Sincronia; ", 2_000L, 2_500L),
+                        LyricWord("Ascenso; ", 2_500L, 3_000L),
+                        LyricWord("Lazo", 3_000L, 3_500L)
+                    ),
+                    translation = "同步，飞升，链接",
+                    endMs = 3_500L
+                )
+            )
+        )
+
+        val json = payload ?: error("payload is null")
+        assertEquals(
+            "[00:02.000]Sincronia; [00:02.500]Ascenso; [00:03.000]Lazo[00:03.500]\n" +
+                "[00:02.000]同步，飞升，链接",
+            OPlusLyricPayload.stringField(json, "rawLyric")
+        )
+        assertEquals(null, OPlusLyricPayload.stringField(json, "translationLyric"))
     }
 
     @Test
