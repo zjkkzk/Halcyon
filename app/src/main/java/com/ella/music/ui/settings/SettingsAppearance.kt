@@ -89,7 +89,6 @@ internal fun SettingsAppearanceSection(
     val playerCoverSwipeEnabled by settingsManager.playerCoverSwipeEnabled.collectAsState(initial = true)
     val playlistSpecialEntriesVisible by settingsManager.playlistSpecialEntriesVisible.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
-    val showAlbumArtists by settingsManager.showAlbumArtists.collectAsState(initial = true)
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_FOLLOW_SYSTEM)
@@ -506,14 +505,6 @@ internal fun SettingsAppearanceSection(
                 selectedIndex = (categoryGridColumns - categoryGridRange.first).coerceIn(categoryGridEntries.indices),
                 onSelectedIndexChange = { index ->
                     scope.launch { settingsManager.setCategoryGridColumns(categoryGridRange.first + index) }
-                }
-            )
-            SwitchPreference(
-                title = stringResource(R.string.settings_show_album_artists),
-                summary = stringResource(R.string.settings_show_album_artists_summary),
-                checked = showAlbumArtists,
-                onCheckedChange = {
-                    scope.launch { settingsManager.setShowAlbumArtists(it) }
                 }
             )
             SwitchPreference(

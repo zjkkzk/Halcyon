@@ -739,7 +739,10 @@ internal object EllaLyricsParser {
                 val primary = if (hasRomanizedCompanion) {
                     group.firstOrNull { it.text.cleanLyricText().hasCjk() && it.text.isUsefulMainText() }
                 } else {
-                    null
+                    val cjkCandidates = group.filter { it.text.cleanLyricText().hasCjk() && it.text.isUsefulMainText() }
+                    if (cjkCandidates.size >= 2) {
+                        cjkCandidates.firstOrNull { it.text.cleanLyricText().hasJapaneseKana() }
+                    } else null
                 } ?: group.firstOrNull { it.text.isUsefulMainText() } ?: group.first()
                 val primaryText = primary.text.cleanLyricText()
                 val pronunciation = group
@@ -1055,6 +1058,12 @@ internal object EllaLyricsParser {
                 Character.UnicodeBlock.of(char) == Character.UnicodeBlock.MUSICAL_SYMBOLS
         }
     }
+
+    private fun String.hasJapaneseKana(): Boolean =
+        any {
+            val block = Character.UnicodeBlock.of(it)
+            block == Character.UnicodeBlock.HIRAGANA || block == Character.UnicodeBlock.KATAKANA
+        }
 
     private fun String.hasCjk(): Boolean =
         any { it.isCjkChar() }

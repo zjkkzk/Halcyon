@@ -83,7 +83,14 @@ fun normalizedBitDepth(info: AudioInfo): Int {
         return if (info.bitDepth < 24 && likelyHiResAlac) 24 else info.bitDepth
     }
     if (format in setOf("FLAC", "ALAC", "WAV", "APE")) {
-        return if (info.sampleRate >= 88_200 || info.bitRate >= 1_600_000) 24 else 16
+        if (info.sampleRate >= 88_200 || info.bitRate >= 1_600_000) return 24
+        val channels = info.channels.coerceAtLeast(2)
+        val pcmRate = info.sampleRate.toLong() * channels
+        if (pcmRate > 0 && info.bitRate > 0) {
+            val bitsPerSample = info.bitRate.toLong() / pcmRate
+            if (bitsPerSample >= 12) return 24
+        }
+        return 16
     }
     return 0
 }

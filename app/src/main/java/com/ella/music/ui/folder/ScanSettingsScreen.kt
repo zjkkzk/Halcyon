@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -69,6 +70,7 @@ fun ScanSettingsScreen(
     var pendingRemoveScanFolder by remember { mutableStateOf<String?>(null) }
     var pendingRemoveUsbUri by remember { mutableStateOf<String?>(null) }
 
+    val showAlbumArtists by mainViewModel.settingsManager.showAlbumArtists.collectAsState(initial = true)
     val usbFolderUrisRaw by mainViewModel.settingsManager.usbFolderUris.collectAsState(initial = "")
     val usbFolderUris = remember(usbFolderUrisRaw) {
         usbFolderUrisRaw.split('\n').map { it.trim() }.filter { it.isNotBlank() }
@@ -201,6 +203,17 @@ fun ScanSettingsScreen(
                     count = blockedFolders.size,
                     highlight = highlightKey == "scan_blocked_folders",
                     onClick = { showBlockedDialog = true }
+                )
+            }
+
+            item {
+                SwitchPreference(
+                    title = stringResource(R.string.settings_show_album_artists),
+                    summary = stringResource(R.string.settings_show_album_artists_summary),
+                    checked = showAlbumArtists,
+                    onCheckedChange = {
+                        scope.launch { mainViewModel.settingsManager.setShowAlbumArtists(it) }
+                    }
                 )
             }
 
