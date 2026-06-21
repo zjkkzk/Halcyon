@@ -129,6 +129,8 @@ internal object AccompanistLyricsParser {
                 preserveLatinWordSpaces &&
                 previous != null &&
                 shouldInsertLatinWordSpace(
+                    previous.content,
+                    syllable.content,
                     previous.content.normalizeTimedTokenText(preserveLatinWordSpaces, trimEnd = false),
                     rawText
                 )
@@ -165,16 +167,30 @@ internal object AccompanistLyricsParser {
             }
         }
 
-    private fun shouldInsertLatinWordSpace(previous: String, current: String): Boolean {
-        val prev = previous.lastOrNull { !it.isWhitespace() } ?: return false
-        val next = current.firstOrNull { !it.isWhitespace() } ?: return false
-        if (previous.lastOrNull()?.isWhitespace() == true || current.firstOrNull()?.isWhitespace() == true) return false
-        if (!prev.isLatinWordChar() || !next.isLatinWordChar()) return false
+    private fun shouldInsertLatinWordSpace(
+        previousRaw: String,
+        currentRaw: String,
+        previousNormalized: String,
+        currentNormalized: String
+    ): Boolean {
+        val hasExplicitWhitespaceBoundary =
+            previousRaw.lastOrNull()?.isWhitespace() == true || currentRaw.firstOrNull()?.isWhitespace() == true
+        if (!hasExplicitWhitespaceBoundary) return false
+        val prev = previousNormalized.lastOrNull { !it.isWhitespace() } ?: return false
+        val next = currentNormalized.firstOrNull { !it.isWhitespace() } ?: return false
+        if (prev.isCjkWordChar() || next.isCjkWordChar()) return false
         return true
     }
 
-    private fun Char.isLatinWordChar(): Boolean =
-        this in 'A'..'Z' || this in 'a'..'z' || this in '0'..'9' || this == '\''
+    private fun Char.isCjkWordChar(): Boolean {
+        val block = Character.UnicodeBlock.of(this)
+        return block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A ||
+            block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B ||
+            block == Character.UnicodeBlock.HIRAGANA ||
+            block == Character.UnicodeBlock.KATAKANA ||
+            block == Character.UnicodeBlock.HANGUL_SYLLABLES
+    }
 
     private fun String.normalizeTimedTokenText(preserveLatinWordSpaces: Boolean, trimEnd: Boolean): String =
         if (preserveLatinWordSpaces) {

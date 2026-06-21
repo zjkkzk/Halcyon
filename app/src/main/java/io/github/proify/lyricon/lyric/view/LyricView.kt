@@ -132,6 +132,7 @@ class LyricView @JvmOverloads constructor(
     }
 
     private var lyrics: List<IRichLyricLine> = emptyList()
+    private var lyricWindows: List<LyricViewLineWindow> = emptyList()
     private var currentIndex = -1
     private var currentPosMs = 0L
     private var lastPositionWallTime = 0L
@@ -385,10 +386,17 @@ class LyricView @JvmOverloads constructor(
         }
 
     fun setPosition(positionMs: Long) {
+        val previousPositionMs = currentPosMs
         currentPosMs = positionMs
         lastPositionWallTime = SystemClock.elapsedRealtime()
         updateSecondaryVisibilityIfNeeded()
-        val newIndex = findCurrentLine(positionMs + lineOffsetMs)
+        val newIndex = resolveLyricViewIndex(
+            positionMs = positionMs,
+            previousPositionMs = previousPositionMs,
+            currentIndex = currentIndex,
+            currentPreviewOffsetMs = lineOffsetMs,
+            lines = lyricWindows
+        )
         if (newIndex != currentIndex) {
             val shouldResumeForNextLine = autoScrollResumeEnabled &&
                 isUserScrolling &&
@@ -597,6 +605,7 @@ class LyricView @JvmOverloads constructor(
         songName = new?.name
         songArtist = new?.artist
         lyrics = newLines ?: emptyList()
+        lyricWindows = lyrics.map { LyricViewLineWindow(begin = it.begin, end = it.end) }
         currentIndex = -1
         currentPosMs = 0L
         lineOffsetMs = LINE_OFFSET_MIN_MS
@@ -747,7 +756,7 @@ class LyricView @JvmOverloads constructor(
             val start = line.secondaryWords?.minOfOrNull { it.begin }
             val end = line.secondaryWords?.maxOfOrNull { it.end }
             result = 31 * result + index
-            val activeIndex = findCurrentLine(positionMs + lineOffsetMs)
+            val activeIndex = previewLyricViewIndexAt(positionMs + lineOffsetMs, lyricWindows)
             result = 31 * result + if (index == activeIndex || isSecondaryVisible(start, end, line.end, positionMs)) 1 else 0
         }
         return result
@@ -828,27 +837,11 @@ class LyricView @JvmOverloads constructor(
     }
 
     private fun findCurrentLine(posMs: Long): Int {
-        if (lyrics.isEmpty()) return -1
-        for (i in lyrics.indices.reversed()) {
-            val line = lyrics[i]
-            if (posMs >= line.begin && posMs <= line.end) return i
-
-        }
-        for (i in lyrics.indices.reversed()) {
-            if (lyrics[i].begin <= posMs) return i
-        }
-        return -1
+        return previewLyricViewIndexAt(posMs, lyricWindows)
     }
 
     private fun updateLineOffset(currentIdx: Int) {
-        if (currentIdx < 0 || currentIdx + 1 >= lyrics.size) {
-            lineOffsetMs = LINE_OFFSET_MIN_MS
-            return
-        }
-        val gap = lyrics[currentIdx + 1].begin - lyrics[currentIdx].end
-        val clampedGap = gap.coerceIn(LINE_OFFSET_GAP_MIN_MS, LINE_OFFSET_GAP_MAX_MS)
-        val fraction = (clampedGap - LINE_OFFSET_GAP_MIN_MS).toFloat() / (LINE_OFFSET_GAP_MAX_MS - LINE_OFFSET_GAP_MIN_MS)
-        lineOffsetMs = (LINE_OFFSET_MIN_MS + (LINE_OFFSET_MAX_MS - LINE_OFFSET_MIN_MS) * fraction).toLong()
+        lineOffsetMs = computeLyricViewPreviewOffsetMs(currentIdx, lyricWindows)
     }
 
     private fun onLineChanged(oldIndex: Int, newIndex: Int) {

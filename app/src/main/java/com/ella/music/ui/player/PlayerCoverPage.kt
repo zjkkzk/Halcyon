@@ -57,6 +57,7 @@ internal fun CoverPlayerPage(
     annotation: String,
     dynamicCoverFailedPath: String?,
     dynamicCoverEnabled: Boolean,
+    dynamicCoverCustomFolders: List<String>,
     immersiveAlbumCover: Boolean,
     playerBackgroundEnabled: Boolean,
     playerBackgroundUri: String,
@@ -85,6 +86,8 @@ internal fun CoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    lyricPerspectiveEffect: Boolean,
+    lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
     playerTapSeekEnabled: Boolean,
     playerShowTotalDuration: Boolean,
@@ -171,13 +174,18 @@ internal fun CoverPlayerPage(
     val dynamicCoverSource by produceState<DynamicCoverSource?>(
         initialValue = null,
         dynamicCoverEnabled,
+        dynamicCoverCustomFolders,
         song?.id,
         dynamicCoverFailedPath
     ) {
         val current = song
         value = if (current != null) {
             withContext(Dispatchers.IO) {
-                current.dynamicCoverSource(context, includeExternalFiles = dynamicCoverEnabled)
+                current.dynamicCoverSource(
+                    context,
+                    includeExternalFiles = dynamicCoverEnabled,
+                    customRootPaths = dynamicCoverCustomFolders
+                )
                     ?.takeUnless { it.failureKey == dynamicCoverFailedPath }
             }
         } else {
@@ -258,6 +266,8 @@ internal fun CoverPlayerPage(
                 fontWeight = fontWeight,
                 fontScale = fontScale,
                 secondaryFontScale = secondaryFontScale,
+                lyricPerspectiveEffect = lyricPerspectiveEffect,
+                lyricPerspectiveYAngle = lyricPerspectiveYAngle,
                 lyricTextAlign = lyricTextAlign,
                 showTotalDuration = playerShowTotalDuration,
                 playerTapSeekEnabled = playerTapSeekEnabled,

@@ -830,6 +830,8 @@
     <string name="settings_dynamic_cover_enabled">Dynamic cover enabled</string>
     <string name="settings_dynamic_cover_permission_grant">Grant video permission in system settings before enabling dynamic cover</string>
     <string name="settings_dynamic_cover_permission_denied">Video permission not granted, dynamic cover was disabled</string>
+    <string name="settings_dynamic_cover_custom_folders">Custom dynamic cover folders</string>
+    <string name="settings_dynamic_cover_custom_folders_summary">One root folder per line. Supports Song/, Album/, or flat mp4 cover layouts.</string>
     <string name="settings_startup_poster">Startup poster</string>
     <string name="settings_startup_poster_summary">After enabling and choosing an image, show it for about 3 seconds whenever Halcyon opens</string>
     <string name="settings_startup_poster_image">Choose startup poster image</string>

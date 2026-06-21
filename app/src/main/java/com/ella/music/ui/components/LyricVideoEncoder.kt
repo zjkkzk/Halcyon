@@ -11,6 +11,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
+import android.util.Log
 import android.view.Surface
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -32,6 +33,8 @@ internal data class LyricVideoProgress(
 ) {
     val fraction: Float get() = if (total > 0) current.toFloat() / total else 0f
 }
+
+private const val LYRIC_VIDEO_TAG = "LyricVideoEncoder"
 
 internal suspend fun generateLyricVideo(
     context: Context,
@@ -268,7 +271,8 @@ private fun muxVideoAndAudio(
             return false
         }
         muxVideoWithAudioTrack(videoFile, audioClipFile, outputFile)
-    } catch (_: Exception) {
+    } catch (error: Exception) {
+        Log.w(LYRIC_VIDEO_TAG, "Failed to mux lyric share audio for ${song.title}", error)
         outputFile.delete()
         false
     } finally {
@@ -293,7 +297,7 @@ private fun transcodeAudioSegmentToAac(
     var muxer: MediaMuxer? = null
 
     return try {
-        extractor.setDataSource(context, songPath.toSongUri(), null)
+        extractor.setSongDataSource(context, songPath)
 
         val audioTrackIndex = (0 until extractor.trackCount).firstOrNull { index ->
             extractor.getTrackFormat(index)
@@ -547,7 +551,8 @@ private fun transcodeAudioSegmentToAac(
         activeMuxer.release()
         muxer = null
         outputFile.exists() && outputFile.length() > 0L
-    } catch (_: Exception) {
+    } catch (error: Exception) {
+        Log.w(LYRIC_VIDEO_TAG, "Failed to transcode lyric share audio from $songPath", error)
         outputFile.delete()
         false
     } finally {
@@ -682,12 +687,19 @@ private fun drainAudioEncoder(
     }
 }
 
-private fun String.toSongUri(): Uri =
+private fun MediaExtractor.setSongDataSource(context: Context, songPath: String) {
     when {
-        startsWith("content://", ignoreCase = true) -> Uri.parse(this)
-        startsWith("/") -> Uri.parse("file://$this")
-        else -> Uri.parse(this)
+        songPath.startsWith("content://", ignoreCase = true) -> {
+            setDataSource(context, Uri.parse(songPath), null)
+        }
+        songPath.startsWith("file://", ignoreCase = true) -> {
+            setDataSource(Uri.parse(songPath).path.orEmpty())
+        }
+        else -> {
+            setDataSource(songPath)
+        }
     }
+}
 
 private fun MediaFormat.optionalInteger(key: String): Int? =
     if (containsKey(key)) getInteger(key) else null

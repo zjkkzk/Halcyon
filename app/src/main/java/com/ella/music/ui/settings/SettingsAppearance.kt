@@ -79,6 +79,7 @@ internal fun SettingsAppearanceSection(
     val homeCardColor by settingsManager.homeCardColor.collectAsState(initial = "")
     val homeCardOpacity by settingsManager.homeCardOpacity.collectAsState(initial = 58)
     val dynamicCoverEnabled by settingsManager.dynamicCoverEnabled.collectAsState(initial = false)
+    val dynamicCoverCustomFolders by settingsManager.dynamicCoverCustomFoldersRaw.collectAsState(initial = "")
     val hiResLogoEnabled by settingsManager.hiResLogoEnabled.collectAsState(initial = false)
     val hiResLogoUri by settingsManager.hiResLogoUri.collectAsState(initial = "")
     val playerImmersiveCover by settingsManager.playerImmersiveCover.collectAsState(initial = true)
@@ -557,6 +558,14 @@ internal fun SettingsAppearanceSection(
                 checked = dynamicCoverEnabled,
                 onCheckedChange = {
                     setDynamicCoverEnabled(context, scope, settingsManager, dynamicCoverPermissionLauncher, it)
+                }
+            )
+            SplitSettingTextField(
+                label = stringResource(R.string.settings_dynamic_cover_custom_folders),
+                value = dynamicCoverCustomFolders,
+                summary = stringResource(R.string.settings_dynamic_cover_custom_folders_summary),
+                onValueChange = { value ->
+                    scope.launch { settingsManager.setDynamicCoverCustomFolders(value) }
                 }
             )
             SwitchPreference(

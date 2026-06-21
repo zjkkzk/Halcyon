@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.Song
 
+private const val BEAUTIFUL_LYRICS_NEUTRAL_FALLBACK_SHARE = 0.90f
+private const val BEAUTIFUL_LYRICS_NEUTRAL_MAX_CHANNEL_SPREAD = 32
+
 @Composable
 internal fun FluidLyricBackground(
     palette: PlayerPalette,
@@ -250,10 +253,10 @@ private fun beautifulLyricsNeutralPalette(bitmap: Bitmap, palette: PlayerPalette
     val sampleStep = (minOf(bitmap.width, bitmap.height) / 42).coerceAtLeast(1)
     val hsv = FloatArray(3)
     var total = 0
-    var neutral = 0
+    var strictNeutral = 0
     var brightNeutral = 0
+    var midNeutral = 0
     var darkNeutral = 0
-    var saturated = 0
     var rSum = 0L
     var gSum = 0L
     var bSum = 0L
@@ -273,33 +276,43 @@ private fun beautifulLyricsNeutralPalette(bitmap: Bitmap, palette: PlayerPalette
                 rSum += r.toLong()
                 gSum += g.toLong()
                 bSum += b.toLong()
-                if (hsv[1] < 0.22f) neutral++
-                if (hsv[2] > 0.72f && hsv[1] < 0.24f) brightNeutral++
-                if (hsv[2] < 0.28f && hsv[1] < 0.28f) darkNeutral++
-                if (hsv[1] > 0.30f && hsv[2] > 0.18f) saturated++
+                val channelSpread = maxOf(r, g, b) - minOf(r, g, b)
+                val isStrictNeutral =
+                    hsv[1] < 0.18f && channelSpread <= BEAUTIFUL_LYRICS_NEUTRAL_MAX_CHANNEL_SPREAD
+                if (isStrictNeutral) {
+                    strictNeutral++
+                    when {
+                        hsv[2] > 0.72f -> brightNeutral++
+                        hsv[2] < 0.28f -> darkNeutral++
+                        else -> midNeutral++
+                    }
+                }
             }
             x += sampleStep
         }
         y += sampleStep
     }
     if (total == 0) return null
-    val neutralShare = neutral.toFloat() / total.toFloat()
-    val brightNeutralShare = brightNeutral.toFloat() / total.toFloat()
-    val darkNeutralShare = darkNeutral.toFloat() / total.toFloat()
-    val saturatedShare = saturated.toFloat() / total.toFloat()
-    if (neutralShare < 0.45f || saturatedShare > 0.38f || (brightNeutralShare < 0.32f && darkNeutralShare < 0.32f)) return null
+    val strictNeutralShare = strictNeutral.toFloat() / total.toFloat()
+    if (strictNeutralShare < BEAUTIFUL_LYRICS_NEUTRAL_FALLBACK_SHARE) return null
 
     val avgR = (rSum / total).toInt().coerceIn(0, 255)
     val avgG = (gSum / total).toInt().coerceIn(0, 255)
     val avgB = (bSum / total).toInt().coerceIn(0, 255)
     val luma = (avgR * 0.299f + avgG * 0.587f + avgB * 0.114f).toInt().coerceIn(0, 255)
     val base = Color(luma, luma, luma)
-    val soft = if (brightNeutralShare >= darkNeutralShare) {
-        Color(210, 210, 210)
-    } else {
-        Color(42, 42, 42)
+    val soft = when {
+        brightNeutral > maxOf(midNeutral, darkNeutral) -> Color(210, 210, 210)
+        darkNeutral > maxOf(brightNeutral, midNeutral) -> Color(42, 42, 42)
+        luma >= 160 -> Color(210, 210, 210)
+        luma <= 96 -> Color(42, 42, 42)
+        else -> Color(126, 126, 126)
     }
-    val accentGray = if (brightNeutralShare >= darkNeutralShare) Color(150, 150, 150) else Color(92, 92, 92)
+    val accentGray = when {
+        brightNeutral > maxOf(midNeutral, darkNeutral) -> Color(150, 150, 150)
+        darkNeutral > maxOf(brightNeutral, midNeutral) -> Color(92, 92, 92)
+        else -> Color(108, 108, 108)
+    }
     return listOf(
         soft.lighten(0.10f),
         base,

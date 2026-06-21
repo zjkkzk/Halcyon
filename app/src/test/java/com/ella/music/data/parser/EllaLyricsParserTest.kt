@@ -163,6 +163,41 @@ class EllaLyricsParserTest {
     }
 
     @Test
+    fun accompanistTtmlKeepsSplitLatinSyllablesInsideWordsJoined() {
+        val result = LrcParser.parse(
+            """
+            <tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+              <body>
+                <div>
+                  <p begin="00:03.470" end="00:05.920">
+                    <span begin="00:03.470" end="00:03.566">I</span> <span begin="00:03.611" end="00:03.766">know</span> <span begin="00:03.766" end="00:03.912">that</span> <span begin="00:03.939" end="00:04.103">I&apos;m</span> <span begin="00:04.103" end="00:04.241">a</span> <span begin="00:04.241" end="00:04.621">hand</span><span begin="00:04.621" end="00:04.914">ful,</span> <span begin="00:04.945" end="00:05.229">ba</span><span begin="00:05.255" end="00:05.507">by,</span> <span begin="00:05.590" end="00:05.920">uh</span><span ttm:role="x-translation">我知道我是个麻烦精 宝贝 啊</span>
+                  </p>
+                  <p begin="00:06.097" end="00:08.515">
+                    <span begin="00:06.097" end="00:06.201">I</span> <span begin="00:06.249" end="00:06.397">know</span> <span begin="00:06.434" end="00:06.557">I</span> <span begin="00:06.587" end="00:06.740">ne</span><span begin="00:06.740" end="00:06.919">ver</span> <span begin="00:06.919" end="00:07.221">think</span> <span begin="00:07.249" end="00:07.462">be</span><span begin="00:07.462" end="00:07.851">fore</span> <span begin="00:07.878" end="00:08.111">I</span> <span begin="00:08.168" end="00:08.515">jump</span><span ttm:role="x-translation">我知道我不会三思而后行</span>
+                  </p>
+                </div>
+              </body>
+            </tt>
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(
+                "I know that I'm a handful, baby, uh",
+                "I know I never think before I jump"
+            ),
+            result.lyrics.map { it.text }
+        )
+        assertEquals(
+            listOf(
+                "我知道我是个麻烦精 宝贝 啊",
+                "我知道我不会三思而后行"
+            ),
+            result.lyrics.map { it.translation }
+        )
+    }
+
+    @Test
     fun accompanistElrcAgentPrefixesAreHiddenAndKeptAsAlignment() {
         val result = LrcParser.parse(
             """

@@ -3,7 +3,9 @@ package com.ella.music.ui.player
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.ella.music.data.SettingsManager
 import com.ella.music.data.model.Song
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -21,6 +23,7 @@ internal class DynamicCoverDownloadHelper(
 ) {
     private val okHttpClient = OkHttpClient.Builder()
         .build()
+    private val settingsManager by lazy { SettingsManager.getInstance(context) }
 
     suspend fun downloadVideo(videoUrl: String) {
         val fileName = determineFileName()
@@ -52,7 +55,7 @@ internal class DynamicCoverDownloadHelper(
         return "${albumName.toSafeFileName()}.mp4"
     }
 
-    private fun determineTargetFile(fileName: String): File {
+    private suspend fun determineTargetFile(fileName: String): File {
         // Try song's parent folder first
         val songFile = song.path
             .takeUnless { it.startsWith("http://") || it.startsWith("https://") }
@@ -71,12 +74,46 @@ internal class DynamicCoverDownloadHelper(
             }
         }
 
+        settingsManager.dynamicCoverCustomFolders.first()
+            .asSequence()
+            .map(::File)
+            .mapNotNull { root ->
+                resolveCustomRootTargetFile(root, fileName)
+            }
+            .firstOrNull()
+            ?.let { return it }
+
         // Fallback: Movies/Halcyon/DynamicCovers/Album/
         val publicDir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
             "Halcyon/DynamicCovers/Album"
         )
         return File(publicDir, fileName)
+    }
+
+    private fun resolveCustomRootTargetFile(root: File, fileName: String): File? {
+        val baseRoot = runCatching {
+            if (root.exists()) {
+                root.takeIf { it.isDirectory }
+            } else {
+                root.mkdirs()
+                root.takeIf { it.isDirectory }
+            }
+        }.getOrNull() ?: return null
+
+        val albumFolder = when {
+            baseRoot.name.equals("album", ignoreCase = true) -> baseRoot
+            File(baseRoot, "Album").isDirectory -> File(baseRoot, "Album")
+            File(baseRoot, "album").isDirectory -> File(baseRoot, "album")
+            else -> baseRoot
+        }
+
+        return runCatching {
+            if (!albumFolder.exists()) {
+                albumFolder.mkdirs()
+            }
+            File(albumFolder, fileName)
+        }.getOrNull()
     }
 
     private fun scanFileIntoMediaStore(file: File) {

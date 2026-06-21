@@ -21,6 +21,7 @@ internal fun PlayerLandscapeOverlayHost(
     expanded: Boolean,
     coverMode: Boolean,
     dynamicCoverEnabled: Boolean,
+    dynamicCoverCustomFolders: List<String>,
     song: Song?,
     embeddedCover: Bitmap?,
     paletteBitmap: Bitmap?,
@@ -87,13 +88,18 @@ internal fun PlayerLandscapeOverlayHost(
     val landscapeDynamicCoverSource by produceState<DynamicCoverSource?>(
         initialValue = null,
         dynamicCoverEnabled,
+        dynamicCoverCustomFolders,
         song?.id,
         dynamicCoverFailedPath
     ) {
         val current = song
         value = if (current != null) {
             withContext(Dispatchers.IO) {
-                current.dynamicCoverSource(context, includeExternalFiles = dynamicCoverEnabled)
+                current.dynamicCoverSource(
+                    context,
+                    includeExternalFiles = dynamicCoverEnabled,
+                    customRootPaths = dynamicCoverCustomFolders
+                )
                     ?.takeUnless { it.failureKey == dynamicCoverFailedPath }
             }
         } else {

@@ -1,12 +1,17 @@
 package com.ella.music.ui.components
 
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.text.Layout
@@ -36,9 +41,24 @@ internal class LyricVideoRenderer(
         private const val TRANS_TEXT_SIZE = 36f
         private const val TRANS_GAP = 24f
         private const val DIM_ALPHA = 120
+        private const val COVER_TEXTURE_SIZE = 720
     }
 
-    private val backgroundBitmap: Bitmap = prepareBackground()
+    private data class BackgroundAssets(
+        val texture: Bitmap?,
+        val gradientColors: IntArray,
+        val blobColors: IntArray
+    )
+
+    private val backgroundAssets: BackgroundAssets = prepareBackgroundAssets()
+    private val textureShader = backgroundAssets.texture?.let {
+        BitmapShader(it, Shader.TileMode.MIRROR, Shader.TileMode.MIRROR)
+    }
+    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val texturePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+    private val blobPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val overlayPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textureMatrix = Matrix()
     private val mainPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = MAIN_TEXT_SIZE
@@ -110,7 +130,7 @@ internal class LyricVideoRenderer(
 
     fun drawFrame(canvas: Canvas, frameIndex: Int) {
         val timeMs = (frameIndex * 1000L) / FPS
-        canvas.drawBitmap(backgroundBitmap, 0f, 0f, null)
+        drawDynamicBackground(canvas, timeMs)
 
         val activeTimeline = timelines.firstOrNull { timeMs < it.dissolveEndMs && timeMs >= it.startMs }
             ?: timelines.lastOrNull()?.takeIf { timeMs >= it.startMs }
@@ -395,30 +415,188 @@ internal class LyricVideoRenderer(
             .build()
     }
 
-    private fun prepareBackground(): Bitmap {
-        val size = VIDEO_SIZE
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
+    private fun prepareBackgroundAssets(): BackgroundAssets {
+        val fallbackGradient = intArrayOf(
+            Color.rgb(42, 46, 72),
+            Color.rgb(27, 31, 54),
+            Color.rgb(14, 17, 30)
+        )
+        val fallbackBlobs = intArrayOf(
+            Color.rgb(117, 140, 255),
+            Color.rgb(255, 111, 173),
+            Color.rgb(94, 229, 197),
+            Color.rgb(255, 196, 108)
+        )
+        val localCover = cover ?: return BackgroundAssets(
+            texture = null,
+            gradientColors = fallbackGradient,
+            blobColors = fallbackBlobs
+        )
 
-        if (cover != null) {
-            val scaled = centerCropScale(cover, size, size)
-            canvas.drawBitmap(scaled, 0f, 0f, null)
-            if (scaled !== cover) scaled.recycle()
-            stackBlur(bmp, 40)
-        } else {
-            val bgPaint = Paint()
-            bgPaint.shader = LinearGradient(
-                0f, 0f, size.toFloat(), size.toFloat(),
-                intArrayOf(Color.rgb(30, 30, 45), Color.rgb(15, 15, 25)),
-                null, Shader.TileMode.CLAMP
+        val cropped = centerCropScale(localCover, COVER_TEXTURE_SIZE, COVER_TEXTURE_SIZE)
+        val boosted = Bitmap.createBitmap(cropped.width, cropped.height, Bitmap.Config.ARGB_8888)
+        val saturationMatrix = ColorMatrix().apply { setSaturation(2.15f) }
+        val brightnessMatrix = ColorMatrix(
+            floatArrayOf(
+                1.08f, 0f, 0f, 0f, 0f,
+                0f, 1.08f, 0f, 0f, 0f,
+                0f, 0f, 1.08f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f
             )
-            canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), bgPaint)
+        )
+        saturationMatrix.postConcat(brightnessMatrix)
+        Canvas(boosted).drawBitmap(
+            cropped,
+            0f,
+            0f,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                isFilterBitmap = true
+                colorFilter = ColorMatrixColorFilter(saturationMatrix)
+            }
+        )
+        if (cropped !== localCover) cropped.recycle()
+        stackBlur(boosted, 28)
+
+        val colors = sampleFlowingBackgroundColors(localCover)
+        return BackgroundAssets(
+            texture = boosted,
+            gradientColors = intArrayOf(colors[0], colors[1], colors[2]),
+            blobColors = intArrayOf(colors[3], colors[4], colors[5], colors[6])
+        )
+    }
+
+    private fun drawDynamicBackground(canvas: Canvas, timeMs: Long) {
+        val size = VIDEO_SIZE.toFloat()
+        backgroundPaint.shader = LinearGradient(
+            0f,
+            0f,
+            size,
+            size,
+            backgroundAssets.gradientColors,
+            null,
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 0f, size, size, backgroundPaint)
+        backgroundPaint.shader = null
+
+        textureShader?.let { shader ->
+            drawTextureLayer(canvas, shader, size, timeMs, 100_000L, 360f, 1.70f, -0.22f, -0.16f, 88)
+            drawTextureLayer(canvas, shader, size, timeMs, 70_000L, -360f, 1.82f, 0.18f, -0.24f, 70)
+            drawTextureLayer(canvas, shader, size, timeMs, 40_000L, -360f, 1.60f, -0.14f, 0.26f, 94)
         }
 
-        val dimPaint = Paint().apply { color = Color.argb(140, 0, 0, 0) }
-        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), dimPaint)
+        val pulse = 0.5f + 0.5f * kotlin.math.sin(timeMs / 760.0).toFloat()
+        drawBlob(
+            canvas = canvas,
+            color = backgroundAssets.blobColors[0],
+            centerX = size * (0.18f + 0.24f * kotlin.math.sin(timeMs / 16_000.0).toFloat()),
+            centerY = size * (0.20f + 0.18f * kotlin.math.cos(timeMs / 18_000.0).toFloat()),
+            radius = size * 0.56f,
+            alpha = (86 + pulse * 24f).roundToInt().coerceIn(0, 255)
+        )
+        drawBlob(
+            canvas = canvas,
+            color = backgroundAssets.blobColors[1],
+            centerX = size * (0.84f + 0.18f * kotlin.math.cos(timeMs / 14_000.0).toFloat()),
+            centerY = size * (0.28f + 0.20f * kotlin.math.sin(timeMs / 17_000.0).toFloat()),
+            radius = size * 0.50f,
+            alpha = 74
+        )
+        drawBlob(
+            canvas = canvas,
+            color = backgroundAssets.blobColors[2],
+            centerX = size * (0.50f + 0.28f * kotlin.math.sin(timeMs / 22_000.0).toFloat()),
+            centerY = size * (0.68f + 0.16f * kotlin.math.cos(timeMs / 15_000.0).toFloat()),
+            radius = size * 0.46f,
+            alpha = 66
+        )
+        drawBlob(
+            canvas = canvas,
+            color = backgroundAssets.blobColors[3],
+            centerX = size * (0.76f + 0.16f * kotlin.math.cos(timeMs / 19_000.0).toFloat()),
+            centerY = size * (0.82f + 0.12f * kotlin.math.sin(timeMs / 21_000.0).toFloat()),
+            radius = size * 0.42f,
+            alpha = 72
+        )
 
-        return bmp
+        overlayPaint.shader = LinearGradient(
+            0f,
+            0f,
+            0f,
+            size,
+            intArrayOf(
+                Color.argb(84, 0, 0, 0),
+                Color.argb(124, 0, 0, 0),
+                Color.argb(160, 0, 0, 0)
+            ),
+            floatArrayOf(0f, 0.55f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 0f, size, size, overlayPaint)
+        overlayPaint.shader = null
+    }
+
+    private fun drawTextureLayer(
+        canvas: Canvas,
+        shader: BitmapShader,
+        canvasSize: Float,
+        timeMs: Long,
+        durationMs: Long,
+        fullRotationDeg: Float,
+        scale: Float,
+        translateXFactor: Float,
+        translateYFactor: Float,
+        alpha: Int
+    ) {
+        val textureSize = backgroundAssets.texture?.width?.toFloat()?.takeIf { it > 0f } ?: return
+        val progress = (timeMs % durationMs).toFloat() / durationMs.toFloat()
+        val scaleFactor = (canvasSize / textureSize) * scale
+        textureMatrix.reset()
+        textureMatrix.setScale(scaleFactor, scaleFactor)
+        textureMatrix.postRotate(fullRotationDeg * progress, canvasSize / 2f, canvasSize / 2f)
+        textureMatrix.postTranslate(canvasSize * translateXFactor, canvasSize * translateYFactor)
+        shader.setLocalMatrix(textureMatrix)
+        texturePaint.shader = shader
+        texturePaint.alpha = alpha.coerceIn(0, 255)
+        canvas.drawRect(0f, 0f, canvasSize, canvasSize, texturePaint)
+        texturePaint.shader = null
+    }
+
+    private fun drawBlob(
+        canvas: Canvas,
+        color: Int,
+        centerX: Float,
+        centerY: Float,
+        radius: Float,
+        alpha: Int
+    ) {
+        blobPaint.shader = RadialGradient(
+            centerX,
+            centerY,
+            radius,
+            intArrayOf(color.withAlpha(alpha), Color.TRANSPARENT),
+            floatArrayOf(0f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(centerX, centerY, radius, blobPaint)
+        blobPaint.shader = null
+    }
+
+    private fun sampleFlowingBackgroundColors(bitmap: Bitmap): IntArray {
+        val points = listOf(
+            0.16f to 0.18f,
+            0.74f to 0.20f,
+            0.54f to 0.52f,
+            0.20f to 0.78f,
+            0.82f to 0.72f,
+            0.52f to 0.26f,
+            0.66f to 0.88f
+        )
+        return points.map { (fx, fy) ->
+            val x = (bitmap.width * fx).toInt().coerceIn(0, bitmap.width - 1)
+            val y = (bitmap.height * fy).toInt().coerceIn(0, bitmap.height - 1)
+            bitmap.getPixel(x, y).boostFlowingColor()
+        }.toIntArray()
     }
 
     private fun centerCropScale(source: Bitmap, targetW: Int, targetH: Int): Bitmap {
@@ -434,11 +612,27 @@ internal class LyricVideoRenderer(
     }
 
     fun recycle() {
-        backgroundBitmap.recycle()
+        backgroundAssets.texture?.recycle()
         textBitmapCache?.recycle()
         textBitmapCache = null
     }
 }
+
+private fun Int.boostFlowingColor(): Int {
+    val hsv = FloatArray(3)
+    Color.colorToHSV(this, hsv)
+    hsv[1] = (hsv[1] * 1.55f).coerceIn(0.40f, 1f)
+    hsv[2] = (hsv[2] * 1.16f).coerceIn(0.48f, 1f)
+    return Color.HSVToColor(hsv)
+}
+
+private fun Int.withAlpha(alpha: Int): Int =
+    Color.argb(
+        alpha.coerceIn(0, 255),
+        Color.red(this),
+        Color.green(this),
+        Color.blue(this)
+    )
 
 private fun stackBlur(bitmap: Bitmap, radius: Int) {
     if (radius < 1) return

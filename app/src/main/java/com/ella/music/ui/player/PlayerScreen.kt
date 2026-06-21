@@ -192,6 +192,7 @@ fun PlayerScreen(
     val audioVisualizerEnabled = playerSettings.audioVisualizerEnabled
     val audioVisualizerOpacity = playerSettings.audioVisualizerOpacity / 100f
     val dynamicCoverEnabled = playerSettings.dynamicCoverEnabled
+    val dynamicCoverCustomFolders = playerSettings.dynamicCoverCustomFolders
     val immersiveAlbumCover = playerSettings.immersiveAlbumCover
     val playerBackgroundEnabled = playerSettings.playerBackgroundEnabled
     val playerBackgroundUri = playerSettings.playerBackgroundUri
@@ -478,6 +479,7 @@ fun PlayerScreen(
                         songAnnotation = displayAnnotation,
                         dynamicCoverFailedPath = uiState.dynamicCoverFailedPath,
                         dynamicCoverEnabled = dynamicCoverEnabled,
+                        dynamicCoverCustomFolders = dynamicCoverCustomFolders,
                         immersiveAlbumCover = immersiveAlbumCover,
                         playerBackgroundEnabled = playerBackgroundEnabled,
                         playerBackgroundUri = playerBackgroundUri,
@@ -505,6 +507,8 @@ fun PlayerScreen(
                         lyricFontWeight = lyricFontWeight,
                         lyricFontScale = lyricFontScale,
                         lyricSecondaryFontScale = lyricSecondaryFontScale,
+                        lyricPerspectiveEffect = lyricPerspectiveEffect,
+                        lyricPerspectiveYAngle = lyricPerspectiveYAngle,
                         lyricTextAlign = playerLyricTextAlign,
                         playerTapSeekEnabled = playerTapSeekEnabled,
                         playerShowTotalDuration = playerShowTotalDuration,
@@ -641,6 +645,7 @@ fun PlayerScreen(
                 expanded = landscapeState.expanded,
                 coverMode = landscapeState.coverMode,
                 dynamicCoverEnabled = dynamicCoverEnabled,
+                dynamicCoverCustomFolders = dynamicCoverCustomFolders,
                 song = song,
                 embeddedCover = embeddedCover,
                 paletteBitmap = paletteBitmap,

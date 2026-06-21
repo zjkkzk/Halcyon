@@ -140,6 +140,7 @@ class SettingsManager(private val context: Context) {
         val KEY_VIRTUALIZER_STRENGTH = intPreferencesKey("audio_virtualizer_strength")
         val KEY_REVERB_PRESET = intPreferencesKey("audio_reverb_preset")
         val KEY_DYNAMIC_COVER_ENABLED = booleanPreferencesKey("dynamic_cover_enabled")
+        val KEY_DYNAMIC_COVER_CUSTOM_FOLDERS = stringPreferencesKey("dynamic_cover_custom_folders")
         val KEY_STARTUP_POSTER_ENABLED = booleanPreferencesKey("startup_poster_enabled")
         val KEY_STARTUP_POSTER_URI = stringPreferencesKey("startup_poster_uri")
         val KEY_APP_WALLPAPER_ENABLED = booleanPreferencesKey("app_wallpaper_enabled")
@@ -631,6 +632,10 @@ class SettingsManager(private val context: Context) {
     }
     val dynamicCoverEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_DYNAMIC_COVER_ENABLED] ?: false }
+    val dynamicCoverCustomFoldersRaw: Flow<String> =
+        context.dataStore.data.map { normalizeDynamicCoverCustomFolders(it[KEY_DYNAMIC_COVER_CUSTOM_FOLDERS]) }
+    val dynamicCoverCustomFolders: Flow<List<String>> =
+        dynamicCoverCustomFoldersRaw.map(::parseDynamicCoverCustomFolders)
     val mcpServerEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_MCP_SERVER_ENABLED] ?: false }
     val startupPosterEnabled: Flow<Boolean> =
@@ -1179,6 +1184,17 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setDynamicCoverEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_DYNAMIC_COVER_ENABLED] = enabled }
+    }
+
+    suspend fun setDynamicCoverCustomFolders(folders: String) {
+        context.dataStore.edit { prefs ->
+            val normalized = normalizeDynamicCoverCustomFolders(folders)
+            if (normalized.isBlank()) {
+                prefs.remove(KEY_DYNAMIC_COVER_CUSTOM_FOLDERS)
+            } else {
+                prefs[KEY_DYNAMIC_COVER_CUSTOM_FOLDERS] = normalized
+            }
+        }
     }
 
     suspend fun setMcpServerEnabled(enabled: Boolean) {
@@ -2049,6 +2065,7 @@ class SettingsManager(private val context: Context) {
             setString(KEY_LYRIC_OFFSET_OVERRIDES)
             setString(KEY_PLAYLIST_CUSTOM_ORDER)
             setString(KEY_EQ_BANDS)
+            setString(KEY_DYNAMIC_COVER_CUSTOM_FOLDERS)
 
             fun clearMissingCustomImage(
                 enabledKey: Preferences.Key<Boolean>,
@@ -2113,6 +2130,20 @@ class SettingsManager(private val context: Context) {
             }
         }
     }
+
+    private fun parseDynamicCoverCustomFolders(raw: String): List<String> =
+        normalizeDynamicCoverCustomFolders(raw)
+            .split('\n')
+            .map(String::trim)
+            .filter(String::isNotBlank)
+
+    private fun normalizeDynamicCoverCustomFolders(raw: String?): String =
+        raw.orEmpty()
+            .split(Regex("""[;\r\n]+"""))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString("\n")
 
     suspend fun setDecoderMode(mode: Int) {
         context.dataStore.edit { it[KEY_DECODER_MODE] = mode.coerceIn(0, 2) }

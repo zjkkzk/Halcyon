@@ -83,6 +83,8 @@ internal fun LandscapeCoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    lyricPerspectiveEffect: Boolean,
+    lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
     showTotalDuration: Boolean,
     playerTapSeekEnabled: Boolean,
@@ -156,6 +158,8 @@ internal fun LandscapeCoverPlayerPage(
             fontWeight = fontWeight,
             fontScale = fontScale,
             secondaryFontScale = secondaryFontScale,
+            lyricPerspectiveEffect = lyricPerspectiveEffect,
+            lyricPerspectiveYAngle = lyricPerspectiveYAngle,
             lyricTextAlign = lyricTextAlign,
             showTotalDuration = showTotalDuration,
             playerTapSeekEnabled = playerTapSeekEnabled,
@@ -396,6 +400,11 @@ internal fun LandscapeCoverPlayerPage(
                         .fillMaxHeight()
                         .weight(0.62f)
                         .padding(start = 0.dp)
+                        .playerLyricPerspective(
+                            enabled = lyricPerspectiveEffect,
+                            angle = lyricPerspectiveYAngle,
+                            lyricTextAlign = lyricTextAlign
+                        )
                 ) {
                     SmoothLyricView(
                         songId = song?.id ?: 0L,
@@ -469,6 +478,8 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    lyricPerspectiveEffect: Boolean,
+    lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
     showTotalDuration: Boolean,
     playerTapSeekEnabled: Boolean,
@@ -700,6 +711,11 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                         .windowInsetsPadding(WindowInsets.statusBars)
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(top = 106.dp, bottom = 42.dp)
+                        .playerLyricPerspective(
+                            enabled = lyricPerspectiveEffect,
+                            angle = lyricPerspectiveYAngle,
+                            lyricTextAlign = lyricTextAlign
+                        )
                 ) {
                     if (lyrics.isNotEmpty()) {
                         SmoothLyricView(
