@@ -22,7 +22,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -127,6 +129,7 @@ internal fun LyricsPlayerPage(
 
     Box(modifier = modifier.then(swipeDismissModifier)) {
         val useCustomPlayerBackground = playerBackgroundEnabled && playerBackgroundUri.isNotBlank() && !useBlurBackground
+        val density = LocalDensity.current
         if (drawBackground) {
             SharedPlayerPageBackground(
                 song = song,
@@ -168,6 +171,14 @@ internal fun LyricsPlayerPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .then(
+                        if (perspectiveEffect && perspectiveYAngle > 0) {
+                            Modifier.graphicsLayer {
+                                rotationY = perspectiveYAngle.toFloat()
+                                cameraDistance = density.density * 12f
+                            }
+                        } else Modifier
+                    )
             ) {
                 if (!lyricsLoading) {
                     SmoothLyricView(

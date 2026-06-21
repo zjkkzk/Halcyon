@@ -105,6 +105,21 @@ class EllaLyricsParserTest {
     }
 
     @Test
+    fun sameTimestampJapaneseWordLineKeepsChineseAsTranslation() {
+        val result = LrcParser.parse(
+            """
+            [00:00.698]揺[00:01.546]籃[00:02.762]の[00:03.541]う[00:04.652]た[00:05.182]を[00:05.669][00:06.452]カ[00:07.165]ナ[00:07.485]リ[00:07.972]ヤ[00:08.701]が[00:09.501]歌[00:10.604]う[00:11.132]よ[00:11.677]
+            [00:00.698]树上的金丝雀 轻唱着摇篮曲[00:12.508]
+            """.trimIndent()
+        )
+
+        assertEquals(1, result.lyrics.size)
+        assertEquals("揺籃のうたをカナリヤが歌うよ", result.lyrics.single().text)
+        assertEquals("树上的金丝雀 轻唱着摇篮曲", result.lyrics.single().translation)
+        assertEquals("揺", result.lyrics.single().words.first().text)
+    }
+
+    @Test
     fun kugouKrcWordTimingAndTranslationAreParsed() {
         val result = LrcParser.parse(
             """

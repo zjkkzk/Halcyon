@@ -13,6 +13,15 @@ internal class LyricBlacklistRule(rawRule: String) {
     }
 }
 
+private fun String.isUsefulLyricText(): Boolean =
+    isNotBlank() && !EllaLyricsParser.isPlaceholderOnlyLine(this)
+
+private fun String?.mergeDisplayText(extra: String?): String? =
+    listOfNotNull(this?.takeIf { it.isNotBlank() }, extra?.takeIf { it.isNotBlank() })
+        .distinct()
+        .joinToString(separator = "\u000A")
+        .takeIf { it.isNotBlank() }
+
 internal fun List<LyricLine>.filterBlacklistedLyricLines(rules: List<LyricBlacklistRule>): List<LyricLine> {
     if (isEmpty()) return this
     return mapNotNull { line -> line.withoutBlacklistedParts(rules) }
@@ -66,7 +75,42 @@ internal fun LyricLine.withoutBlacklistedParts(rules: List<LyricBlacklistRule>):
 }
 
 internal fun List<LyricLine>.preparedForDisplay(rules: List<LyricBlacklistRule>): List<LyricLine> =
-    filterBlacklistedLyricLines(rules).withImplicitLineEndTimes()
+    filterBlacklistedLyricLines(rules)
+        .mergeSameTimestampDisplayCompanions()
+        .withImplicitLineEndTimes()
+
+internal fun List<LyricLine>.mergeSameTimestampDisplayCompanions(): List<LyricLine> {
+    if (size < 2) return this
+    return sortedBy { it.timeMs }
+        .groupBy { it.timeMs }
+        .values
+        .flatMap { group ->
+            if (group.size == 1) return@flatMap group
+            val primary = group.firstOrNull { it.words.isNotEmpty() && it.text.isUsefulLyricText() }
+                ?: group.firstOrNull { it.text.isUsefulLyricText() }
+                ?: group.first()
+            val mergeableCompanions = group.filter { line ->
+                line !== primary &&
+                    line.words.isEmpty() &&
+                    line.backgroundWords.isEmpty() &&
+                    line.text.isUsefulLyricText() &&
+                    (line.agent == null || line.agent == primary.agent)
+            }
+            if (mergeableCompanions.isEmpty()) return@flatMap group
+
+            val translation = mergeableCompanions
+                .map { it.text.trim() }
+                .filter { it != primary.text.trim() }
+                .distinct()
+                .joinToString(separator = "\n")
+                .takeIf { it.isNotBlank() }
+            val mergedPrimary = primary.copy(
+                translation = primary.translation.mergeDisplayText(translation),
+                endMs = group.mapNotNull { it.endMs }.maxOrNull() ?: primary.endMs
+            )
+            listOf(mergedPrimary) + group.filter { it !== primary && it !in mergeableCompanions }
+        }
+}
 
 internal fun List<LyricLine>.withImplicitLineEndTimes(): List<LyricLine> {
     if (isEmpty()) return this

@@ -74,6 +74,28 @@ internal fun mergeMediaStoreAndFilesystemItems(
 private fun String.normalizedAudioPathKey(): String =
     trim().replace('\\', '/').lowercase()
 
+internal fun MediaStoreAudioItem.toShallowSong(minDurationMs: Long = 0): Song? {
+    val safeDuration = duration
+    if (safeDuration <= 0L || safeDuration < minDurationMs) return null
+    return Song(
+        id = id,
+        title = LibraryNormalizer.cleanedTagText(title)
+            .ifBlank { fileName.substringBeforeLast('.').ifBlank { path.substringAfterLast('/') } },
+        artist = LibraryNormalizer.cleanedArtistText(artist).ifBlank { "Unknown Artist" },
+        album = LibraryNormalizer.cleanedAlbumText(album).ifBlank { "Unknown Album" },
+        albumId = albumId,
+        duration = safeDuration,
+        path = path,
+        fileName = fileName,
+        fileSize = fileSize.coerceAtLeast(0L),
+        mimeType = mimeType,
+        dateAdded = dateAdded,
+        dateModified = dateModified,
+        trackNumber = trackNumber,
+        discNumber = discNumber
+    )
+}
+
 class MusicScanner(private val context: Context) {
     private val audioTagReader = LyricoAudioTagReaderWriter()
 
@@ -93,72 +115,11 @@ class MusicScanner(private val context: Context) {
         includeFolders: List<String> = emptyList(),
         excludeFolders: List<String> = emptyList()
     ): List<MediaStoreAudioItem> = withContext(Dispatchers.IO) {
-        val items = mutableListOf<MediaStoreAudioItem>()
-        val normalizedIncludeFolders = includeFolders.mapNotNull { it.normalizedFolderPath() }
-        val normalizedExcludeFolders = (DEFAULT_EXCLUDE_FOLDERS + excludeFolders).mapNotNull { it.normalizedFolderPath() }
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.TRACK
+        val items = queryMediaStoreAudioItems(
+            includeFolders = includeFolders,
+            excludeFolders = excludeFolders,
+            verifyFileSnapshot = false
         )
-        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
-
-        context.contentResolver.query(
-            collection, projection, null, null, sortOrder
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-            val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-
-            while (cursor.moveToNext()) {
-                val path = cursor.getString(dataCol).orEmpty()
-                if (path.isEmpty()) continue
-                if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
-                val file = File(path)
-                if (!file.exists()) continue
-
-                val rawTrackNumber = cursor.getInt(trackCol)
-                val dateModified = file.lastModified().takeIf { it > 0L } ?: (cursor.getLong(dateModifiedCol) * 1000L)
-                val fileSize = file.length().takeIf { it > 0L } ?: cursor.getLong(sizeCol)
-                items += MediaStoreAudioItem(
-                    id = cursor.getLong(idCol),
-                    title = cursor.getString(titleCol).orEmpty(),
-                    artist = cursor.getString(artistCol).orEmpty(),
-                    album = cursor.getString(albumCol).orEmpty(),
-                    albumId = cursor.getLong(albumIdCol),
-                    duration = cursor.getLong(durationCol),
-                    path = path,
-                    fileName = cursor.getString(nameCol).orEmpty(),
-                    fileSize = fileSize,
-                    mimeType = cursor.getString(mimeCol).orEmpty(),
-                    dateAdded = cursor.getLong(dateAddedCol) * 1000L,
-                    dateModified = dateModified,
-                    trackNumber = rawTrackNumber.normalizedTrackNumber(),
-                    discNumber = rawTrackNumber.normalizedDiscNumber()
-                )
-            }
-        }
         val fallbackItems = filesystemFallbackAudioItems(
             includeFolders = includeFolders,
             excludeFolders = excludeFolders,
@@ -310,183 +271,20 @@ class MusicScanner(private val context: Context) {
         onProgress: ((Int) -> Unit)? = null
     ): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
-        val normalizedIncludeFolders = includeFolders.mapNotNull { it.normalizedFolderPath() }
-        val normalizedExcludeFolders = (DEFAULT_EXCLUDE_FOLDERS + excludeFolders).mapNotNull { it.normalizedFolderPath() }
-        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-            MediaStore.Audio.Media.SIZE,
-            MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.DATE_ADDED,
-            MediaStore.Audio.Media.DATE_MODIFIED,
-            MediaStore.Audio.Media.TRACK
+        val mediaStoreItems = queryMediaStoreAudioItems(
+            includeFolders = includeFolders,
+            excludeFolders = excludeFolders,
+            verifyFileSnapshot = deepMetadata
         )
-        val selection: String? = null
-        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
-
-        context.contentResolver.query(
-            collection, projection, selection, null, sortOrder
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-            val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                var title = cursor.getString(titleCol) ?: ""
-                var artist = cursor.getString(artistCol) ?: ""
-                var album = cursor.getString(albumCol) ?: ""
-                var albumArtist = ""
-                var genre = ""
-                var year = ""
-                var composer = ""
-                var lyricist = ""
-                val albumId = cursor.getLong(albumIdCol)
-                var duration = cursor.getLong(durationCol)
-                val path = cursor.getString(dataCol) ?: ""
-                val fileName = cursor.getString(nameCol) ?: ""
-                val mime = cursor.getString(mimeCol) ?: ""
-                val dateAdded = cursor.getLong(dateAddedCol) * 1000L
-                if (path.isEmpty()) continue
-                if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
-                val file = File(path)
-                if (!file.exists()) continue
-                val size = file.length().takeIf { it > 0L } ?: cursor.getLong(sizeCol)
-                val rawTrackNumber = cursor.getInt(trackCol)
-                var trackNumber = rawTrackNumber.normalizedTrackNumber()
-                var discNumber = rawTrackNumber.normalizedDiscNumber()
-                val dateModified = file.lastModified().takeIf { it > 0L } ?: (cursor.getLong(dateModifiedCol) * 1000L)
-
-                val shouldDeepRead = deepMetadata ||
-                    isMissingTag(title, file.name) ||
-                    isMissingArtistTag(artist) ||
-                    isMissingAlbumTag(album) ||
-                    duration <= 0
-
-                val tagInfo = if (shouldDeepRead) readTagsBlocking(path) else null
-
-                if (tagInfo != null) {
-                    if (deepMetadata) {
-                        title = tagInfo.title.orEmpty()
-                        artist = tagInfo.artist.orEmpty()
-                        album = tagInfo.album.orEmpty()
-                    } else {
-                        if (isMissingTag(title, file.name)) title = tagInfo.title.orEmpty()
-                        if (isMissingArtistTag(artist)) artist = tagInfo.artist.orEmpty()
-                        if (isMissingAlbumTag(album)) album = tagInfo.album.orEmpty()
-                    }
-                    albumArtist = tagInfo.albumArtist.orEmpty()
-                    genre = tagInfo.genre.orEmpty()
-                    year = tagInfo.year.orEmpty().normalizeYear()
-                    composer = tagInfo.composer.orEmpty()
-                    lyricist = firstNonBlank(
-                        tagInfo.lyricist,
-                        tagInfo.customTagValue("TEXT"),
-                        tagInfo.customTagValue("WRITER")
-                    ).orEmpty()
-                    trackNumber = trackNumber.takeIf { it > 0 } ?: tagInfo.trackNumber ?: firstNonBlank(
-                        tagInfo.customTagValue("TRACKNUMBER"),
-                        tagInfo.customTagValue("TRACK"),
-                        tagInfo.customTagValue("TRCK")
-                    ).orEmpty().normalizedTrackNumberFromTag()
-                    discNumber = discNumber.takeIf { it > 0 } ?: firstNonBlank(
-                        tagInfo.discNumber?.toString(),
-                        tagInfo.customTagValue("DISC"),
-                        tagInfo.customTagValue("TPOS")
-                    ).orEmpty().normalizedDiscNumberFromTag()
-                }
-
-                // WAV files always try WavMetadataReader — MediaStore/Lyrico may not read LIST/INFO chunks
-                if (file.extension.lowercase() in setOf("wav", "wave")) {
-                    WavMetadataReader.read(file)?.let { wavInfo ->
-                        if (isMissingTag(title, file.name)) title = wavInfo.title.orEmpty()
-                        if (isMissingArtistTag(artist)) artist = wavInfo.artist.orEmpty()
-                        if (isMissingAlbumTag(album)) album = wavInfo.album.orEmpty()
-                        if (albumArtist.isBlank()) albumArtist = wavInfo.albumArtist.orEmpty()
-                        if (genre.isBlank()) genre = wavInfo.genre.orEmpty()
-                        if (year.isBlank()) year = wavInfo.year.orEmpty().normalizeYear()
-                        if (composer.isBlank()) composer = wavInfo.composer.orEmpty()
-                        if (lyricist.isBlank()) lyricist = wavInfo.lyricist.orEmpty()
-                        trackNumber = trackNumber.takeIf { it > 0 } ?: wavInfo.trackNumber ?: 0
-                        discNumber = discNumber.takeIf { it > 0 } ?: wavInfo.discNumber ?: 0
-                    }
-                } else if (shouldDeepRead || deepMetadata) {
-                    WavMetadataReader.read(file)?.let { wavInfo ->
-                        if (isMissingTag(title, file.name)) title = wavInfo.title.orEmpty()
-                        if (isMissingArtistTag(artist)) artist = wavInfo.artist.orEmpty()
-                        if (isMissingAlbumTag(album)) album = wavInfo.album.orEmpty()
-                        if (albumArtist.isBlank()) albumArtist = wavInfo.albumArtist.orEmpty()
-                        if (genre.isBlank()) genre = wavInfo.genre.orEmpty()
-                        if (year.isBlank()) year = wavInfo.year.orEmpty().normalizeYear()
-                        if (composer.isBlank()) composer = wavInfo.composer.orEmpty()
-                        if (lyricist.isBlank()) lyricist = wavInfo.lyricist.orEmpty()
-                        trackNumber = trackNumber.takeIf { it > 0 } ?: wavInfo.trackNumber ?: 0
-                        discNumber = discNumber.takeIf { it > 0 } ?: wavInfo.discNumber ?: 0
-                    }
-                }
-
-                if (shouldDeepRead && (isMissingTag(title, file.name) || isMissingArtistTag(artist) || isMissingAlbumTag(album) || duration <= 0)) {
-                    try {
-                        val retriever = MediaMetadataRetriever()
-                        retriever.setDataSource(path)
-                        if (isMissingTag(title, file.name)) title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: ""
-                        if (isMissingArtistTag(artist)) artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: ""
-                        if (isMissingAlbumTag(album)) album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: ""
-                        if (duration <= 0) duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                        retriever.release()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Metadata extraction failed for $path", e)
-                    }
-                }
-
-                if (isMissingTag(title, file.name)) title = fileName.substringBeforeLast('.')
-                if (isMissingArtistTag(artist)) artist = "Unknown Artist"
-                if (isMissingAlbumTag(album)) album = "Unknown Album"
-
-                if (duration > 0 && duration >= minDurationMs) {
-                    songs.add(
-                        Song(
-                            id = id,
-                            title = title,
-                            artist = artist,
-                            album = album,
-                            albumId = albumId,
-                            duration = duration,
-                            path = path,
-                            fileName = fileName,
-                            fileSize = size,
-                            mimeType = mime,
-                            dateAdded = dateAdded,
-                            dateModified = dateModified,
-                            trackNumber = trackNumber,
-                            discNumber = discNumber,
-                            albumArtist = albumArtist,
-                            genre = genre,
-                            year = year,
-                            composer = composer,
-                            lyricist = lyricist
-                        )
-                    )
-                    onProgress?.invoke(songs.size)
-                }
+        mediaStoreItems.forEachIndexed { index, item ->
+            val song = if (deepMetadata) {
+                scanAudioItem(item, minDurationMs = minDurationMs, deepMetadata = true)
+            } else {
+                item.toShallowSong(minDurationMs)
+                    ?: scanAudioItem(item, minDurationMs = minDurationMs, deepMetadata = false)
             }
+            if (song != null) songs += song
+            onProgress?.invoke(index + 1)
         }
         val mediaStoreSongCount = songs.size
         val fallbackItems = filesystemFallbackAudioItems(
@@ -505,6 +303,85 @@ class MusicScanner(private val context: Context) {
             "scanAllSongs mediaStore=$mediaStoreSongCount filesystemFallback=${songs.size - mediaStoreSongCount} total=${songs.size} deepMetadata=$deepMetadata"
         )
         songs
+    }
+
+    private fun queryMediaStoreAudioItems(
+        includeFolders: List<String>,
+        excludeFolders: List<String>,
+        verifyFileSnapshot: Boolean
+    ): List<MediaStoreAudioItem> {
+        val items = mutableListOf<MediaStoreAudioItem>()
+        val normalizedIncludeFolders = includeFolders.mapNotNull { it.normalizedFolderPath() }
+        val normalizedExcludeFolders = (DEFAULT_EXCLUDE_FOLDERS + excludeFolders).mapNotNull { it.normalizedFolderPath() }
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.SIZE,
+            MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.DATE_ADDED,
+            MediaStore.Audio.Media.DATE_MODIFIED,
+            MediaStore.Audio.Media.TRACK
+        )
+        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+
+        context.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            null,
+            null,
+            sortOrder
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+            val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+
+            while (cursor.moveToNext()) {
+                val path = cursor.getString(dataCol).orEmpty()
+                if (path.isEmpty()) continue
+                if (!path.isAllowedByFolderFilters(normalizedIncludeFolders, normalizedExcludeFolders)) continue
+
+                val file = if (verifyFileSnapshot) File(path) else null
+                if (file != null && !file.exists()) continue
+
+                val rawTrackNumber = cursor.getInt(trackCol)
+                val mediaStoreSize = cursor.getLong(sizeCol).coerceAtLeast(0L)
+                val mediaStoreModified = cursor.getLong(dateModifiedCol).takeIf { it > 0L }?.times(1000L) ?: 0L
+
+                items += MediaStoreAudioItem(
+                    id = cursor.getLong(idCol),
+                    title = cursor.getString(titleCol).orEmpty(),
+                    artist = cursor.getString(artistCol).orEmpty(),
+                    album = cursor.getString(albumCol).orEmpty(),
+                    albumId = cursor.getLong(albumIdCol),
+                    duration = cursor.getLong(durationCol),
+                    path = path,
+                    fileName = cursor.getString(nameCol).orEmpty(),
+                    fileSize = file?.length()?.takeIf { it > 0L } ?: mediaStoreSize,
+                    mimeType = cursor.getString(mimeCol).orEmpty(),
+                    dateAdded = cursor.getLong(dateAddedCol) * 1000L,
+                    dateModified = file?.lastModified()?.takeIf { it > 0L } ?: mediaStoreModified,
+                    trackNumber = rawTrackNumber.normalizedTrackNumber(),
+                    discNumber = rawTrackNumber.normalizedDiscNumber()
+                )
+            }
+        }
+        return items
     }
 
     internal fun filesystemFallbackAudioItems(

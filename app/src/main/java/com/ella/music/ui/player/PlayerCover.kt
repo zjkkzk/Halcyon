@@ -72,6 +72,7 @@ internal fun SmallCover(song: Song?, embeddedCover: Bitmap?, modifier: Modifier 
         song = song,
         embeddedCover = embeddedCover,
         cornerRadius = 12.dp,
+        contentScale = ContentScale.Crop,
         modifier = modifier.clip(RoundedCornerShape(12.dp))
     )
 }
@@ -113,6 +114,7 @@ internal fun AlbumArtView(
     song: Song?,
     embeddedCover: Bitmap?,
     cornerRadius: Dp = 20.dp,
+    contentScale: ContentScale = ContentScale.Fit,
     showHiResLogo: Boolean = false,
     hiResLogoUri: String = "",
     modifier: Modifier = Modifier
@@ -135,7 +137,7 @@ internal fun AlbumArtView(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius)),
-                contentScale = ContentScale.Fit,
+                contentScale = contentScale,
                 sizePx = 768,
                 showDefaultPlaceholder = false
             )

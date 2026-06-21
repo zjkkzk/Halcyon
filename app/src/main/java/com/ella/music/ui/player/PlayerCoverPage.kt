@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -88,6 +89,7 @@ internal fun CoverPlayerPage(
     playerTapSeekEnabled: Boolean,
     playerShowTotalDuration: Boolean,
     coverSwipeEnabled: Boolean,
+    playerTitlePosition: Int,
     showPlayerKeepScreenOnAction: Boolean,
     playerKeepScreenOn: Boolean,
     menuExpanded: Boolean,
@@ -202,6 +204,8 @@ internal fun CoverPlayerPage(
         val compactWindow = !useWidePlayer && (maxHeight < 720.dp || maxWidth < 340.dp)
         val effectiveMiniLyricLine = miniLyricLine.takeUnless { isSmallWindow }
         val showHiResLogo = hiResLogoEnabled && audioInfo?.isHiResLogoTrack() == true
+        val titleAboveCover = !immersiveAlbumCover &&
+            playerTitlePosition == com.ella.music.data.SettingsManager.PLAYER_TITLE_POSITION_ABOVE_COVER
         val pagePalette = palette
         val showCustomPlayerBackground =
             playerBackgroundEnabled && playerBackgroundUri.isNotBlank() && (useWidePlayer || !immersiveAlbumCover)
@@ -478,11 +482,29 @@ internal fun CoverPlayerPage(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Spacer(modifier = Modifier.height(22.dp))
+                        if (titleAboveCover) {
+                            PlayerCoverTitleRow(
+                                song = song,
+                                annotation = annotation,
+                                palette = pagePalette,
+                                fontFamily = fontFamily,
+                                isFavorite = isFavorite,
+                                onArtist = onArtist,
+                                onToggleFavorite = onToggleFavorite,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                        }
+                        val coverShape = RoundedCornerShape(14.dp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(14.dp))
+                                .graphicsLayer {
+                                    shape = coverShape
+                                    clip = true
+                                }
+                                .clip(coverShape)
                                 .then(coverSwipeModifier),
                             contentAlignment = Alignment.Center
                         ) {
@@ -493,6 +515,14 @@ internal fun CoverPlayerPage(
                                     onPlaybackError = { onDynamicCoverFailed(resolvedDynamicCover.failureKey) },
                                     modifier = Modifier.fillMaxSize()
                                 )
+                                if (showHiResLogo) {
+                                    HiResLogoBadge(
+                                        logoUri = hiResLogoUri,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(10.dp)
+                                    )
+                                }
                             } else {
                                 AlbumArtView(
                                     song = song,
@@ -504,28 +534,17 @@ internal fun CoverPlayerPage(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            PlayerSongMetaText(
+                        if (!titleAboveCover) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            PlayerCoverTitleRow(
                                 song = song,
                                 annotation = annotation,
-                                titleFontSize = 23.sp,
-                                artistFontSize = 14.sp,
-                                artistAlpha = 0.62f,
-                                showArtistWithAnnotation = true,
-                                contentColor = pagePalette.onBackground,
+                                palette = pagePalette,
                                 fontFamily = fontFamily,
-                                onArtistClick = onArtist,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(modifier = Modifier.width(18.dp))
-                            PlayerHeaderAction(
-                                kind = PlayerHeaderActionKind.Favorite,
-                                selected = isFavorite,
-                                onClick = onToggleFavorite
+                                isFavorite = isFavorite,
+                                onArtist = onArtist,
+                                onToggleFavorite = onToggleFavorite,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -668,6 +687,42 @@ internal fun CoverPlayerPage(
             onVisualizerOpacityChange = onVisualizerOpacityChange,
             onPlayerKeepScreenOnChange = onPlayerKeepScreenOnChange,
             initialPage = actionMenuInitialPage
+        )
+    }
+}
+
+@Composable
+private fun PlayerCoverTitleRow(
+    song: Song?,
+    annotation: String,
+    palette: PlayerPalette,
+    fontFamily: FontFamily?,
+    isFavorite: Boolean,
+    onArtist: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PlayerSongMetaText(
+            song = song,
+            annotation = annotation,
+            titleFontSize = 23.sp,
+            artistFontSize = 14.sp,
+            artistAlpha = 0.62f,
+            showArtistWithAnnotation = true,
+            contentColor = palette.onBackground,
+            fontFamily = fontFamily,
+            onArtistClick = onArtist,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(18.dp))
+        PlayerHeaderAction(
+            kind = PlayerHeaderActionKind.Favorite,
+            selected = isFavorite,
+            onClick = onToggleFavorite
         )
     }
 }

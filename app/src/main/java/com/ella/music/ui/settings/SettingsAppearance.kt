@@ -87,11 +87,30 @@ internal fun SettingsAppearanceSection(
     val playerShowTotalDuration by settingsManager.playerShowTotalDuration.collectAsState(initial = false)
     val playerShowSongAnnotation by settingsManager.playerShowSongAnnotation.collectAsState(initial = true)
     val playerCoverSwipeEnabled by settingsManager.playerCoverSwipeEnabled.collectAsState(initial = true)
+    val playerTitlePosition by settingsManager.playerTitlePosition.collectAsState(
+        initial = SettingsManager.PLAYER_TITLE_POSITION_BELOW_COVER
+    )
     val playlistSpecialEntriesVisible by settingsManager.playlistSpecialEntriesVisible.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_FOLLOW_SYSTEM)
+    val beautifulLyricsBackgroundLabels = listOf(
+        stringResource(R.string.settings_beautiful_lyrics_background_static),
+        stringResource(R.string.settings_beautiful_lyrics_background_dynamic)
+    )
+    val beautifulLyricsBackgroundEntries = remember(beautifulLyricsBackgroundLabels) {
+        beautifulLyricsBackgroundLabels.map { DropdownItem(title = it) }
+    }
+    val selectedBeautifulLyricsBackground = if (beautifulLyricsBackground) 1 else 0
+    val playerTitlePositionLabels = listOf(
+        stringResource(R.string.settings_player_title_position_below_cover),
+        stringResource(R.string.settings_player_title_position_above_cover)
+    )
+    val selectedPlayerTitlePosition = playerTitlePosition.coerceIn(playerTitlePositionLabels.indices)
+    val playerTitlePositionEntries = remember(playerTitlePositionLabels) {
+        playerTitlePositionLabels.map { DropdownItem(title = it) }
+    }
 
     val themeLabels = listOf(
         stringResource(R.string.theme_follow_system),
@@ -460,12 +479,13 @@ internal fun SettingsAppearanceSection(
                 enabled = playerBackgroundEnabled,
                 onValueChange = { scope.launch { settingsManager.setPlayerBackgroundDim(it) } }
             )
-            SwitchPreference(
+            WindowSpinnerPreference(
                 title = stringResource(R.string.settings_beautiful_lyrics_background),
                 summary = stringResource(R.string.settings_beautiful_lyrics_background_summary),
-                checked = beautifulLyricsBackground,
-                onCheckedChange = {
-                    scope.launch { settingsManager.setPlayerBeautifulLyricsBackground(it) }
+                items = beautifulLyricsBackgroundEntries,
+                selectedIndex = selectedBeautifulLyricsBackground,
+                onSelectedIndexChange = { index ->
+                    scope.launch { settingsManager.setPlayerBeautifulLyricsBackground(index == 1) }
                 }
             )
             SettingsIntSliderPreference(
@@ -574,6 +594,18 @@ internal fun SettingsAppearanceSection(
                 checked = playerImmersiveCover,
                 onCheckedChange = {
                     scope.launch { settingsManager.setPlayerImmersiveCover(it) }
+                }
+            )
+            WindowSpinnerPreference(
+                title = stringResource(R.string.settings_player_title_position),
+                summary = stringResource(
+                    R.string.settings_current_value,
+                    playerTitlePositionLabels[selectedPlayerTitlePosition]
+                ),
+                items = playerTitlePositionEntries,
+                selectedIndex = selectedPlayerTitlePosition,
+                onSelectedIndexChange = { index ->
+                    scope.launch { settingsManager.setPlayerTitlePosition(index) }
                 }
             )
             SwitchPreference(

@@ -33,6 +33,7 @@ internal data class PlayerScreenSettings(
     val beautifulLyricsBackground: Boolean = true,
     val showSongAnnotation: Boolean = true,
     val coverSwipeEnabled: Boolean = true,
+    val playerTitlePosition: Int = SettingsManager.PLAYER_TITLE_POSITION_BELOW_COVER,
     val playerKeepScreenOn: Boolean = false,
     val hiResLogoEnabled: Boolean = false,
     val hiResLogoUri: String = "",
@@ -70,6 +71,7 @@ private data class PlayerSettingsGroupB(
     val beautifulLyricsBackground: Boolean,
     val showSongAnnotation: Boolean,
     val coverSwipeEnabled: Boolean,
+    val playerTitlePosition: Int,
     val playerKeepScreenOn: Boolean,
     val hiResLogoEnabled: Boolean,
     val hiResLogoUri: String
@@ -87,6 +89,7 @@ private data class PlayerSettingsGroupBExtra(
     val beautifulLyricsBackground: Boolean,
     val showSongAnnotation: Boolean,
     val coverSwipeEnabled: Boolean,
+    val playerTitlePosition: Int,
     val playerKeepScreenOn: Boolean,
     val hiResLogoEnabled: Boolean,
     val hiResLogoUri: String
@@ -96,6 +99,7 @@ private data class PlayerSettingsGroupBFlags(
     val beautifulLyricsBackground: Boolean,
     val showSongAnnotation: Boolean,
     val coverSwipeEnabled: Boolean,
+    val playerTitlePosition: Int,
     val playerKeepScreenOn: Boolean
 )
 
@@ -150,9 +154,10 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
             settingsManager.playerBeautifulLyricsBackground,
             settingsManager.playerShowSongAnnotation,
             settingsManager.playerCoverSwipeEnabled,
+            settingsManager.playerTitlePosition,
             settingsManager.playerKeepScreenOn
-        ) { beautifulLyrics, showAnnotation, coverSwipe, keepScreenOn ->
-            PlayerSettingsGroupBFlags(beautifulLyrics, showAnnotation, coverSwipe, keepScreenOn)
+        ) { beautifulLyrics, showAnnotation, coverSwipe, titlePosition, keepScreenOn ->
+            PlayerSettingsGroupBFlags(beautifulLyrics, showAnnotation, coverSwipe, titlePosition, keepScreenOn)
         }
         val groupBHiRes = combine(
             settingsManager.hiResLogoEnabled,
@@ -165,6 +170,7 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 beautifulLyricsBackground = flags.beautifulLyricsBackground,
                 showSongAnnotation = flags.showSongAnnotation,
                 coverSwipeEnabled = flags.coverSwipeEnabled,
+                playerTitlePosition = flags.playerTitlePosition,
                 playerKeepScreenOn = flags.playerKeepScreenOn,
                 hiResLogoEnabled = hiRes.hiResLogoEnabled,
                 hiResLogoUri = hiRes.hiResLogoUri
@@ -180,6 +186,7 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 beautifulLyricsBackground = extra.beautifulLyricsBackground,
                 showSongAnnotation = extra.showSongAnnotation,
                 coverSwipeEnabled = extra.coverSwipeEnabled,
+                playerTitlePosition = extra.playerTitlePosition,
                 playerKeepScreenOn = extra.playerKeepScreenOn,
                 hiResLogoEnabled = extra.hiResLogoEnabled,
                 hiResLogoUri = extra.hiResLogoUri
@@ -218,6 +225,7 @@ internal fun rememberPlayerScreenSettings(settingsManager: SettingsManager): Pla
                 beautifulLyricsBackground = b.beautifulLyricsBackground,
                 showSongAnnotation = b.showSongAnnotation,
                 coverSwipeEnabled = b.coverSwipeEnabled,
+                playerTitlePosition = b.playerTitlePosition,
                 playerKeepScreenOn = b.playerKeepScreenOn,
                 hiResLogoEnabled = b.hiResLogoEnabled,
                 hiResLogoUri = b.hiResLogoUri,

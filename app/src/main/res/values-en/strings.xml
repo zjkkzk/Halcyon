@@ -850,6 +850,9 @@
     <string name="settings_custom_image_save_failed">Failed to save custom image</string>
     <string name="settings_player_immersive_cover">Immersive album cover</string>
     <string name="settings_player_immersive_cover_summary">Extend the album cover to the top of the player; disable it to use the compact rounded cover layout</string>
+    <string name="settings_player_title_position">Non-immersive player title position</string>
+    <string name="settings_player_title_position_below_cover">Below cover</string>
+    <string name="settings_player_title_position_above_cover">Above cover</string>
     <string name="settings_player_tap_seek">Tap progress bar to seek</string>
     <string name="settings_player_tap_seek_summary">When off, only dragging changes playback progress. When on, tapping anywhere on the playback-page progress bar seeks directly.</string>
     <string name="settings_player_cover_swipe">Swipe cover to change songs</string>
@@ -1529,8 +1532,10 @@
     <string name="settings_player_background_opacity_summary">Adjust the strength of the custom player background image.</string>
     <string name="settings_player_background_dim">Player background dim</string>
     <string name="settings_player_background_dim_summary">Add a dark wash above the custom player background.</string>
-    <string name="settings_beautiful_lyrics_background">Beautiful Lyrics dynamic background</string>
-    <string name="settings_beautiful_lyrics_background_summary">Use a cover-colored dynamic background on lyrics and landscape player pages.</string>
+    <string name="settings_beautiful_lyrics_background">Player and lyrics page background</string>
+    <string name="settings_beautiful_lyrics_background_summary">Static background saves resources; dynamic background uses more vivid cover colors.</string>
+    <string name="settings_beautiful_lyrics_background_static">Static background</string>
+    <string name="settings_beautiful_lyrics_background_dynamic">Dynamic background</string>
     <string name="settings_home_card_color">Home card color</string>
     <string name="settings_home_card_color_default">Follow theme default</string>
     <string name="settings_home_card_opacity">Home card opacity</string>
@@ -1560,11 +1565,11 @@
     <string name="remote_source_invalid_response">Unexpected server response</string>
     <string name="remote_source_request_failed">Remote source request failed</string>
     <string name="remote_source_url_invalid">Invalid server URL</string>
-    <string name="settings_beautiful_lyrics_speed">Beautiful Lyrics animation speed</string>
+    <string name="settings_beautiful_lyrics_speed">Dynamic background animation speed</string>
     <string name="settings_beautiful_lyrics_speed_summary">Higher values make the circular background texture move faster</string>
-    <string name="settings_beautiful_lyrics_blur">Beautiful Lyrics background blur</string>
+    <string name="settings_beautiful_lyrics_blur">Dynamic background blur amount</string>
     <string name="settings_beautiful_lyrics_blur_summary">Adjust the softness of the dynamic background</string>
-    <string name="settings_beautiful_lyrics_brightness">Beautiful Lyrics background brightness</string>
+    <string name="settings_beautiful_lyrics_brightness">Dynamic background brightness</string>
     <string name="settings_beautiful_lyrics_brightness_summary">Adjust the overall brightness of the dynamic background</string>
 
 </resources>

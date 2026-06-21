@@ -227,6 +227,14 @@ class LyricView @JvmOverloads constructor(
         val begin: Long,
         val end: Long,
     )
+    private data class KaraokeWordDrawInfo(
+        val word: LyricWord,
+        val text: String,
+        val x: Float,
+        val y: Float,
+        val w: Float,
+        val visualLine: Int,
+    )
     private var entries = listOf<LineEntry>()
     private val distantLineBlur = BlurMaskFilter(4f * density, BlurMaskFilter.Blur.NORMAL)
     private val sustainPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
@@ -747,7 +755,7 @@ class LyricView @JvmOverloads constructor(
 
     private fun measureMainHeight(text: String): Float {
         if (singleLineMarqueeEnabled) return mainPaint.fontSpacing
-        val w = width - paddingLeft - paddingRight
+        val w = safeTextLayoutWidth(alignedRight = false)
         if (w <= 0) return mainPaint.fontSpacing
         val layout = buildLayout(text, mainPaint, w, forMain = true)
         return layout.height.toFloat()
@@ -763,7 +771,7 @@ class LyricView @JvmOverloads constructor(
 
     private fun measureTransHeight(text: String): Float {
         if (singleLineMarqueeEnabled) return transPaint.fontSpacing
-        val w = width - paddingLeft - paddingRight
+        val w = safeTextLayoutWidth(alignedRight = false)
         if (w <= 0) return transPaint.fontSpacing
         val layout = buildLayout(text, transPaint, w)
         return layout.height.toFloat()
@@ -772,21 +780,28 @@ class LyricView @JvmOverloads constructor(
     private fun measureWordsHeight(words: List<LyricWord>?, paint: TextPaint): Float {
         if (singleLineMarqueeEnabled) return 0f
         if (words.isNullOrEmpty()) return 0f
-        val availW = (width - paddingLeft - paddingRight).toFloat()
+        val availW = safeTextLayoutWidth(alignedRight = false).toFloat()
         if (availW <= 0f) return paint.fontSpacing
-        var cursorX = 0f
-        var lines = 1
-        words.forEach { word ->
-            val text = word.text ?: return@forEach
-            if (text.isBlank()) return@forEach
-            val wordW = paint.measureText(text)
-            if (cursorX + wordW > availW && cursorX > 0f) {
-                cursorX = 0f
-                lines++
-            }
-            cursorX += wordW
-        }
-        return lines * paint.fontSpacing + linePadTopPx
+        val wordInfos = layoutKaraokeWords(
+            words = words,
+            paint = paint,
+            startX = 0f,
+            baseline = 0f,
+            availableWidth = availW,
+            centered = false,
+        )
+        if (wordInfos.isEmpty()) return 0f
+        val lines = wordInfos.maxOf { it.visualLine } + 1
+        val fm = paint.fontMetrics
+        val directDrawHeight = -fm.ascent + (lines - 1) * paint.fontSpacing + fm.descent +
+            (fm.bottom - fm.descent).coerceAtLeast(0f)
+        return max(lines * paint.fontSpacing, directDrawHeight) + linePadTopPx
+    }
+
+    private fun safeTextLayoutWidth(alignedRight: Boolean): Int {
+        val edgeInset = TEXT_EDGE_SAFE_INSET_DP * density
+        val alignInset = if (alignedRight) RIGHT_ALIGN_GLYPH_SAFE_INSET_DP * density else 0f
+        return (width - paddingLeft - paddingRight - edgeInset - alignInset).toInt().coerceAtLeast(1)
     }
 
     private fun buildLayout(
@@ -1453,7 +1468,6 @@ class LyricView @JvmOverloads constructor(
         val availW = (width - paddingLeft - paddingRight - TEXT_EDGE_SAFE_INSET_DP * density).coerceAtLeast(1f)
         val activePaint = if (useSecondary) hlTransPaint else hlPaint
         val inactivePaint = if (useSecondary) dimTransPaint else dimPaint
-        val lineSpacing = activePaint.fontSpacing
         val displayText = buildKaraokeDisplayText(entry, words, useSecondary, textOverride)
         if (displayText.isNotBlank() && words.any { activePaint.measureText(it.text.orEmpty()) > availW }) {
             drawTextAligned(
@@ -1469,46 +1483,18 @@ class LyricView @JvmOverloads constructor(
             return
         }
 
-        data class WordDrawInfo(val word: LyricWord, val text: String, val x: Float, val y: Float, val w: Float, val visualLine: Int)
-        val wordInfos = mutableListOf<WordDrawInfo>()
-        var cursorX = startX
-        var cursorY = baseline
-        var visualLine = 0
-
-        for (word in words) {
-            val rawWordText = word.text ?: continue
-            var wordText = if (cursorX == startX) rawWordText.trimStart() else rawWordText
-            if (wordText.isBlank()) continue
-            var wordW = activePaint.measureText(wordText)
-            if (cursorX + wordW > startX + availW && cursorX > startX) {
-                cursorX = startX
-                cursorY += lineSpacing
-                visualLine++
-                wordText = rawWordText.trimStart()
-                if (wordText.isBlank()) continue
-                wordW = activePaint.measureText(wordText)
-            }
-            wordInfos.add(WordDrawInfo(word, wordText, cursorX, cursorY, wordW, visualLine))
-            cursorX += wordW
-        }
+        val wordInfos = layoutKaraokeWords(
+            words = words,
+            paint = activePaint,
+            startX = startX,
+            baseline = baseline,
+            availableWidth = availW,
+            centered = centered,
+        )
 
         if (wordInfos.isEmpty()) return
 
-        val lineOffsets = if (alignedRight || centered) {
-            wordInfos.groupBy { it.visualLine }.mapValues { (_, infos) ->
-                val lineStart = infos.minOf { it.x }
-                val lineEnd = infos.maxOf { it.x + it.w }
-                val lineW = lineEnd - lineStart
-                when {
-                    alignedRight -> startX + availW - lineW - lineStart
-                    centered -> startX + (availW - lineW) / 2f - lineStart
-                    else -> 0f
-                }
-            }
-        } else {
-            emptyMap()
-        }
-        fun WordDrawInfo.drawX(): Float = x + (lineOffsets[visualLine] ?: 0f)
+        fun KaraokeWordDrawInfo.drawX(): Float = x
 
         canvas.save()
 
@@ -1518,17 +1504,18 @@ class LyricView @JvmOverloads constructor(
 
         val sweepFraction = calculateSweepFraction(entry, karaokePos, words, activePaint)
         if (sweepFraction > 0f) {
-            val totalW = wordInfos.sumOf { it.w.toDouble() }.toFloat()
+            val lineGroups = wordInfos.groupBy { it.visualLine }.toSortedMap()
+            val lineWidths = lineGroups.mapValues { (_, infos) -> infos.sumOf { it.w.toDouble() }.toFloat() }
+            val totalW = lineWidths.values.sumOf { it.toDouble() }.toFloat()
             if (totalW <= 0f) { canvas.restore(); return }
             val sungWidth = sweepFraction.coerceIn(0f, 1f) * totalW
             val featherPx = featherWidthPx
 
             val fmTop = activePaint.fontMetrics.top
             val fmBottom = activePaint.fontMetrics.bottom
-            val maxVisualLine = wordInfos.last().visualLine
+            var lineCumBefore = 0f
 
-            for (vl in 0..maxVisualLine) {
-                val lineWords = wordInfos.filter { it.visualLine == vl }
+            for ((_, lineWords) in lineGroups) {
                 if (lineWords.isEmpty()) continue
 
                 val lineStartX = lineWords.first().drawX()
@@ -1538,10 +1525,6 @@ class LyricView @JvmOverloads constructor(
                 val mTop = lineY + fmTop - 4f
                 val mBottom = lineY + fmBottom + 4f
 
-                var lineCumBefore = 0f
-                for (prevVl in 0 until vl) {
-                    lineCumBefore += wordInfos.filter { it.visualLine == prevVl }.sumOf { it.w.toDouble() }.toFloat()
-                }
                 val lineCumAfter = lineCumBefore + lineW
 
                 if (sungWidth <= lineCumBefore) break
@@ -1599,6 +1582,7 @@ class LyricView @JvmOverloads constructor(
                 maskPaint.xfermode = null
                 maskPaint.shader = null
                 canvas.restoreToCount(saveCount)
+                lineCumBefore = lineCumAfter
             }
         }
 
@@ -1610,6 +1594,49 @@ class LyricView @JvmOverloads constructor(
         }
 
         canvas.restore()
+    }
+
+    private fun layoutKaraokeWords(
+        words: List<LyricWord>,
+        paint: TextPaint,
+        startX: Float,
+        baseline: Float,
+        availableWidth: Float,
+        centered: Boolean,
+    ): List<KaraokeWordDrawInfo> {
+        val rawInfos = mutableListOf<KaraokeWordDrawInfo>()
+        val safeWidth = availableWidth.coerceAtLeast(1f)
+        val lineSpacing = paint.fontSpacing
+        var cursorX = startX
+        var cursorY = baseline
+        var visualLine = 0
+
+        for (word in words) {
+            val rawWordText = word.text ?: continue
+            var wordText = if (cursorX == startX) rawWordText.trimStart() else rawWordText
+            if (wordText.isBlank()) continue
+            var wordW = paint.measureText(wordText)
+            if (cursorX + wordW > startX + safeWidth && cursorX > startX) {
+                cursorX = startX
+                cursorY += lineSpacing
+                visualLine++
+                wordText = rawWordText.trimStart()
+                if (wordText.isBlank()) continue
+                wordW = paint.measureText(wordText)
+            }
+            rawInfos.add(KaraokeWordDrawInfo(word, wordText, cursorX, cursorY, wordW, visualLine))
+            cursorX += wordW
+        }
+
+        if (!centered || rawInfos.isEmpty()) return rawInfos
+        val lineOffsets = rawInfos.groupBy { it.visualLine }.mapValues { (_, infos) ->
+            val lineStart = infos.minOf { it.x }
+            val lineEnd = infos.maxOf { it.x + it.w }
+            startX + (safeWidth - (lineEnd - lineStart)) / 2f - lineStart
+        }
+        return rawInfos.map { info ->
+            info.copy(x = info.x + (lineOffsets[info.visualLine] ?: 0f))
+        }
     }
 
     private data class KaraokeCharProgress(

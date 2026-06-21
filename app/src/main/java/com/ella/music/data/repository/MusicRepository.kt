@@ -10,7 +10,6 @@ import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.util.LruCache
@@ -42,6 +41,7 @@ import com.ella.music.data.parser.LrcParser
 import com.ella.music.data.parser.EllaLyricsParser
 import com.ella.music.data.scanner.MediaStoreAudioItem
 import com.ella.music.data.scanner.MusicScanner
+import com.ella.music.data.scanner.toShallowSong
 import com.ella.music.data.webdav.WebDavClient
 import com.ella.music.data.webdav.WebDavConfig
 import java.io.File
@@ -57,12 +57,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import okhttp3.OkHttpClient
@@ -70,8 +68,6 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 enum class CoverUsage {
     ListThumbnail,
@@ -89,30 +85,6 @@ data class MusicScanSummary(
     val failed: Int = 0,
     val fullRescan: Boolean = false
 )
-
-private val LOCAL_AUDIO_EXTENSIONS = setOf(
-    "mp3",
-    "flac",
-    "ogg",
-    "opus",
-    "aac",
-    "m4a",
-    "mp4",
-    "wav",
-    "wave",
-    "wma",
-    "aiff",
-    "ape",
-    "alac"
-)
-
-private val DEFAULT_LOCAL_SCAN_EXCLUDE_FOLDERS = listOf(
-    "/storage/emulated/0/Music/Recordings"
-)
-
-private const val RECENT_MEDIASTORE_REFRESH_WINDOW_MS = 10 * 60 * 1000L
-private const val MAX_RECENT_MEDIASTORE_REFRESH_FILES = 256
-private const val MEDIASTORE_REFRESH_TIMEOUT_MS = 8_000L
 
 class MusicRepository(private val context: Context) {
     companion object {
@@ -287,15 +259,6 @@ class MusicRepository(private val context: Context) {
         excludeFolders: List<String>
     ): LibraryScanResult = withContext(Dispatchers.IO) {
         val cachedSongs = _songs.value.takeIf { it.isNotEmpty() } ?: readCachedSongs()
-        val refreshedMediaStoreFiles = refreshRecentlyChangedLocalAudioFiles(cachedSongs, includeFolders, excludeFolders)
-        if (refreshedMediaStoreFiles > 0) {
-            AppLogStore.info(
-                context,
-                "MusicScanner",
-                "Requested MediaStore refresh for $refreshedMediaStoreFiles recently changed audio files",
-                AppLogType.LIBRARY
-            )
-        }
         val cachedBySyncKey = cachedSongs.associateBy { it.librarySyncKey() }
         val cachedByPath = cachedSongs.associateBy { it.path }
         val currentItems = scanner.enumerateAudioFiles(
@@ -329,11 +292,10 @@ class MusicRepository(private val context: Context) {
 
             if (needsUpdate) {
                 val scanned = runCatching {
-                    scanner.scanAudioItem(
+                    buildIncrementalLibrarySong(
                         item = item,
-                        minDurationMs = minDurationMs,
-                        deepMetadata = true
-                    )?.withRepositoryTags()
+                        minDurationMs = minDurationMs
+                    )
                 }.onFailure { error ->
                     failedCount++
                     AppLogStore.warn(
@@ -425,90 +387,16 @@ class MusicRepository(private val context: Context) {
         val summary: MusicScanSummary
     )
 
-    private suspend fun refreshRecentlyChangedLocalAudioFiles(
-        cachedSongs: List<Song>,
-        includeFolders: List<String>,
-        excludeFolders: List<String>
-    ): Int = withContext(Dispatchers.IO) {
-        if (cachedSongs.isEmpty()) return@withContext 0
-
-        val knownPaths = cachedSongs
-            .asSequence()
-            .map { it.path.replace('\\', '/') }
-            .filter { it.isNotBlank() && !it.isHttpAudioSource() && !it.isContentAudioSource() }
-            .toSet()
-        if (knownPaths.isEmpty()) return@withContext 0
-
-        val newestKnownModified = cachedSongs.maxOfOrNull { it.dateModified } ?: 0L
-        val recentThreshold = (newestKnownModified - RECENT_MEDIASTORE_REFRESH_WINDOW_MS).coerceAtLeast(0L)
-        val excluded = (DEFAULT_LOCAL_SCAN_EXCLUDE_FOLDERS + excludeFolders)
-            .mapNotNull { it.normalizedLocalFolderPath() }
-        val roots = localMediaRefreshRoots(includeFolders)
-            .filter { it.exists() && it.isDirectory }
-            .distinctBy { it.absolutePath.lowercase() }
-
-        val candidates = roots
-            .asSequence()
-            .flatMap { root ->
-                runCatching {
-                    root.walkTopDown()
-                        .onEnter { dir -> dir.toString().isAllowedByLocalFolderFilters(emptyList(), excluded) }
-                        .filter { file ->
-                            file.isFile &&
-                                file.extension.lowercase() in LOCAL_AUDIO_EXTENSIONS &&
-                                file.toString().isAllowedByLocalFolderFilters(emptyList(), excluded)
-                        }
-                        .filter { file ->
-                            val path = file.absolutePath.replace('\\', '/')
-                            path !in knownPaths || file.lastModified() >= recentThreshold
-                        }
-                        .toList()
-                }.getOrDefault(emptyList()).asSequence()
-            }
-            .sortedByDescending { it.lastModified() }
-            .take(MAX_RECENT_MEDIASTORE_REFRESH_FILES)
-            .map { it.absolutePath }
-            .toList()
-
-        if (candidates.isEmpty()) return@withContext 0
-        scanFilesIntoMediaStore(candidates)
-        candidates.size
-    }
-
-    private fun localMediaRefreshRoots(includeFolders: List<String>): List<File> {
-        val customRoots = includeFolders
-            .filterNot { it == "__ella_no_custom_folder__" }
-            .map { File(it) }
-            .filter { it.exists() && it.isDirectory }
-        if (customRoots.isNotEmpty()) return customRoots
-
-        return listOf(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            File(Environment.getExternalStorageDirectory(), "Audiobooks"),
-            File(Environment.getExternalStorageDirectory(), "Podcasts")
+    private suspend fun buildIncrementalLibrarySong(
+        item: MediaStoreAudioItem,
+        minDurationMs: Long
+    ): Song? {
+        item.toShallowSong(minDurationMs)?.let { return it }
+        return scanner.scanAudioItem(
+            item = item,
+            minDurationMs = minDurationMs,
+            deepMetadata = false
         )
-    }
-
-    private suspend fun scanFilesIntoMediaStore(paths: List<String>) {
-        if (paths.isEmpty()) return
-        withTimeoutOrNull(MEDIASTORE_REFRESH_TIMEOUT_MS) {
-            suspendCancellableCoroutine<Unit> { continuation ->
-                val remaining = AtomicInteger(paths.size)
-                val completed = AtomicBoolean(false)
-                fun completeOne() {
-                    if (remaining.decrementAndGet() <= 0 && completed.compareAndSet(false, true)) {
-                        continuation.resume(Unit)
-                    }
-                }
-                continuation.invokeOnCancellation {
-                    completed.set(true)
-                }
-                MediaScannerConnection.scanFile(context, paths.toTypedArray(), null) { _, _ ->
-                    if (!completed.get()) completeOne()
-                }
-            }
-        }
     }
 
     suspend fun refreshSongAfterExternalEdit(song: Song): Song? = withContext(Dispatchers.IO) {
@@ -1609,25 +1497,6 @@ class MusicRepository(private val context: Context) {
             "replaygain_album_peak",
             "replaygain_reference_loudness"
         )
-    }
-
-    private fun String.normalizedLocalFolderPath(): String? {
-        val normalized = trim().replace('\\', '/').trimEnd('/').lowercase()
-        return normalized.takeIf { it.isNotBlank() }
-    }
-
-    private fun String.isAllowedByLocalFolderFilters(
-        includeFolders: List<String>,
-        excludeFolders: List<String>
-    ): Boolean {
-        val normalizedPath = replace('\\', '/').lowercase()
-        val included = includeFolders.isEmpty() || includeFolders.any { folder ->
-            normalizedPath == folder || normalizedPath.startsWith("$folder/")
-        }
-        if (!included) return false
-        return excludeFolders.none { folder ->
-            normalizedPath == folder || normalizedPath.startsWith("$folder/")
-        }
     }
 
     private data class LibrarySyncInfo(

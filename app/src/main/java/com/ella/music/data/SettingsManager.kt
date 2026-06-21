@@ -123,6 +123,7 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYER_SHOW_TOTAL_DURATION = booleanPreferencesKey("player_show_total_duration")
         val KEY_PLAYER_SHOW_SONG_ANNOTATION = booleanPreferencesKey("player_show_song_annotation")
         val KEY_PLAYER_COVER_SWIPE_ENABLED = booleanPreferencesKey("player_cover_swipe_enabled")
+        val KEY_PLAYER_TITLE_POSITION = intPreferencesKey("player_title_position")
         val KEY_PLAYER_KEEP_SCREEN_ON = booleanPreferencesKey("player_keep_screen_on")
         val KEY_PLAYER_HDR_GLOW = booleanPreferencesKey("player_hdr_glow")
         val KEY_PLAYER_IMMERSIVE_COVER = booleanPreferencesKey("player_immersive_cover")
@@ -257,6 +258,8 @@ class SettingsManager(private val context: Context) {
         const val REPLAY_GAIN_TRACK = 1
         const val REPLAY_GAIN_ALBUM = 2
         const val REPLAY_GAIN_AUTO = 3
+        const val PLAYER_TITLE_POSITION_BELOW_COVER = 0
+        const val PLAYER_TITLE_POSITION_ABOVE_COVER = 1
 
         const val PREVIOUS_BUTTON_PREVIOUS = 0
         const val PREVIOUS_BUTTON_REPLAY_CURRENT = 1
@@ -569,6 +572,11 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_PLAYER_SHOW_SONG_ANNOTATION] ?: true }
     val playerCoverSwipeEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_COVER_SWIPE_ENABLED] ?: true }
+    val playerTitlePosition: Flow<Int> =
+        context.dataStore.data.map {
+            (it[KEY_PLAYER_TITLE_POSITION] ?: PLAYER_TITLE_POSITION_BELOW_COVER)
+                .coerceIn(PLAYER_TITLE_POSITION_BELOW_COVER, PLAYER_TITLE_POSITION_ABOVE_COVER)
+        }
     val playerKeepScreenOn: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_PLAYER_KEEP_SCREEN_ON] ?: false }
     val playerHdrGlow: Flow<Boolean> = context.dataStore.data.map { it[KEY_PLAYER_HDR_GLOW] ?: false }
@@ -1576,6 +1584,15 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setPlayerCoverSwipeEnabled(enabled: Boolean) {
         context.dataStore.edit { it[KEY_PLAYER_COVER_SWIPE_ENABLED] = enabled }
+    }
+
+    suspend fun setPlayerTitlePosition(position: Int) {
+        context.dataStore.edit {
+            it[KEY_PLAYER_TITLE_POSITION] = position.coerceIn(
+                PLAYER_TITLE_POSITION_BELOW_COVER,
+                PLAYER_TITLE_POSITION_ABOVE_COVER
+            )
+        }
     }
 
     suspend fun setPlayerKeepScreenOn(enabled: Boolean) {
