@@ -21,6 +21,7 @@ import com.ella.music.data.AppNetworkLoggingInterceptor
 import com.ella.music.data.LibraryAlbumAggregator
 import com.ella.music.data.LibraryNormalizer
 import com.ella.music.data.SettingsManager
+import com.ella.music.data.artwork.ArtworkLoadResult
 import com.ella.music.data.isContentAudioSource
 import com.ella.music.data.isHttpAudioSource
 import com.ella.music.data.isMediaStoreContentAudioSource
@@ -803,6 +804,9 @@ class MusicRepository(private val context: Context) {
     }
 
     fun getCoverArt(song: Song): ByteArray? = coverArtManager.getCoverArt(song)
+
+    fun getPlayerArtworkLoadResult(song: Song): ArtworkLoadResult =
+        coverArtManager.getPlayerArtworkLoadResult(song)
 
     fun getCoverArtBitmap(
         song: Song,

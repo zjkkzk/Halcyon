@@ -20,7 +20,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player as Media3Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.ella.music.data.artwork.ArtworkLoadResult
+import com.ella.music.data.artwork.EmbeddedArtworkKind
 import com.ella.music.data.model.Song
+import com.ella.music.data.repository.MusicRepository
 import com.ella.music.ui.components.SafeCoverImage
 import java.io.File
 
@@ -126,7 +129,25 @@ internal fun Song.dynamicCoverSource(
             return DynamicCoverSource(uri = Uri.fromFile(file), failureKey = file.absolutePath)
         }
     }
-    embeddedDynamicImageSource(context)?.let { return it }
+    when (val embeddedArtwork = MusicRepository.getInstance(context).getPlayerArtworkLoadResult(this)) {
+        is ArtworkLoadResult.AnimatedArtwork -> {
+            if (embeddedArtwork.kind == EmbeddedArtworkKind.AVIF_SEQUENCE && !embeddedArtwork.isSystemImageDecoderSafe) {
+                Log.i(
+                    "PlayerScreen",
+                    "Embedded AVIF sequence artwork cached for ${title.ifBlank { fileName }}, but no safe renderer is available yet; falling back to static/default cover."
+                )
+            } else {
+                return DynamicCoverSource(
+                    uri = embeddedArtwork.uri,
+                    failureKey = "embedded-artwork:${embeddedArtwork.uri}:${dateModified}:${fileSize}",
+                    kind = DynamicCoverKind.AnimatedImage
+                )
+            }
+        }
+
+        ArtworkLoadResult.None -> legacyEmbeddedAnimatedImageSource(context)?.let { return it }
+        is ArtworkLoadResult.StaticBitmap -> Unit
+    }
     return embeddedDynamicVideoSource(context)
 }
 
@@ -139,7 +160,7 @@ private fun Song.embeddedDynamicVideoSource(context: Context): DynamicCoverSourc
     )
 }
 
-private fun Song.embeddedDynamicImageSource(context: Context): DynamicCoverSource? {
+private fun Song.legacyEmbeddedAnimatedImageSource(context: Context): DynamicCoverSource? {
     val mediaUri = dynamicCoverMediaUri() ?: return null
     val picture = runCatching {
         MediaMetadataRetriever().useCompat { retriever ->
@@ -152,7 +173,7 @@ private fun Song.embeddedDynamicImageSource(context: Context): DynamicCoverSourc
         }
     }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return null
 
-    val format = picture.embeddedPictureFormat() ?: return null
+    val format = picture.legacyAnimatedPictureFormat() ?: return null
     val cacheFile = File(context.cacheDir, "dynamic_covers/${path.hashCode()}_${dateModified}_${fileSize}.${format.extension}")
     return runCatching {
         cacheFile.parentFile?.mkdirs()
@@ -167,17 +188,11 @@ private fun Song.embeddedDynamicImageSource(context: Context): DynamicCoverSourc
     }.getOrNull()
 }
 
-private data class EmbeddedPictureFormat(val extension: String)
+private data class LegacyAnimatedPictureFormat(val extension: String)
 
-private fun ByteArray.embeddedPictureFormat(): EmbeddedPictureFormat? {
-    if (size < 16) return null
-    val asciiHead = take(32).map { it.toInt().toChar() }.joinToString("")
+private fun ByteArray.legacyAnimatedPictureFormat(): LegacyAnimatedPictureFormat? {
     return when {
-        startsWithBytes(0x00, 0x00) && asciiHead.contains("ftyp") && asciiHead.contains("avif") -> EmbeddedPictureFormat("avif")
-        startsWithBytes(0xFF, 0xD8, 0xFF) -> EmbeddedPictureFormat("jpg")
-        startsWithAscii("GIF8") -> EmbeddedPictureFormat("gif")
-        startsWithAscii("RIFF") && asciiHead.contains("WEBP") -> EmbeddedPictureFormat("webp")
-        startsWithBytes(0x89, 0x50, 0x4E, 0x47) -> EmbeddedPictureFormat("png")
+        startsWithAscii("GIF8") -> LegacyAnimatedPictureFormat("gif")
         else -> null
     }
 }

@@ -41,7 +41,7 @@ internal fun LyricsPlayerHeader(
         AlbumArtView(
             song = song,
             embeddedCover = embeddedCover,
-            cornerRadius = 0.dp,
+            cornerRadius = 12.dp,
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .size(56.dp)

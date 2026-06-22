@@ -264,8 +264,32 @@ private fun muxVideoAndAudio(
         outputFile.parentFile ?: context.cacheDir,
         "audio_clip_${System.currentTimeMillis()}.m4a"
     )
+    val clipStartUs = globalStartMs * 1000L
+    val clipEndUs = globalEndMs * 1000L
 
     return try {
+        val sourceAudioMime = findPrimaryAudioTrackMime(context, path)
+        if (shouldTryDirectSourceAudioMux(path, sourceAudioMime)) {
+            val directMuxed = muxVideoWithSourceAudioSegment(
+                context = context,
+                videoFile = videoFile,
+                songPath = path,
+                outputFile = outputFile,
+                clipStartUs = clipStartUs,
+                clipEndUs = clipEndUs
+            )
+            if (directMuxed) {
+                Log.d(
+                    LYRIC_VIDEO_TAG,
+                    "Muxed lyric share source audio track directly for ${song.title} mime=${sourceAudioMime.orEmpty()}"
+                )
+                return true
+            }
+            Log.w(
+                LYRIC_VIDEO_TAG,
+                "Direct source audio mux failed for ${song.title} mime=${sourceAudioMime.orEmpty()}, falling back to transcode"
+            )
+        }
         if (!transcodeAudioSegmentToAac(context, path, globalStartMs, globalEndMs, audioClipFile)) {
             outputFile.delete()
             return false
@@ -278,6 +302,33 @@ private fun muxVideoAndAudio(
     } finally {
         audioClipFile.delete()
     }
+}
+
+private fun findPrimaryAudioTrackMime(context: Context, songPath: String): String? {
+    val extractor = MediaExtractor()
+    return try {
+        extractor.setSongDataSource(context, songPath)
+        (0 until extractor.trackCount)
+            .asSequence()
+            .map { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME).orEmpty() }
+            .firstOrNull { it.startsWith("audio/") }
+    } catch (error: Exception) {
+        Log.w(LYRIC_VIDEO_TAG, "Failed to inspect lyric share source track mime for $songPath", error)
+        null
+    } finally {
+        try { extractor.release() } catch (_: Exception) {}
+    }
+}
+
+private fun shouldTryDirectSourceAudioMux(songPath: String, sourceAudioMime: String?): Boolean {
+    val extension = songPath.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
+    val normalizedMime = sourceAudioMime.orEmpty().lowercase()
+    return normalizedMime.startsWith("audio/") && (
+        normalizedMime == MediaFormat.MIMETYPE_AUDIO_AAC ||
+            normalizedMime == "audio/alac" ||
+            normalizedMime == "audio/mpeg" ||
+            extension in setOf("m4a", "mp4", "m4b", "aac", "alac", "mp3")
+        )
 }
 
 private fun transcodeAudioSegmentToAac(
@@ -602,7 +653,13 @@ private fun muxVideoWithAudioTrack(
         activeMuxer.start()
 
         copySelectedTrack(videoExtractor, videoTrackSrc, activeMuxer, muxerVideoTrack)
-        copySelectedTrack(audioExtractor, audioTrackSrc, activeMuxer, muxerAudioTrack)
+        copySelectedTrack(
+            extractor = audioExtractor,
+            sourceTrackIndex = audioTrackSrc,
+            muxer = activeMuxer,
+            targetTrackIndex = muxerAudioTrack,
+            normalizeToZero = true
+        )
 
         activeMuxer.stop()
         activeMuxer.release()
@@ -619,19 +676,141 @@ private fun muxVideoWithAudioTrack(
     }
 }
 
+private fun muxVideoWithSourceAudioSegment(
+    context: Context,
+    videoFile: File,
+    songPath: String,
+    outputFile: File,
+    clipStartUs: Long,
+    clipEndUs: Long
+): Boolean {
+    if (clipEndUs <= clipStartUs) return false
+
+    val videoExtractor = MediaExtractor()
+    val audioExtractor = MediaExtractor()
+    var muxer: MediaMuxer? = null
+
+    return try {
+        videoExtractor.setDataSource(videoFile.absolutePath)
+        audioExtractor.setSongDataSource(context, songPath)
+
+        val videoTrackSrc = (0 until videoExtractor.trackCount).firstOrNull { index ->
+            videoExtractor.getTrackFormat(index)
+                .getString(MediaFormat.KEY_MIME)
+                .orEmpty()
+                .startsWith("video/")
+        } ?: return false
+        val audioTrackSrc = (0 until audioExtractor.trackCount).firstOrNull { index ->
+            audioExtractor.getTrackFormat(index)
+                .getString(MediaFormat.KEY_MIME)
+                .orEmpty()
+                .startsWith("audio/")
+        } ?: return false
+
+        val videoFormat = videoExtractor.getTrackFormat(videoTrackSrc)
+        val audioFormat = audioExtractor.getTrackFormat(audioTrackSrc)
+
+        val activeMuxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        muxer = activeMuxer
+        val muxerVideoTrack = activeMuxer.addTrack(videoFormat)
+        val muxerAudioTrack = activeMuxer.addTrack(audioFormat)
+        activeMuxer.start()
+
+        copySelectedTrack(videoExtractor, videoTrackSrc, activeMuxer, muxerVideoTrack)
+        copySelectedTrackRange(
+            extractor = audioExtractor,
+            sourceTrackIndex = audioTrackSrc,
+            muxer = activeMuxer,
+            targetTrackIndex = muxerAudioTrack,
+            startUs = clipStartUs,
+            endUs = clipEndUs,
+            presentationOffsetUs = clipStartUs
+        )
+
+        activeMuxer.stop()
+        activeMuxer.release()
+        muxer = null
+        outputFile.exists() && outputFile.length() > 0L
+    } catch (error: Exception) {
+        Log.w(LYRIC_VIDEO_TAG, "Failed to mux lyric share source audio segment from $songPath", error)
+        outputFile.delete()
+        false
+    } finally {
+        try { videoExtractor.release() } catch (_: Exception) {}
+        try { audioExtractor.release() } catch (_: Exception) {}
+        try { muxer?.stop() } catch (_: Exception) {}
+        try { muxer?.release() } catch (_: Exception) {}
+    }
+}
+
 private fun copySelectedTrack(
     extractor: MediaExtractor,
     sourceTrackIndex: Int,
     muxer: MediaMuxer,
-    targetTrackIndex: Int
+    targetTrackIndex: Int,
+    normalizeToZero: Boolean = false
 ) {
     extractor.selectTrack(sourceTrackIndex)
     val buffer = ByteBuffer.allocate(2 * 1024 * 1024)
     val bufferInfo = MediaCodec.BufferInfo()
+    var firstSampleTimeUs = Long.MIN_VALUE
     while (true) {
+        buffer.clear()
         val sampleSize = extractor.readSampleData(buffer, 0)
         if (sampleSize < 0) break
-        bufferInfo.set(0, sampleSize, extractor.sampleTime, extractor.sampleFlags)
+        val sampleTimeUs = extractor.sampleTime
+        if (firstSampleTimeUs == Long.MIN_VALUE) {
+            firstSampleTimeUs = sampleTimeUs.coerceAtLeast(0L)
+        }
+        buffer.position(0)
+        buffer.limit(sampleSize)
+        bufferInfo.set(
+            0,
+            sampleSize,
+            if (normalizeToZero) {
+                (sampleTimeUs - firstSampleTimeUs).coerceAtLeast(0L)
+            } else {
+                sampleTimeUs
+            },
+            extractor.sampleFlags
+        )
+        muxer.writeSampleData(targetTrackIndex, buffer, bufferInfo)
+        extractor.advance()
+    }
+    extractor.unselectTrack(sourceTrackIndex)
+}
+
+private fun copySelectedTrackRange(
+    extractor: MediaExtractor,
+    sourceTrackIndex: Int,
+    muxer: MediaMuxer,
+    targetTrackIndex: Int,
+    startUs: Long,
+    endUs: Long,
+    presentationOffsetUs: Long
+) {
+    extractor.selectTrack(sourceTrackIndex)
+    extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+    val buffer = ByteBuffer.allocate(2 * 1024 * 1024)
+    val bufferInfo = MediaCodec.BufferInfo()
+    while (true) {
+        val sampleTimeUs = extractor.sampleTime
+        if (sampleTimeUs < 0 || sampleTimeUs > endUs) break
+        if (sampleTimeUs < startUs) {
+            extractor.advance()
+            continue
+        }
+        buffer.clear()
+        val sampleSize = extractor.readSampleData(buffer, 0)
+        if (sampleSize < 0) break
+        buffer.position(0)
+        buffer.limit(sampleSize)
+        bufferInfo.set(
+            0,
+            sampleSize,
+            (sampleTimeUs - presentationOffsetUs).coerceAtLeast(0L),
+            extractor.sampleFlags
+        )
         muxer.writeSampleData(targetTrackIndex, buffer, bufferInfo)
         extractor.advance()
     }

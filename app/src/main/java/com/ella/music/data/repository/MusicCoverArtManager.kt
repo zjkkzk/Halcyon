@@ -3,21 +3,40 @@ package com.ella.music.data.repository
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ImageDecoder
+import android.graphics.LinearGradient
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.graphics.Paint
+import android.graphics.Shader
 import android.util.Log
 import android.util.LruCache
 import com.ella.music.data.isContentAudioSource
+import com.ella.music.data.isFileUriAudioSource
 import com.ella.music.data.isHttpAudioSource
 import com.ella.music.data.model.Song
 import com.ella.music.data.metadata.AudioTagRepository
 import com.ella.music.data.SettingsManager
+import com.ella.music.data.artwork.ArtworkLoadResult
+import com.ella.music.data.artwork.EmbeddedArtworkKind
+import com.ella.music.data.artwork.Mp4EmbeddedArtworkExtractor
+import com.ella.music.data.artwork.mimeType
+import com.ella.music.data.artwork.sniffEmbeddedArtworkKind
+import com.ella.music.data.artwork.staticArtworkPolicy
+import com.ella.music.data.artwork.StaticArtworkPolicy
 import okhttp3.OkHttpClient
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
 private val embeddedArtworkThumbnailExtensions = setOf(
     "m4a", "mp4", "alac", "flac", "wav", "wave", "aif", "aiff"
+)
+
+private val embeddedArtworkMp4ContainerExtensions = setOf(
+    "m4a", "m4b", "m4p", "mp4", "aac", "alac"
 )
 
 internal class MusicCoverArtManager(
@@ -28,6 +47,12 @@ internal class MusicCoverArtManager(
     private val remoteAudioCacheDir: File,
     private val remoteMetadataHeaderCacheDir: File
 ) {
+    private data class ResolvedEmbeddedArtwork(
+        val bytes: ByteArray,
+        val kind: EmbeddedArtworkKind,
+        val source: String
+    )
+
     private sealed class CoverDataState {
         data object Found : CoverDataState()
         data object Missing : CoverDataState()
@@ -58,9 +83,7 @@ internal class MusicCoverArtManager(
                 if (song.isWebDavRemoteSong() && metadataPath == song.path) {
                     null
                 } else {
-                    audioTagRepository.readEmbeddedCoverDataBlocking(metadataPath)
-                        ?: if (metadataPath.isHttpAudioSource()) null
-                        else readEmbeddedPictureWithRetriever(metadataPath)
+                    loadStaticArtworkData(song, metadataPath)
                 }
             } catch (error: Throwable) {
                 if (error is OutOfMemoryError) {
@@ -97,25 +120,87 @@ internal class MusicCoverArtManager(
             if (usage == CoverUsage.ListThumbnail && !song.prefersEmbeddedArtworkForThumbnail()) {
                 decodeAlbumArtBitmap(song.albumId, targetSize, usage)?.let { return it }
             }
-            val data = getCoverArt(song)
-            if (data == null) return decodeAlbumArtBitmap(song.albumId, targetSize, usage)
-            runCatching {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
-                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-                var sampleSize = 1
-                while ((bounds.outWidth / sampleSize) > targetSize || (bounds.outHeight / sampleSize) > targetSize) sampleSize *= 2
-                val options = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize.coerceAtLeast(1)
-                    inPreferredConfig = if (usage == CoverUsage.ListThumbnail) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+            val preferredConfig = if (usage == CoverUsage.ListThumbnail) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+            val metadataPath = song.effectiveLocalPathForMetadataBlocking(
+                settingsManager,
+                httpClient,
+                remoteAudioCacheDir,
+                remoteMetadataHeaderCacheDir
+            )
+            val bitmap = runCatching {
+                when {
+                    song.isWebDavRemoteSong() && metadataPath == song.path -> null
+                    else -> resolveEmbeddedArtwork(metadataPath)?.let { embeddedArtwork ->
+                        when (embeddedArtwork.kind.staticArtworkPolicy()) {
+                            StaticArtworkPolicy.BLOCK_DYNAMIC_ONLY -> {
+                                Log.i("MusicRepo", "Embedded AVIF sequence artwork blocked from bitmap decode for ${song.path}")
+                                createFallbackCoverBitmap(targetSize)
+                            }
+
+                            else -> decodeStaticArtworkBitmap(
+                                data = embeddedArtwork.bytes,
+                                kind = embeddedArtwork.kind,
+                                targetSize = targetSize,
+                                preferredConfig = preferredConfig
+                            )
+                        }
+                    } ?: getCoverArt(song)?.let { data ->
+                        decodeStaticArtworkBitmap(
+                            data = data,
+                            kind = sniffEmbeddedArtworkKind(data),
+                            targetSize = targetSize,
+                            preferredConfig = preferredConfig
+                        )
+                    }
                 }
-                BitmapFactory.decodeByteArray(data, 0, data.size, options)
-                    ?.also { coverBitmapCache.put(cacheKey, it) }
             }.getOrElse { error ->
                 if (error is OutOfMemoryError) { coverArtCache.evictAll(); coverBitmapCache.evictAll() }
                 Log.w("MusicRepo", "Failed to decode cover bitmap for ${song.path}", error)
                 null
             }
+            bitmap?.also {
+                coverBitmapCache.put(cacheKey, it)
+                return it
+            }
+            decodeAlbumArtBitmap(song.albumId, targetSize, usage)
+        }
+    }
+
+    fun getPlayerArtworkLoadResult(song: Song): ArtworkLoadResult {
+        val metadataPath = song.effectiveLocalPathForMetadataBlocking(
+            settingsManager,
+            httpClient,
+            remoteAudioCacheDir,
+            remoteMetadataHeaderCacheDir
+        )
+        if (song.isWebDavRemoteSong() && metadataPath == song.path) return ArtworkLoadResult.None
+        val embeddedArtwork = runCatching { resolveEmbeddedArtwork(metadataPath) }
+            .getOrElse { error ->
+                Log.w("MusicRepo", "Failed to resolve player embedded artwork for ${song.path}", error)
+                null
+            } ?: return ArtworkLoadResult.None
+
+        return when (embeddedArtwork.kind) {
+            EmbeddedArtworkKind.AVIF_SEQUENCE -> {
+                val cachedUri = cacheAnimatedArtworkPayload(song, metadataPath, embeddedArtwork)
+                if (cachedUri != null) {
+                    ArtworkLoadResult.AnimatedArtwork(
+                        uri = cachedUri,
+                        mimeType = embeddedArtwork.kind.mimeType().orEmpty(),
+                        kind = embeddedArtwork.kind,
+                        isSystemImageDecoderSafe = false
+                    )
+                } else {
+                    ArtworkLoadResult.None
+                }
+            }
+
+            else -> decodeStaticArtworkBitmap(
+                data = embeddedArtwork.bytes,
+                kind = embeddedArtwork.kind,
+                targetSize = 1200,
+                preferredConfig = Bitmap.Config.ARGB_8888
+            )?.let(ArtworkLoadResult::StaticBitmap) ?: ArtworkLoadResult.None
         }
     }
 
@@ -159,6 +244,232 @@ internal class MusicCoverArtManager(
             Log.d("MusicRepo", "MediaMetadataRetriever embedded picture unavailable for $path", error)
             null
         }
+    }
+
+    private fun loadStaticArtworkData(song: Song, metadataPath: String): ByteArray? {
+        val embeddedArtwork = resolveEmbeddedArtwork(metadataPath) ?: return null
+        return when (embeddedArtwork.kind.staticArtworkPolicy()) {
+            StaticArtworkPolicy.DIRECT_BYTES -> embeddedArtwork.bytes
+            StaticArtworkPolicy.SAFE_STILL_IMAGE -> {
+                decodeStaticArtworkBitmap(
+                    data = embeddedArtwork.bytes,
+                    kind = embeddedArtwork.kind,
+                    targetSize = 1200,
+                    preferredConfig = Bitmap.Config.ARGB_8888
+                )?.toPngByteArray()
+            }
+
+            StaticArtworkPolicy.BLOCK_DYNAMIC_ONLY -> {
+                Log.i(
+                    "MusicRepo",
+                    "Blocked ${embeddedArtwork.kind} static cover decode for ${song.path} from ${embeddedArtwork.source}"
+                )
+                null
+            }
+        }
+    }
+
+    private fun resolveEmbeddedArtwork(path: String): ResolvedEmbeddedArtwork? {
+        if (path.isBlank() || path.isHttpAudioSource()) return null
+        readMp4CovrPayload(path)?.takeIf { it.isNotEmpty() }?.let { payload ->
+            return ResolvedEmbeddedArtwork(
+                bytes = payload,
+                kind = sniffEmbeddedArtworkKind(payload),
+                source = "mp4-covr"
+            )
+        }
+        audioTagRepository.readEmbeddedCoverDataBlocking(path)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { payload ->
+                return ResolvedEmbeddedArtwork(
+                    bytes = payload,
+                    kind = sniffEmbeddedArtworkKind(payload),
+                    source = "audio-tag"
+                )
+            }
+        readEmbeddedPictureWithRetriever(path)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { payload ->
+                return ResolvedEmbeddedArtwork(
+                    bytes = payload,
+                    kind = sniffEmbeddedArtworkKind(payload),
+                    source = "media-metadata-retriever"
+                )
+            }
+        return null
+    }
+
+    private fun readMp4CovrPayload(path: String): ByteArray? {
+        if (!shouldTryMp4EmbeddedArtworkParser(path)) return null
+        return runCatching {
+            openSongInputStream(path)?.use(Mp4EmbeddedArtworkExtractor::extract)
+        }.getOrElse { error ->
+            Log.d("MusicRepo", "MP4 covr extraction unavailable for $path", error)
+            null
+        }
+    }
+
+    private fun openSongInputStream(path: String): java.io.InputStream? {
+        return when {
+            path.isContentAudioSource() -> context.contentResolver.openInputStream(Uri.parse(path))
+            path.isFileUriAudioSource() -> Uri.parse(path).path?.let(::File)?.takeIf { it.isFile }?.inputStream()
+            else -> File(path).takeIf { it.isFile }?.inputStream()
+        }
+    }
+
+    private fun shouldTryMp4EmbeddedArtworkParser(path: String): Boolean {
+        if (path.isContentAudioSource()) return true
+        val normalizedPath = if (path.isFileUriAudioSource()) Uri.parse(path).path.orEmpty() else path
+        val extension = normalizedPath.substringBefore('?').substringBefore('#').substringAfterLast('.', "").lowercase()
+        return extension in embeddedArtworkMp4ContainerExtensions
+    }
+
+    private fun decodeStaticArtworkBitmap(
+        data: ByteArray,
+        kind: EmbeddedArtworkKind,
+        targetSize: Int,
+        preferredConfig: Bitmap.Config
+    ): Bitmap? {
+        return when (kind.staticArtworkPolicy()) {
+            StaticArtworkPolicy.BLOCK_DYNAMIC_ONLY -> null
+            StaticArtworkPolicy.SAFE_STILL_IMAGE -> {
+                decodeBitmapWithImageDecoder(data, targetSize, preferredConfig)
+                    ?: decodeBitmapWithFactory(data, targetSize, preferredConfig)
+            }
+
+            StaticArtworkPolicy.DIRECT_BYTES -> {
+                decodeBitmapWithFactory(data, targetSize, preferredConfig)
+                    ?: if (kind == EmbeddedArtworkKind.UNKNOWN) {
+                        decodeBitmapWithImageDecoder(data, targetSize, preferredConfig)
+                    } else {
+                        null
+                    }
+            }
+        }
+    }
+
+    private fun decodeBitmapWithFactory(
+        data: ByteArray,
+        targetSize: Int,
+        preferredConfig: Bitmap.Config
+    ): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sampleSize = 1
+        while ((bounds.outWidth / sampleSize) > targetSize || (bounds.outHeight / sampleSize) > targetSize) {
+            sampleSize *= 2
+        }
+        return BitmapFactory.decodeByteArray(
+            data,
+            0,
+            data.size,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize.coerceAtLeast(1)
+                inPreferredConfig = preferredConfig
+            }
+        )
+    }
+
+    private fun decodeBitmapWithImageDecoder(
+        data: ByteArray,
+        targetSize: Int,
+        preferredConfig: Bitmap.Config
+    ): Bitmap? {
+        return runCatching {
+            val decoded = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(data))) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val width = info.size.width.coerceAtLeast(1)
+                val height = info.size.height.coerceAtLeast(1)
+                val scale = minOf(
+                    1f,
+                    targetSize.toFloat() / width.toFloat(),
+                    targetSize.toFloat() / height.toFloat()
+                )
+                decoder.setTargetSize(
+                    (width * scale).toInt().coerceAtLeast(1),
+                    (height * scale).toInt().coerceAtLeast(1)
+                )
+            }
+            decoded.copy(preferredConfig, false) ?: decoded
+        }.getOrNull()
+    }
+
+    private fun Bitmap.toPngByteArray(): ByteArray {
+        val output = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.PNG, 100, output)
+        return output.toByteArray()
+    }
+
+    private fun cacheAnimatedArtworkPayload(
+        song: Song,
+        metadataPath: String,
+        embeddedArtwork: ResolvedEmbeddedArtwork
+    ): Uri? {
+        val payloadHash = embeddedArtwork.bytes.toHexHash()
+        val sourceKey = "${song.path}|$metadataPath|${song.dateModified}|${song.fileSize}"
+        val extension = when (embeddedArtwork.kind) {
+            EmbeddedArtworkKind.AVIF_SEQUENCE -> "avifs"
+            EmbeddedArtworkKind.AVIF_STILL -> "avif"
+            EmbeddedArtworkKind.HEIF -> "heif"
+            EmbeddedArtworkKind.PNG -> "png"
+            EmbeddedArtworkKind.WEBP -> "webp"
+            EmbeddedArtworkKind.JPEG -> "jpg"
+            EmbeddedArtworkKind.UNKNOWN -> "bin"
+        }
+        val cacheFile = File(
+            context.cacheDir,
+            "embedded_dynamic_artwork/${sourceKey.sha256()}_${payloadHash.take(16)}.$extension"
+        )
+        return runCatching {
+            cacheFile.parentFile?.mkdirs()
+            if (!cacheFile.exists() || cacheFile.length() != embeddedArtwork.bytes.size.toLong()) {
+                cacheFile.writeBytes(embeddedArtwork.bytes)
+            }
+            Uri.fromFile(cacheFile)
+        }.getOrElse { error ->
+            Log.w("MusicRepo", "Failed to cache animated artwork payload for ${song.path}", error)
+            null
+        }
+    }
+
+    private fun ByteArray.toHexHash(): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(this)
+            .joinToString("") { "%02x".format(it) }
+
+    private fun createFallbackCoverBitmap(targetSize: Int): Bitmap {
+        val size = targetSize.coerceIn(160, 768)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f,
+                0f,
+                size.toFloat(),
+                size.toFloat(),
+                intArrayOf(
+                    android.graphics.Color.rgb(84, 133, 236),
+                    android.graphics.Color.rgb(62, 99, 216),
+                    android.graphics.Color.rgb(32, 42, 104)
+                ),
+                null,
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
+        paint.shader = null
+        paint.style = Paint.Style.FILL
+        paint.color = android.graphics.Color.argb(40, 255, 255, 255)
+        canvas.drawCircle(size * 0.52f, size * 0.50f, size * 0.34f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = size * 0.035f
+        paint.color = android.graphics.Color.argb(72, 255, 255, 255)
+        canvas.drawCircle(size * 0.52f, size * 0.50f, size * 0.24f, paint)
+        paint.style = Paint.Style.FILL
+        paint.color = android.graphics.Color.argb(36, 0, 0, 0)
+        canvas.drawCircle(size * 0.52f, size * 0.50f, size * 0.06f, paint)
+        return bitmap
     }
 
     private fun decodeExternalThumbnailBitmap(song: Song, targetSize: Int, cacheKey: String): Bitmap? {
