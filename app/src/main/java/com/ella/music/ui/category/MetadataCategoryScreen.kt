@@ -244,17 +244,6 @@ fun MetadataCategoryScreen(
                     }
                 },
                 actions = {
-                    SortDropdownMenu(
-                        items = availableSortModes.map { mode ->
-                            SortDropdownItem(
-                                text = mode.displayLabel(type),
-                                selected = sortMode == mode,
-                                onClick = {
-                                    scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
-                                }
-                            )
-                        }
-                    )
                     IconButton(onClick = {
                         searchExpanded = !searchExpanded
                         if (!searchExpanded) searchQuery = ""
@@ -266,6 +255,17 @@ fun MetadataCategoryScreen(
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                    SortDropdownMenu(
+                        items = availableSortModes.map { mode ->
+                            SortDropdownItem(
+                                text = mode.displayLabel(type),
+                                selected = sortMode == mode,
+                                onClick = {
+                                    scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
+                                }
+                            )
+                        }
+                    )
                 }
             )
             DoubleTapScrollOverlay(

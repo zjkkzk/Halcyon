@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ella.music.data.SettingsManager
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -52,9 +54,13 @@ fun EllaSearchBar(
     placeholder: String,
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
-    autoFocus: Boolean = true,
+    autoFocus: Boolean? = null,
     containerColor: Color = MiuixTheme.colorScheme.surfaceContainerHigh
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val settingsManager = remember(context) { SettingsManager.getInstance(context) }
+    val autoShowSearchKeyboard by settingsManager.autoShowSearchKeyboard.collectAsState(initial = true)
+    val shouldAutoFocus = autoFocus ?: autoShowSearchKeyboard
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -74,8 +80,8 @@ fun EllaSearchBar(
         onSearch()
     }
 
-    LaunchedEffect(autoFocus) {
-        if (autoFocus) {
+    LaunchedEffect(shouldAutoFocus) {
+        if (shouldAutoFocus) {
             delay(180L)
             focusRequester.requestFocus()
             keyboardController?.show()

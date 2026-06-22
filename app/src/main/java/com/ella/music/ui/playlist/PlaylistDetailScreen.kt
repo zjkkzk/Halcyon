@@ -47,6 +47,8 @@ import com.ella.music.ui.components.CreatePlaylistAndAddSheet
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SongItem
@@ -550,7 +552,7 @@ fun PlaylistDetailScreen(
                 locateRequest = locateCurrentSongRequest,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 118.dp)
+                    .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
             )
 
             FloatingSelectionControls(
@@ -561,7 +563,7 @@ fun PlaylistDetailScreen(
                 onSelectAll = ::selectAllDisplayedSongs,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 118.dp)
+                    .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
             )
 
             SongMoreActionHost(

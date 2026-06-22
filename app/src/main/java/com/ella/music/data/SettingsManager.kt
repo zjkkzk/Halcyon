@@ -165,6 +165,7 @@ class SettingsManager(private val context: Context) {
         val KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE = booleanPreferencesKey("playlist_special_entries_visible")
         val KEY_PLAYLIST_CUSTOM_ORDER = stringPreferencesKey("playlist_custom_order")
         val KEY_SHOW_PLAY_NEXT_IN_LISTS = booleanPreferencesKey("show_play_next_in_lists")
+        val KEY_AUTO_SHOW_SEARCH_KEYBOARD = booleanPreferencesKey("auto_show_search_keyboard")
         val KEY_PLAY_NEXT_MODE = intPreferencesKey("play_next_mode")
         val KEY_ADD_TO_PLAYLIST_APPEND_TO_END = booleanPreferencesKey("add_to_playlist_append_to_end")
         val KEY_LYRIC_SHARE_CUSTOM_INFO = stringPreferencesKey("lyric_share_custom_info")
@@ -683,6 +684,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE] ?: false }
     val showPlayNextInLists: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_SHOW_PLAY_NEXT_IN_LISTS] ?: false }
+    val autoShowSearchKeyboard: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_AUTO_SHOW_SEARCH_KEYBOARD] ?: true }
     val playNextMode: Flow<Int> =
         context.dataStore.data.map {
             it[KEY_PLAY_NEXT_MODE]?.coerceIn(PLAY_NEXT_MODE_REVERSE_STACK, PLAY_NEXT_MODE_FORWARD_STACK)
@@ -1312,6 +1315,10 @@ class SettingsManager(private val context: Context) {
         context.dataStore.edit { it[KEY_SHOW_PLAY_NEXT_IN_LISTS] = enabled }
     }
 
+    suspend fun setAutoShowSearchKeyboard(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_AUTO_SHOW_SEARCH_KEYBOARD] = enabled }
+    }
+
     suspend fun setPlayNextMode(mode: Int) {
         context.dataStore.edit {
             it[KEY_PLAY_NEXT_MODE] = mode.coerceIn(PLAY_NEXT_MODE_REVERSE_STACK, PLAY_NEXT_MODE_FORWARD_STACK)
@@ -1917,6 +1924,7 @@ class SettingsManager(private val context: Context) {
             setBoolean(KEY_HI_RES_LOGO_ENABLED)
             setBoolean(KEY_PLAYLIST_SPECIAL_ENTRIES_VISIBLE)
             setBoolean(KEY_SHOW_PLAY_NEXT_IN_LISTS)
+            setBoolean(KEY_AUTO_SHOW_SEARCH_KEYBOARD)
             setBoolean(KEY_ADD_TO_PLAYLIST_APPEND_TO_END)
             setBoolean(KEY_SHOW_ALBUM_ARTISTS)
             setBoolean(KEY_HOME_TILE_PIN_BUTTONS_VISIBLE)

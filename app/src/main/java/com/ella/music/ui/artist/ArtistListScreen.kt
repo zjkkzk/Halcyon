@@ -64,6 +64,8 @@ import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SortDropdownItem
@@ -439,6 +441,14 @@ fun ArtistListScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
+                        IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                            Icon(
+                                imageVector = MiuixIcons.Basic.Search,
+                                contentDescription = stringResource(R.string.common_search),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         SortDropdownMenu(
                             items = ArtistSortMode.entries.map { mode ->
                                 SortDropdownItem(
@@ -451,14 +461,6 @@ fun ArtistListScreen(
                                 )
                             }
                         )
-                        IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                            Icon(
-                                imageVector = MiuixIcons.Basic.Search,
-                                contentDescription = stringResource(R.string.common_search),
-                                tint = MiuixTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
                     }
                 }
             )
@@ -622,7 +624,7 @@ fun ArtistListScreen(
                     onSelectAll = ::toggleSelectAllVisibleArtists,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 22.dp, bottom = 118.dp)
+                        .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
                 )
             }
         }

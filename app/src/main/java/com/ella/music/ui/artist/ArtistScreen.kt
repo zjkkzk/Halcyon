@@ -77,6 +77,8 @@ import com.ella.music.ui.components.DefaultAlbumCover
 import com.ella.music.ui.components.DoubleTapScrollOverlay
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.LazyListScrollIndicator
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SafeCoverImage
 import com.ella.music.ui.components.EllaMiuixBottomSheet
@@ -750,7 +752,7 @@ fun ArtistScreen(
             locateRequest = locateCurrentSongRequest,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 22.dp, bottom = 118.dp)
+                .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
         )
         FloatingSelectionControls(
             visible = selectionMode && selectedArtistTab == ArtistTab.Songs && sortedArtistSongs.isNotEmpty(),
@@ -760,7 +762,7 @@ fun ArtistScreen(
             onSelectAll = ::toggleSelectAllVisibleSongs,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 22.dp, bottom = 118.dp)
+                .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
         )
 
         SongMoreActionHost(

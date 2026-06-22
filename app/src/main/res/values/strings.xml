@@ -300,6 +300,8 @@
     <string name="settings_open_player_on_play_summary">本地、WebDAV 和在线歌曲点播放后自动打开播放界面</string>
     <string name="settings_show_play_next_in_lists">列表中显示下一首播放</string>
     <string name="settings_show_play_next_in_lists_summary">在歌曲列表的时长左侧显示快捷按钮；关闭后仍可从歌曲菜单操作</string>
+    <string name="settings_auto_show_search_keyboard">点击搜索按钮自动弹出输入法</string>
+    <string name="settings_auto_show_search_keyboard_summary">关闭后仅展开搜索栏，不再自动聚焦并弹出键盘</string>
 
     <string name="share_song">分享歌曲</string>
     <string name="share_no_available_app">没有可用的分享应用</string>

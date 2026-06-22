@@ -93,6 +93,7 @@ internal fun SettingsAppearanceSection(
     )
     val playlistSpecialEntriesVisible by settingsManager.playlistSpecialEntriesVisible.collectAsState(initial = false)
     val showPlayNextInLists by settingsManager.showPlayNextInLists.collectAsState(initial = false)
+    val autoShowSearchKeyboard by settingsManager.autoShowSearchKeyboard.collectAsState(initial = true)
     val openPlayerOnPlay by settingsManager.openPlayerOnPlay.collectAsState(initial = false)
     val categoryGridColumns by settingsManager.categoryGridColumns.collectAsState(initial = 2)
     val playerBgTheme by settingsManager.playerBackgroundTheme.collectAsState(initial = SettingsManager.PLAYER_BG_THEME_FOLLOW_SYSTEM)
@@ -542,6 +543,14 @@ internal fun SettingsAppearanceSection(
                 checked = showPlayNextInLists,
                 onCheckedChange = {
                     scope.launch { settingsManager.setShowPlayNextInLists(it) }
+                }
+            )
+            SwitchPreference(
+                title = stringResource(R.string.settings_auto_show_search_keyboard),
+                summary = stringResource(R.string.settings_auto_show_search_keyboard_summary),
+                checked = autoShowSearchKeyboard,
+                onCheckedChange = {
+                    scope.launch { settingsManager.setAutoShowSearchKeyboard(it) }
                 }
             )
             SwitchPreference(

@@ -148,6 +148,25 @@ fun FolderScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToScanSettings) {
+                        Icon(
+                            imageVector = MiuixIcons.Regular.Settings,
+                            contentDescription = stringResource(R.string.folder_scan_settings),
+                            tint = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Icon(
+                            imageVector = MiuixIcons.Basic.Search,
+                            contentDescription = stringResource(R.string.common_search),
+                            tint = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     SortDropdownMenu(
                         items = FolderListSortMode.entries.map { mode ->
                             SortDropdownItem(
@@ -160,25 +179,6 @@ fun FolderScreen(
                             )
                         }
                     )
-                    IconButton(onClick = {
-                        searchExpanded = !searchExpanded
-                        if (!searchExpanded) searchQuery = ""
-                    }) {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.Search,
-                            contentDescription = stringResource(R.string.common_search),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = onNavigateToScanSettings) {
-                        Icon(
-                            imageVector = MiuixIcons.Regular.Settings,
-                            contentDescription = stringResource(R.string.folder_scan_settings),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                 }
             )
             DoubleTapScrollOverlay(

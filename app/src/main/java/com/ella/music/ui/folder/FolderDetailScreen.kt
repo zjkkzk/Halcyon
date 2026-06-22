@@ -74,6 +74,8 @@ import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FolderOutlineIcon
 import com.ella.music.ui.components.FloatingSelectionControls
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SideIndexListEndPadding
@@ -429,6 +431,14 @@ fun FolderDetailScreen(
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                    IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                        Icon(
+                            imageVector = MiuixIcons.Basic.Search,
+                            contentDescription = stringResource(R.string.common_search),
+                            tint = MiuixTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     SortDropdownMenu(
                         items = FolderSongSortMode.entries.map { mode ->
                             SortDropdownItem(
@@ -441,14 +451,6 @@ fun FolderDetailScreen(
                             )
                         }
                     )
-                    IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.Search,
-                            contentDescription = stringResource(R.string.common_search),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                 }
             }
             DoubleTapScrollOverlay(
@@ -668,7 +670,7 @@ fun FolderDetailScreen(
                     locateRequest = locateCurrentSongRequest,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 22.dp, bottom = 118.dp)
+                        .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
                 )
                 FloatingSelectionControls(
                     visible = selectionMode && sortedSongs.isNotEmpty(),
@@ -678,7 +680,7 @@ fun FolderDetailScreen(
                     onSelectAll = ::toggleSelectAllVisibleSongs,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 22.dp, bottom = 118.dp)
+                        .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
                 )
             }
         }

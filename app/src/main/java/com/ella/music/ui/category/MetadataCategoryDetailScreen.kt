@@ -92,6 +92,8 @@ import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.FastIndexBar
 import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.FolderOutlineIcon
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LazyGridScrollIndicator
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
@@ -717,7 +719,7 @@ fun MetadataCategoryDetailScreen(
                 locateRequest = locateCurrentSongRequest,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 118.dp)
+                    .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
             )
             FloatingSelectionControls(
                 visible = selectionMode && selectedTab == MetadataDetailTab.Songs && sortedSongs.isNotEmpty(),
@@ -727,7 +729,7 @@ fun MetadataCategoryDetailScreen(
                 onSelectAll = ::toggleSelectAllVisibleSongs,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 118.dp)
+                    .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
             )
 
             SongMoreActionHost(

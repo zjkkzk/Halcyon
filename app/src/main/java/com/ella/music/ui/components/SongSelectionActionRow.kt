@@ -22,6 +22,9 @@ import com.ella.music.R
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+internal val LibraryFloatingControlsBottomPadding = 156.dp
+internal val LibraryFloatingControlsEndPadding = 22.dp
+
 @Composable
 fun SongSelectionActionRow(
     selectedCount: Int,

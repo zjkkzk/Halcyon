@@ -126,11 +126,10 @@ internal fun PlaylistScreenTopBar(
                         )
                     }
                 } else {
-                    SortDropdownMenu(items = sortItems)
                     PlaylistTopBarIcon(
-                        icon = MiuixIcons.Basic.Search,
-                        contentDescription = stringResource(R.string.common_search),
-                        onClick = onSearchClick
+                        icon = MiuixIcons.Regular.Share,
+                        contentDescription = stringResource(R.string.playlist_export_all_title),
+                        onClick = onExportAllClick
                     )
                     PlaylistTopBarIcon(
                         icon = MiuixIcons.Regular.Download,
@@ -138,10 +137,11 @@ internal fun PlaylistScreenTopBar(
                         onClick = onImportClick
                     )
                     PlaylistTopBarIcon(
-                        icon = MiuixIcons.Regular.Share,
-                        contentDescription = stringResource(R.string.playlist_export_all_title),
-                        onClick = onExportAllClick
+                        icon = MiuixIcons.Basic.Search,
+                        contentDescription = stringResource(R.string.common_search),
+                        onClick = onSearchClick
                     )
+                    SortDropdownMenu(items = sortItems)
                 }
             }
         )

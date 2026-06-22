@@ -98,15 +98,6 @@ internal fun PlaylistDetailTopBar(
                     }
                 }
             } else {
-                SortDropdownMenu(items = sortItems)
-                IconButton(onClick = onSearchClick) {
-                    Icon(
-                        imageVector = MiuixIcons.Basic.Search,
-                        contentDescription = stringResource(R.string.common_search),
-                        tint = MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
                 if (showExport) {
                     IconButton(onClick = onExportClick) {
                         Icon(
@@ -117,6 +108,15 @@ internal fun PlaylistDetailTopBar(
                         )
                     }
                 }
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        imageVector = MiuixIcons.Basic.Search,
+                        contentDescription = stringResource(R.string.common_search),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                SortDropdownMenu(items = sortItems)
             }
         }
     )
