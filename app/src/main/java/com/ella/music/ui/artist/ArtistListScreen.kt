@@ -32,7 +32,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -514,26 +513,10 @@ fun ArtistListScreen(
                 Text(text = stringResource(R.string.artist_list_empty), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             }
         } else {
-            val artistScrollKey = remember(sortMode) { sortMode.name }
-            val savedArtistScroll = remember(artistScrollKey) {
-                LibrarySortUiState.artistListScrollPositions[artistScrollKey]
-                    ?: (LibrarySortUiState.artistListFirstVisibleItemIndex to LibrarySortUiState.artistListFirstVisibleItemScrollOffset)
-            }
-            val listState = rememberLazyListState(
-                initialFirstVisibleItemIndex = savedArtistScroll.first,
-                initialFirstVisibleItemScrollOffset = savedArtistScroll.second
-            )
+            val listState = rememberLazyListState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
-            }
-            LaunchedEffect(artistScrollKey, listState) {
-                snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                    .collect { (index, offset) ->
-                        LibrarySortUiState.artistListFirstVisibleItemIndex = index
-                        LibrarySortUiState.artistListFirstVisibleItemScrollOffset = offset
-                        LibrarySortUiState.artistListScrollPositions[artistScrollKey] = index to offset
-                    }
             }
             val fastIndexLetters = remember(filteredArtists) {
                 filteredArtists.map { it.indexLetter() }

@@ -25,9 +25,36 @@ internal enum class MetadataCategorySortMode {
     DateModifiedAsc
 }
 
+internal enum class MetadataCategorySortField {
+    Name,
+    SongCount,
+    AlbumCount,
+    Duration,
+    DateModified
+}
+
+@Composable
+internal fun MetadataCategorySortField.displayLabel(type: String): String {
+    val context = LocalContext.current
+    return when (this) {
+        MetadataCategorySortField.Name -> if (type == "year") {
+            context.getString(R.string.category_year)
+        } else {
+            context.getString(R.string.category_sort_name)
+        }
+        MetadataCategorySortField.SongCount -> context.getString(R.string.playlist_sort_song_count)
+        MetadataCategorySortField.AlbumCount -> if (type == "composer" || type == "lyricist") {
+            context.getString(R.string.category_sort_participating_albums)
+        } else {
+            context.getString(R.string.category_sort_album_count)
+        }
+        MetadataCategorySortField.Duration -> context.getString(R.string.playlist_sort_duration)
+        MetadataCategorySortField.DateModified -> context.getString(R.string.playlist_song_sort_date_modified)
+    }
+}
+
 internal fun MetadataCategorySortMode.availableFor(type: String): Boolean {
     return when (this) {
-        MetadataCategorySortMode.NameDesc -> type == "year"
         MetadataCategorySortMode.DateModified,
         MetadataCategorySortMode.DateModifiedAsc -> type == "folder"
         else -> true
@@ -39,16 +66,23 @@ internal fun MetadataCategorySortMode.displayLabel(type: String): String {
     val context = LocalContext.current
     return when {
         type == "year" && this == MetadataCategorySortMode.Name -> context.getString(R.string.category_sort_year_asc)
+        type == "year" && this == MetadataCategorySortMode.NameDesc -> context.getString(R.string.category_sort_year_desc)
         (type == "composer" || type == "lyricist") && this == MetadataCategorySortMode.AlbumCount -> context.getString(R.string.category_sort_participating_albums)
         else -> context.getString(when (this) {
             MetadataCategorySortMode.Name -> R.string.category_sort_name
-            MetadataCategorySortMode.NameDesc -> R.string.category_sort_year_desc
+            MetadataCategorySortMode.NameDesc -> R.string.category_sort_name
             MetadataCategorySortMode.SongCount -> R.string.playlist_sort_song_count
             MetadataCategorySortMode.AlbumCount -> R.string.category_sort_album_count
             MetadataCategorySortMode.Duration -> R.string.playlist_sort_duration
             MetadataCategorySortMode.DateModified -> R.string.playlist_song_sort_date_modified
             MetadataCategorySortMode.DateModifiedAsc -> R.string.category_sort_date_modified_asc
-        })
+        }).let { base ->
+            if (this == MetadataCategorySortMode.NameDesc) {
+                "$base · ${context.getString(R.string.common_sort_descending)}"
+            } else {
+                base
+            }
+        }
     }
 }
 
@@ -60,13 +94,44 @@ internal fun List<MetadataCategoryItem>.sortedForCategory(
         (if (type == "folder") name.substringAfterLast('/').ifBlank { name } else name).musicSortKey()
     return when (mode) {
         MetadataCategorySortMode.Name -> sortedBy { it.nameSortKey() }
-        MetadataCategorySortMode.NameDesc -> sortedByDescending { it.name.toIntOrNull() ?: Int.MIN_VALUE }
+        MetadataCategorySortMode.NameDesc -> if (type == "year") {
+            sortedByDescending { it.name.toIntOrNull() ?: Int.MIN_VALUE }
+        } else {
+            sortedByDescending { it.nameSortKey() }
+        }
         MetadataCategorySortMode.SongCount -> sortedByDescending { it.songCount }
         MetadataCategorySortMode.AlbumCount -> sortedByDescending { it.albumCount }
         MetadataCategorySortMode.Duration -> sortedByDescending { it.duration }
         MetadataCategorySortMode.DateModified -> sortedByDescending { it.dateModified }
         MetadataCategorySortMode.DateModifiedAsc -> sortedBy { it.dateModified }
     }
+}
+
+internal fun MetadataCategorySortMode.sortField(): MetadataCategorySortField = when (this) {
+    MetadataCategorySortMode.Name,
+    MetadataCategorySortMode.NameDesc -> MetadataCategorySortField.Name
+    MetadataCategorySortMode.SongCount -> MetadataCategorySortField.SongCount
+    MetadataCategorySortMode.AlbumCount -> MetadataCategorySortField.AlbumCount
+    MetadataCategorySortMode.Duration -> MetadataCategorySortField.Duration
+    MetadataCategorySortMode.DateModified,
+    MetadataCategorySortMode.DateModifiedAsc -> MetadataCategorySortField.DateModified
+}
+
+internal fun MetadataCategorySortMode.isDescending(): Boolean = when (this) {
+    MetadataCategorySortMode.NameDesc,
+    MetadataCategorySortMode.SongCount,
+    MetadataCategorySortMode.AlbumCount,
+    MetadataCategorySortMode.Duration,
+    MetadataCategorySortMode.DateModified -> true
+    else -> false
+}
+
+internal fun MetadataCategorySortField.toMode(descending: Boolean): MetadataCategorySortMode = when (this) {
+    MetadataCategorySortField.Name -> if (descending) MetadataCategorySortMode.NameDesc else MetadataCategorySortMode.Name
+    MetadataCategorySortField.SongCount -> MetadataCategorySortMode.SongCount
+    MetadataCategorySortField.AlbumCount -> MetadataCategorySortMode.AlbumCount
+    MetadataCategorySortField.Duration -> MetadataCategorySortMode.Duration
+    MetadataCategorySortField.DateModified -> if (descending) MetadataCategorySortMode.DateModified else MetadataCategorySortMode.DateModifiedAsc
 }
 
 internal fun MetadataCategoryItem.matchesCategorySearch(query: String, type: String): Boolean {

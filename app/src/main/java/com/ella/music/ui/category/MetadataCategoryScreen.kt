@@ -49,7 +49,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,7 +71,6 @@ import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.UserPlaylist
 import com.ella.music.data.model.playlistIdentityKey
-import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.MetadataCategoryItem
 import com.ella.music.viewmodel.PlayerViewModel
@@ -83,24 +81,30 @@ import com.ella.music.ui.components.createPlaylistOrShowDuplicateToast
 import com.ella.music.ui.components.rememberSongDeleteRequester
 import com.ella.music.ui.components.shareLocalSongs
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.DirectionalSortField
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixSheetActions
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.FastIndexBar
+import com.ella.music.ui.components.FloatingSelectionControls
 import com.ella.music.ui.components.LazyGridScrollIndicator
+import com.ella.music.ui.components.LibraryFloatingControlsBottomPadding
+import com.ella.music.ui.components.LibraryFloatingControlsEndPadding
 import com.ella.music.ui.components.LocateCurrentSongFloatingButton
 import com.ella.music.ui.components.SideIndexListEndPadding
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SongMoreActionHost
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
+import com.ella.music.ui.components.directionalSortDropdownItems
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.wallpaperContentOverlayColor
 import com.ella.music.ui.components.requestPinnedEllaShortcut
 import com.ella.music.ui.folder.FolderBlockDialog
 import com.ella.music.ui.folder.normalizeFolderPath
 import com.ella.music.ui.folder.toFolderSettingList
+import com.ella.music.ui.listmodel.SortDirection
 import com.ella.music.ui.navigation.Screen
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Icon
@@ -112,6 +116,7 @@ import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.icon.extended.Sort
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -164,6 +169,8 @@ fun MetadataCategoryScreen(
     }
     var searchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedNames by remember { mutableStateOf(setOf<String>()) }
     var categoryMenuItem by remember { mutableStateOf<MetadataCategoryItem?>(null) }
     var folderToBlock by remember { mutableStateOf<String?>(null) }
     var playlistPickerSongs by remember { mutableStateOf<List<Song>?>(null) }
@@ -187,30 +194,53 @@ fun MetadataCategoryScreen(
         gridColumns.coerceIn(1, 4)
     }
     val pageBackground = ellaPageBackground()
-    val categoryScrollKey = remember(type, sortMode) { "$type\u0000${sortMode.name}" }
-    val savedCategoryScroll = remember(categoryScrollKey) {
-        LibrarySortUiState.metadataCategoryScrollPositions[categoryScrollKey] ?: (0 to 0)
-    }
-    val gridState = rememberLazyGridState(
-        initialFirstVisibleItemIndex = savedCategoryScroll.first,
-        initialFirstVisibleItemScrollOffset = savedCategoryScroll.second
-    )
+    val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(categoryScrollKey, gridState) {
-        snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
-            .collect { position ->
-                LibrarySortUiState.metadataCategoryScrollPositions[categoryScrollKey] = position
-            }
+    val currentSelectionKeys = remember(displayedItems) { displayedItems.map { it.name } }
+    fun clearSelection() {
+        selectionMode = false
+        selectedNames = emptySet()
     }
-    BackHandler(enabled = sortExpanded || searchExpanded || folderToBlock != null) {
+    fun toggleSelection(name: String) {
+        val next = if (name in selectedNames) selectedNames - name else selectedNames + name
+        selectedNames = next
+        if (next.isEmpty()) selectionMode = false
+    }
+    fun selectedActionSongs(): List<Song> =
+        selectedNames
+            .asSequence()
+            .flatMap { categoryName -> mainViewModel.getSongsForMetadataCategory(type, categoryName).asSequence() }
+            .distinctBy { it.playlistIdentityKey() }
+            .toList()
+    fun toggleSelectAllVisibleItems() {
+        if (currentSelectionKeys.isEmpty()) return
+        val visible = currentSelectionKeys.toSet()
+        selectedNames = if (visible.all { it in selectedNames }) {
+            selectedNames - visible
+        } else {
+            selectedNames + visible
+        }
+        selectionMode = selectedNames.isNotEmpty()
+    }
+    val selectedVisibleCount = remember(selectedNames, currentSelectionKeys) {
+        currentSelectionKeys.count { it in selectedNames }
+    }
+    BackHandler(enabled = selectionMode || sortExpanded || searchExpanded || folderToBlock != null) {
         when {
             folderToBlock != null -> folderToBlock = null
+            selectionMode -> clearSelection()
             searchExpanded -> {
                 searchExpanded = false
                 searchQuery = ""
             }
             sortExpanded -> sortExpanded = false
         }
+    }
+    LaunchedEffect(selectionMode, currentSelectionKeys) {
+        if (!selectionMode) return@LaunchedEffect
+        val visibleKeys = currentSelectionKeys.toSet()
+        selectedNames = selectedNames.filterTo(linkedSetOf()) { it in visibleKeys }
+        if (selectedNames.isEmpty()) selectionMode = false
     }
 
     val overlayColor = wallpaperContentOverlayColor()
@@ -229,11 +259,15 @@ fun MetadataCategoryScreen(
         ) {
         Box {
             EllaSmallTopAppBar(
-                title = type.categoryTitle(),
+                title = if (selectionMode) {
+                    context.getString(R.string.library_selected_fraction, selectedNames.size, currentSelectionKeys.size)
+                } else {
+                    type.categoryTitle()
+                },
                 color = pageBackground,
                 navigationIcon = {
                     if (showBackButton) {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = { if (selectionMode) clearSelection() else onBack() }) {
                             Icon(
                                 imageVector = MiuixIcons.Regular.Back,
                                 contentDescription = stringResource(R.string.common_back),
@@ -244,28 +278,110 @@ fun MetadataCategoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        searchExpanded = !searchExpanded
-                        if (!searchExpanded) searchQuery = ""
-                    }) {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.Search,
-                            contentDescription = stringResource(R.string.common_search),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    SortDropdownMenu(
-                        items = availableSortModes.map { mode ->
-                            SortDropdownItem(
-                                text = mode.displayLabel(type),
-                                selected = sortMode == mode,
-                                onClick = {
-                                    scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
-                                }
+                    if (selectionMode) {
+                        IconButton(onClick = {
+                            val selectedSongs = selectedActionSongs()
+                            if (selectedSongs.isEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                            } else {
+                                playerViewModel.playNext(selectedSongs)
+                                Toast.makeText(context, context.getString(R.string.song_more_added_to_play_next), Toast.LENGTH_SHORT).show()
+                                clearSelection()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Play,
+                                contentDescription = stringResource(R.string.song_more_play_next),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
-                    )
+                        IconButton(onClick = {
+                            val selectedSongs = selectedActionSongs()
+                            if (selectedSongs.isEmpty()) {
+                                Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                            } else {
+                                playlistPickerSongs = selectedSongs
+                            }
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.Add,
+                                contentDescription = stringResource(R.string.song_more_add_to_playlist),
+                                tint = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        if (type != "folder") {
+                            IconButton(onClick = {
+                                val selectedSongs = selectedActionSongs()
+                                if (selectedSongs.isEmpty()) {
+                                    Toast.makeText(context, context.getString(R.string.library_select_songs_first), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    pendingDeleteSongs = selectedSongs
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = MiuixIcons.Regular.Delete,
+                                    contentDescription = stringResource(R.string.common_delete),
+                                    tint = Color(0xFFE5484D),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            selectionMode = true
+                            selectedNames = emptySet()
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Regular.SelectAll,
+                                contentDescription = stringResource(R.string.common_multi_select),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        IconButton(onClick = {
+                            searchExpanded = !searchExpanded
+                            if (!searchExpanded) searchQuery = ""
+                        }) {
+                            Icon(
+                                imageVector = MiuixIcons.Basic.Search,
+                                contentDescription = stringResource(R.string.common_search),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        SortDropdownMenu(
+                            items = directionalSortDropdownItems(
+                                fields = MetadataCategorySortField.entries
+                                    .filter { field ->
+                                        field != MetadataCategorySortField.DateModified || type == "folder"
+                                    }
+                                    .map { field ->
+                                        DirectionalSortField(
+                                            field = field,
+                                            text = field.displayLabel(type),
+                                            defaultDirection = when (field) {
+                                                MetadataCategorySortField.Name -> SortDirection.Ascending
+                                                MetadataCategorySortField.DateModified,
+                                                MetadataCategorySortField.SongCount,
+                                                MetadataCategorySortField.AlbumCount,
+                                                MetadataCategorySortField.Duration -> SortDirection.Descending
+                                            },
+                                            supportsAscending = field == MetadataCategorySortField.Name || field == MetadataCategorySortField.DateModified,
+                                            supportsDescending = true
+                                        )
+                                    },
+                                selectedField = sortMode.sortField(),
+                                selectedDirection = if (sortMode.isDescending()) SortDirection.Descending else SortDirection.Ascending,
+                                ascendingSummary = stringResource(R.string.common_sort_ascending),
+                                descendingSummary = stringResource(R.string.common_sort_descending)
+                            ) { field, direction ->
+                                val mode = field.toMode(direction == SortDirection.Descending)
+                                scope.launch { mainViewModel.settingsManager.setMetadataCategorySortIndex(type, availableSortModes.indexOf(mode)) }
+                            }
+                        )
+                    }
                 }
             )
             DoubleTapScrollOverlay(
@@ -273,7 +389,7 @@ fun MetadataCategoryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                endPadding = 112.dp
+                endPadding = 208.dp
             )
         }
 
@@ -372,9 +488,20 @@ fun MetadataCategoryScreen(
                             albumArtUri = albumArtUri,
                             representativeSong = item.representativeSong,
                             loadCoverArt = if (type.prefersEmbeddedCategoryCardCover()) mainViewModel::getAlbumCoverArtBitmap else null,
+                            selectionMode = selectionMode,
+                            selected = item.name in selectedNames,
                             isPinned = item.name in pinnedCategoryKeys,
-                            onClick = { onCategoryClick(item.name) },
-                            onLongClick = { categoryMenuItem = item }
+                            onClick = {
+                                if (selectionMode) toggleSelection(item.name) else onCategoryClick(item.name)
+                            },
+                            onLongClick = {
+                                if (selectionMode) {
+                                    toggleSelection(item.name)
+                                } else {
+                                    selectionMode = true
+                                    selectedNames = selectedNames + item.name
+                                }
+                            }
                         )
                     }
                 }
@@ -401,6 +528,16 @@ fun MetadataCategoryScreen(
                             .fillMaxHeight()
                     )
                 }
+                FloatingSelectionControls(
+                    visible = selectionMode && currentSelectionKeys.isNotEmpty(),
+                    rangeEnabled = false,
+                    allSelected = currentSelectionKeys.isNotEmpty() && selectedVisibleCount == currentSelectionKeys.size,
+                    onRangeSelect = {},
+                    onSelectAll = ::toggleSelectAllVisibleItems,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = LibraryFloatingControlsEndPadding, bottom = LibraryFloatingControlsBottomPadding)
+                )
             }
         }
     }

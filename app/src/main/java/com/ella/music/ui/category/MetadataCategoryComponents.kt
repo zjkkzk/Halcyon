@@ -3,6 +3,7 @@ package com.ella.music.ui.category
 import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,8 @@ internal fun MetadataCategoryCard(
     albumArtUri: android.net.Uri?,
     representativeSong: Song? = null,
     loadCoverArt: ((Song) -> Bitmap?)? = null,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
     isPinned: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit
@@ -74,6 +77,8 @@ internal fun MetadataCategoryCard(
                 item = item,
                 sortMode = sortMode,
                 coverModel = coverModel,
+                selectionMode = selectionMode,
+                selected = selected,
                 isPinned = isPinned,
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -85,6 +90,8 @@ internal fun MetadataCategoryCard(
                 item = item,
                 sortMode = sortMode,
                 coverModel = coverModel,
+                selectionMode = selectionMode,
+                selected = selected,
                 isPinned = isPinned,
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -117,6 +124,11 @@ internal fun MetadataCategoryCard(
                         cardColor.darkenCategoryColor(0.78f)
                     )
                 )
+            )
+            .border(
+                width = if (selected) 2.dp else 0.dp,
+                color = if (selected) MiuixTheme.colorScheme.primary else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
             )
     ) {
         Box(
@@ -154,6 +166,14 @@ internal fun MetadataCategoryCard(
                             colors = listOf(Color.Transparent, cardColor.copy(alpha = 0.16f), Color.Black.copy(alpha = 0.16f))
                         )
                     )
+            )
+        }
+        if (selectionMode) {
+            SelectionBadge(
+                selected = selected,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
             )
         }
         Column(
@@ -213,6 +233,8 @@ private fun FolderCategoryRow(
     item: MetadataCategoryItem,
     sortMode: MetadataCategorySortMode,
     coverModel: Any?,
+    selectionMode: Boolean,
+    selected: Boolean,
     isPinned: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit
@@ -220,6 +242,8 @@ private fun FolderCategoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -283,6 +307,10 @@ private fun FolderCategoryRow(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        if (selectionMode) {
+            Spacer(modifier = Modifier.size(8.dp))
+            SelectionBadge(selected = selected)
+        }
     }
 }
 
@@ -292,6 +320,8 @@ private fun PersonCategoryRow(
     item: MetadataCategoryItem,
     sortMode: MetadataCategorySortMode,
     coverModel: Any?,
+    selectionMode: Boolean,
+    selected: Boolean,
     isPinned: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit
@@ -300,6 +330,8 @@ private fun PersonCategoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(76.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -362,6 +394,41 @@ private fun PersonCategoryRow(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (selectionMode) {
+            Spacer(modifier = Modifier.size(8.dp))
+            SelectionBadge(selected = selected)
+        }
+    }
+}
+
+@Composable
+private fun SelectionBadge(
+    selected: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .background(
+                if (selected) MiuixTheme.colorScheme.primary
+                else MiuixTheme.colorScheme.surfaceContainer
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.48f),
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            Text(
+                text = "✓",
+                color = MiuixTheme.colorScheme.onPrimary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
             )
         }
     }

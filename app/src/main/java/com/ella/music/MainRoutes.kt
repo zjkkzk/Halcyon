@@ -3,6 +3,8 @@ package com.ella.music
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import com.ella.music.ui.navigation.EXTRA_SHORTCUT_ROUTE
 import com.ella.music.ui.navigation.Screen
 import com.ella.music.ui.navigation.SHORTCUT_ACTION_PLAY
@@ -122,6 +124,19 @@ internal fun String?.matchesRoute(route: String): Boolean {
         route.isTopLevelRoute(Screen.Album.baseRoute) -> this.isTopLevelRoute(Screen.Album.baseRoute)
         route.metadataCategoryType() != null -> this.metadataCategoryType() == route.metadataCategoryType()
         else -> this == route
+    }
+}
+
+internal fun NavHostController.navigateBottomDockRoute(
+    route: String,
+    currentRoute: String?
+) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = currentRoute.isBottomDockRoute()
+        }
+        launchSingleTop = true
+        restoreState = route.isBottomDockRoute()
     }
 }
 

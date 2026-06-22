@@ -52,7 +52,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -269,21 +268,7 @@ fun MetadataCategoryDetailScreen(
     val pageTitle = remember(type, name, folderRootName, defaultCategoryTitle) {
         if (type == "folder") name.folderDisplayName(folderRootName) else name.ifBlank { defaultCategoryTitle }
     }
-    val detailScrollKey = remember(type, name, selectedTab, sortMode, albumSortMode) {
-        val activeSort = if (selectedTab == MetadataDetailTab.Albums) {
-            albumSortMode.name
-        } else {
-            sortMode.name
-        }
-        "$type\u0000$name\u0000${selectedTab.name}\u0000$activeSort"
-    }
-    val savedDetailScroll = remember(detailScrollKey) {
-        LibrarySortUiState.metadataCategoryDetailScrollPositions[detailScrollKey] ?: (0 to 0)
-    }
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = savedDetailScroll.first,
-        initialFirstVisibleItemScrollOffset = savedDetailScroll.second
-    )
+    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var fastScrollJob by remember { mutableStateOf<Job?>(null) }
     val deleteRequestLauncher = rememberLauncherForActivityResult(
@@ -432,21 +417,6 @@ fun MetadataCategoryDetailScreen(
             )
         }
     }
-    LaunchedEffect(detailScrollKey) {
-        val position = LibrarySortUiState.metadataCategoryDetailScrollPositions[detailScrollKey] ?: (0 to 0)
-        if (listState.firstVisibleItemIndex != position.first ||
-            listState.firstVisibleItemScrollOffset != position.second
-        ) {
-            listState.scrollToItem(position.first, position.second)
-        }
-    }
-    LaunchedEffect(detailScrollKey, listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect { position ->
-                LibrarySortUiState.metadataCategoryDetailScrollPositions[detailScrollKey] = position
-            }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -573,7 +543,7 @@ fun MetadataCategoryDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                endPadding = 176.dp
+                endPadding = 208.dp
             )
         }
 

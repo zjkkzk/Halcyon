@@ -190,17 +190,8 @@ fun AppNavigation(
             )
         }
     ) {
-        fun navigateTopLevel(route: String) {
+        fun navigateRestorableTopLevel(route: String) {
             navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = false
-                }
-                launchSingleTop = true
-            }
-        }
-
-        fun navigateAlbumCategory() {
-            navController.navigate(Screen.Album.createRoute()) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true
                 }
@@ -213,19 +204,19 @@ fun AppNavigation(
             HomeScreen(
                 mainViewModel = mainViewModel,
                 playerViewModel = playerViewModel,
-                onNavigateToLibrary = { navigateTopLevel(Screen.Library.route) },
-                onNavigateToArtist = { navController.navigate(Screen.Artist.createRoute()) },
-                onNavigateToAlbum = { navigateAlbumCategory() },
-                onNavigateToFolder = { navController.navigate(Screen.Folder.createRoute()) },
-                onNavigateToFolderPlaylists = { navController.navigate(Screen.FolderPlaylists.route) },
-                onNavigateToPlaylists = { navController.navigate(Screen.Playlists.createRoute()) },
+                onNavigateToLibrary = { navigateRestorableTopLevel(Screen.Library.route) },
+                onNavigateToArtist = { navigateRestorableTopLevel(Screen.Artist.createRoute()) },
+                onNavigateToAlbum = { navigateRestorableTopLevel(Screen.Album.createRoute()) },
+                onNavigateToFolder = { navigateRestorableTopLevel(Screen.Folder.createRoute()) },
+                onNavigateToFolderPlaylists = { navigateRestorableTopLevel(Screen.FolderPlaylists.route) },
+                onNavigateToPlaylists = { navigateRestorableTopLevel(Screen.Playlists.createRoute()) },
                 onNavigateToLxOnline = { navController.navigate(Screen.LxOnline.route) },
                 onNavigateToNavidrome = { navController.navigate(Screen.NavidromeOnline.route) },
                 onNavigateToEmby = { navController.navigate(Screen.EmbyOnline.route) },
                 onNavigateToWebDav = { navController.navigate(Screen.WebDav.route) },
                 onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) },
                 onNavigateToAiChat = { navController.navigate(Screen.AiChat.route) },
-                onNavigateToMetadataCategory = { type -> navController.navigate(Screen.MetadataCategory.createRoute(type)) },
+                onNavigateToMetadataCategory = { type -> navigateRestorableTopLevel(Screen.MetadataCategory.createRoute(type)) },
                 onNavigateToPlayer = onNavigateToPlayer,
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
             )

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.ella.music.R
+import com.ella.music.ui.listmodel.SortDirection
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
@@ -21,6 +22,44 @@ data class SortDropdownItem(
     val summary: String? = null,
     val onClick: () -> Unit
 )
+
+internal data class DirectionalSortField<T>(
+    val field: T,
+    val text: String,
+    val defaultDirection: SortDirection = SortDirection.Ascending,
+    val supportsAscending: Boolean = true,
+    val supportsDescending: Boolean = true
+)
+
+internal fun <T> directionalSortDropdownItems(
+    fields: List<DirectionalSortField<T>>,
+    selectedField: T,
+    selectedDirection: SortDirection,
+    ascendingSummary: String,
+    descendingSummary: String,
+    onSelect: (field: T, direction: SortDirection) -> Unit
+): List<SortDropdownItem> =
+    fields.map { option ->
+        val selected = option.field == selectedField
+        SortDropdownItem(
+            text = option.text,
+            selected = selected,
+            summary = if (selected) {
+                if (selectedDirection == SortDirection.Descending) descendingSummary else ascendingSummary
+            } else {
+                null
+            },
+            onClick = {
+                val nextDirection = when {
+                    !selected -> option.defaultDirection
+                    selectedDirection == SortDirection.Ascending && option.supportsDescending -> SortDirection.Descending
+                    selectedDirection == SortDirection.Descending && option.supportsAscending -> SortDirection.Ascending
+                    else -> option.defaultDirection
+                }
+                onSelect(option.field, nextDirection)
+            }
+        )
+    }
 
 @Composable
 fun SortDropdownMenu(

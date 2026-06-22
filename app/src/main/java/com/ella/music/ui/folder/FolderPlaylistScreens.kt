@@ -1,5 +1,6 @@
 package com.ella.music.ui.folder
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -46,12 +47,16 @@ import com.ella.music.data.model.formatPlaybackDuration
 import com.ella.music.data.model.FolderPlaylist
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.playlistIdentityKey
+import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.ConfirmDangerDialog
+import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.EllaMiuixBottomSheet
 import com.ella.music.ui.components.EllaMiuixMenuItem
 import com.ella.music.ui.components.EllaMiuixTextField
 import com.ella.music.ui.components.EllaSmallTopAppBar
 import com.ella.music.ui.components.FolderOutlineIcon
+import com.ella.music.ui.components.SafeCoverImage
+import com.ella.music.ui.components.ScanRefreshIconButton
 import com.ella.music.ui.components.SongItem
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
@@ -69,6 +74,8 @@ import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Play
+import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -83,12 +90,15 @@ fun FolderPlaylistsScreen(
     val scope = rememberCoroutineScope()
     val songs by mainViewModel.songs.collectAsState()
     val playlists by mainViewModel.settingsManager.folderPlaylists.collectAsState(initial = emptyList())
+    val sortIndex by mainViewModel.settingsManager.folderPlaylistListSortIndex.collectAsState(initial = 2)
+    val sortMode = FolderPlaylistSortMode.entries.getOrElse(sortIndex) { FolderPlaylistSortMode.DateCreatedDesc }
+    val pinnedPlaylistIds by mainViewModel.settingsManager.pinnedKeysFlow("folder_playlist").collectAsState(initial = emptyList())
     val availableFolders = remember(songs) { songs.availableFolderPlaylistFolders() }
     var editorTarget by remember { mutableStateOf<FolderPlaylist?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<FolderPlaylist?>(null) }
-    var sortMode by remember { mutableStateOf(FolderPlaylistSortMode.Name) }
-    var pinnedId by remember { mutableStateOf<String?>(null) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     var moreMenuTarget by remember { mutableStateOf<FolderPlaylist?>(null) }
 
     val songCountMap = remember(playlists, songs) {
@@ -97,13 +107,32 @@ fun FolderPlaylistsScreen(
     val durationMap = remember(playlists, songs) {
         playlists.associateWith { playlist -> songs.songsForFolderPlaylist(playlist.folders).sumOf { it.duration } }
     }
-    val sortedPlaylists = remember(playlists, sortMode, pinnedId, songCountMap, durationMap) {
+    val coverModelMap = remember(playlists, songs) {
+        playlists.associateWith { playlist ->
+            songs.songsForFolderPlaylist(playlist.folders).firstOrNull().folderPlaylistCoverModel()
+        }
+    }
+    val sortedPlaylists = remember(playlists, sortMode, pinnedPlaylistIds, songCountMap, durationMap) {
         playlists.sortedForFolderPlaylists(
             mode = sortMode,
             songCountProvider = { songCountMap[it] ?: 0 },
             durationProvider = { durationMap[it] ?: 0L },
-            pinnedId = pinnedId
+            pinnedIds = pinnedPlaylistIds
         )
+    }
+    val filteredPlaylists = remember(sortedPlaylists, searchQuery) {
+        val query = searchQuery.trim()
+        if (query.isBlank()) {
+            sortedPlaylists
+        } else {
+            sortedPlaylists.filter { playlist ->
+                playlist.name.contains(query, ignoreCase = true) ||
+                    playlist.folders.any { folder ->
+                        folder.contains(query, ignoreCase = true) ||
+                            folder.substringAfterLast('/').contains(query, ignoreCase = true)
+                    }
+            }
+        }
     }
 
     Column(
@@ -128,28 +157,48 @@ fun FolderPlaylistsScreen(
                 }
             },
             actions = {
+                ScanRefreshIconButton(
+                    enabled = true,
+                    onScan = { scope.launch { mainViewModel.scanMusic() } },
+                    onDeepRescan = { scope.launch { mainViewModel.fullRescanMusic() } }
+                )
+                IconButton(onClick = {
+                    searchExpanded = !searchExpanded
+                    if (!searchExpanded) searchQuery = ""
+                }) {
+                    Icon(
+                        imageVector = MiuixIcons.Basic.Search,
+                        contentDescription = stringResource(R.string.common_search),
+                        tint = MiuixTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 SortDropdownMenu(
                     items = FolderPlaylistSortMode.entries.map { mode ->
                         SortDropdownItem(
                             text = stringResource(mode.labelRes),
                             selected = sortMode == mode,
-                            onClick = { sortMode = mode }
+                            onClick = {
+                                LibrarySortUiState.folderPlaylistListSortIndex = mode.ordinal
+                                scope.launch { mainViewModel.settingsManager.setFolderPlaylistListSortIndex(mode.ordinal) }
+                            }
                         )
                     }
                 )
-                IconButton(onClick = {
-                    editorTarget = null
-                    showEditor = true
-                }) {
-                    Icon(
-                        imageVector = MiuixIcons.Regular.Add,
-                        contentDescription = stringResource(R.string.folder_playlist_create),
-                        tint = MiuixTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
             }
         )
+
+        if (searchExpanded) {
+            EllaSearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onSearch = { searchExpanded = false },
+                placeholder = stringResource(R.string.common_search),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            )
+        }
 
         if (playlists.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -168,18 +217,50 @@ fun FolderPlaylistsScreen(
                 }
             }
         } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${filteredPlaylists.size} ${stringResource(R.string.folder_playlist_title)} · ${stringResource(sortMode.labelRes)}",
+                    fontSize = 13.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.common_create),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        editorTarget = null
+                        showEditor = true
+                    }
+                )
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 130.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(sortedPlaylists, key = { it.id }) { playlist ->
+                items(filteredPlaylists, key = { it.id }) { playlist ->
                     val songCount = songCountMap[playlist] ?: 0
+                    val duration = durationMap[playlist] ?: 0L
                     FolderPlaylistCard(
                         playlist = playlist,
                         songCount = songCount,
-                        isPinned = playlist.id == pinnedId,
+                        duration = duration,
+                        coverModel = coverModelMap[playlist],
+                        isPinned = playlist.id in pinnedPlaylistIds,
                         onClick = { onOpenPlaylist(playlist.id) },
+                        onSync = {
+                            scope.launch {
+                                mainViewModel.scanMusicForFolders(playlist.folders)
+                                Toast.makeText(context, R.string.folder_playlist_more_refresh, Toast.LENGTH_SHORT).show()
+                            }
+                        },
                         onMore = { moreMenuTarget = playlist }
                     )
                 }
@@ -198,14 +279,20 @@ fun FolderPlaylistsScreen(
                 EllaMiuixMenuItem(
                     text = stringResource(R.string.folder_playlist_more_pin),
                     onClick = {
-                        pinnedId = if (pinnedId == playlist.id) null else playlist.id
+                        scope.launch {
+                            mainViewModel.settingsManager.setPinned(
+                                "folder_playlist",
+                                playlist.id,
+                                playlist.id !in pinnedPlaylistIds
+                            )
+                        }
                         moreMenuTarget = null
                     }
                 )
                 EllaMiuixMenuItem(
                     text = stringResource(R.string.folder_playlist_more_refresh),
                     onClick = {
-                        scope.launch { mainViewModel.scanMusic() }
+                        scope.launch { mainViewModel.scanMusicForFolders(playlist.folders) }
                         moreMenuTarget = null
                     }
                 )
@@ -417,7 +504,7 @@ fun FolderPlaylistDetailScreen(
             }
             FolderPlaylistTab.Folders -> {
                 val folderEntries = remember(playlist, songs) {
-                    playlist?.folders?.mapNotNull { folderPath ->
+                    playlist.folders.mapNotNull { folderPath ->
                         val normalized = folderPath.normalizeFolderPath()
                         val folderSongs = songs.filter { it.folderPath().normalizeFolderPath().startsWith(normalized) }
                         if (folderSongs.isEmpty()) return@mapNotNull null
@@ -431,7 +518,7 @@ fun FolderPlaylistDetailScreen(
                             albumCount = albumCount,
                             duration = duration
                         )
-                    }.orEmpty()
+                    }
                 }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -564,8 +651,11 @@ fun LinkToFolderPlaylistSheet(
 private fun FolderPlaylistCard(
     playlist: FolderPlaylist,
     songCount: Int,
+    duration: Long,
+    coverModel: Any?,
     isPinned: Boolean,
     onClick: () -> Unit,
+    onSync: () -> Unit,
     onMore: () -> Unit
 ) {
     Card(
@@ -577,10 +667,27 @@ private fun FolderPlaylistCard(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FolderOutlineIcon(
-                tint = if (isPinned) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.size(34.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+            ) {
+                if (coverModel != null) {
+                    SafeCoverImage(
+                        model = coverModel,
+                        contentDescription = playlist.name,
+                        modifier = Modifier.fillMaxSize(),
+                        sizePx = 320
+                    )
+                } else {
+                    FolderOutlineIcon(
+                        tint = if (isPinned) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(9.dp)
+                    )
+                }
+            }
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -595,11 +702,19 @@ private fun FolderPlaylistCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = stringResource(R.string.folder_playlist_card_summary, playlist.folders.size, songCount),
+                    text = stringResource(R.string.folder_playlist_card_summary, playlist.folders.size, songCount) + " · " + duration.formatPlaybackDuration(),
                     fontSize = 13.sp,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = onSync) {
+                Icon(
+                    imageVector = MiuixIcons.Regular.Refresh,
+                    contentDescription = stringResource(R.string.folder_playlist_more_refresh),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             IconButton(onClick = onMore) {
@@ -636,11 +751,19 @@ private fun FolderPlaylistEditorSheet(
         }
     }
 
-    val sortedFilteredFolders = remember(filteredFolders, editorSort) {
-        when (editorSort) {
+    val sortedFilteredFolders = remember(filteredFolders, editorSort, selectedFolders, target?.id) {
+        val base = when (editorSort) {
             EditorFolderSort.Name -> filteredFolders.sortedBy { it.substringAfterLast('/').lowercase() }
             EditorFolderSort.ModifiedTime -> filteredFolders.sortedByDescending { it }
             EditorFolderSort.SongCount -> filteredFolders
+        }
+        if (target == null) {
+            base
+        } else {
+            base.sortedWith(
+                compareByDescending<String> { it in selectedFolders }
+                    .thenBy { base.indexOf(it) }
+            )
         }
     }
 
@@ -748,4 +871,10 @@ private fun List<Song>.songsForFolderPlaylist(folders: List<String>): List<Song>
     }
         .distinctBy { it.playlistIdentityKey() }
         .sortedWith(compareBy<Song> { it.folderPath().musicSortKey() }.thenBy { it.title.musicSortKey() })
+}
+
+private fun Song?.folderPlaylistCoverModel(): Any? {
+    val song = this ?: return null
+    return song.coverUrl.takeIf { it.isNotBlank() }
+        ?: song.albumId.takeIf { it > 0L }?.let { Uri.parse("content://media/external/audio/albumart/$it") }
 }

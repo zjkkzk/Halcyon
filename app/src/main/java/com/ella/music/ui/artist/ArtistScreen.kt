@@ -706,7 +706,7 @@ fun ArtistScreen(
                 },
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(end = 104.dp, top = 8.dp)
+                    .padding(end = 56.dp, top = 8.dp)
                     .size(48.dp)
                     .align(Alignment.TopEnd)
             ) {
@@ -824,7 +824,7 @@ fun ArtistScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             startPadding = 64.dp,
-            endPadding = 160.dp
+            endPadding = 208.dp
         )
 
         if (selectionMode) {

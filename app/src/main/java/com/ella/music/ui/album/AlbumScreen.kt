@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -373,7 +372,7 @@ fun AlbumScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                endPadding = 112.dp
+                endPadding = 208.dp
             )
         }
 
@@ -433,26 +432,10 @@ fun AlbumScreen(
                 )
             }
         } else {
-            val albumScrollKey = remember(sortMode) { sortMode.name }
-            val savedAlbumScroll = remember(albumScrollKey) {
-                LibrarySortUiState.albumListScrollPositions[albumScrollKey]
-                    ?: (LibrarySortUiState.albumListFirstVisibleItemIndex to LibrarySortUiState.albumListFirstVisibleItemScrollOffset)
-            }
-            val gridState = rememberLazyGridState(
-                initialFirstVisibleItemIndex = savedAlbumScroll.first,
-                initialFirstVisibleItemScrollOffset = savedAlbumScroll.second
-            )
+            val gridState = rememberLazyGridState()
             var fastScrollJob by remember { mutableStateOf<Job?>(null) }
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) gridState.animateScrollToItem(0)
-            }
-            LaunchedEffect(albumScrollKey, gridState) {
-                snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
-                    .collect { (index, offset) ->
-                        LibrarySortUiState.albumListFirstVisibleItemIndex = index
-                        LibrarySortUiState.albumListFirstVisibleItemScrollOffset = offset
-                        LibrarySortUiState.albumListScrollPositions[albumScrollKey] = index to offset
-                    }
             }
             val fastIndexLetters = remember(sortedAlbums, sortMode) {
                 sortedAlbums.map { it.indexLetter(sortMode) }

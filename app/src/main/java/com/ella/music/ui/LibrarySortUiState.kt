@@ -22,6 +22,7 @@ object LibrarySortUiState {
     var folderListFirstVisibleItemScrollOffset by mutableIntStateOf(0)
     val folderListScrollPositions = mutableMapOf<String, Pair<Int, Int>>()
     var folderDetailSongSortIndex by mutableIntStateOf(0)
+    var folderPlaylistListSortIndex by mutableIntStateOf(2)
     var playlistListSortIndex by mutableIntStateOf(2)
 
     val metadataCategoryScrollPositions = mutableMapOf<String, Pair<Int, Int>>()

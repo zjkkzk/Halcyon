@@ -569,7 +569,7 @@ fun AlbumDetailScreen(
                 },
                 modifier = Modifier
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(end = 104.dp, top = 8.dp)
+                    .padding(end = 56.dp, top = 8.dp)
                     .size(48.dp)
                     .align(Alignment.TopEnd)
             ) {

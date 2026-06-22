@@ -898,26 +898,14 @@ fun EllaApp(
                     onNavigate = { route ->
                         bottomDockMode = BottomDockMode.Expanded
                         if (!currentRoute.matchesRoute(route)) {
-                            val preserveAlbumState = route.matchesRoute(Screen.Album.createRoute())
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = preserveAlbumState
-                                }
-                                launchSingleTop = true
-                                restoreState = preserveAlbumState
-                            }
+                            navController.navigateBottomDockRoute(route, currentRoute)
                         }
                     },
                     onNavigateSearch = {
                         bottomDockMode = BottomDockMode.Expanded
                         val route = Screen.LibrarySearch.createRoute()
                         if (!currentRoute.matchesRoute(route)) {
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = false
-                                }
-                                launchSingleTop = true
-                            }
+                            navController.navigateBottomDockRoute(route, currentRoute)
                         }
                     },
                     onNavigatePlayer = {

@@ -47,12 +47,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ella.music.ui.LibrarySortUiState
 import com.ella.music.ui.components.DoubleTapScrollOverlay
+import com.ella.music.ui.components.DirectionalSortField
 import com.ella.music.ui.components.EllaSearchBar
 import com.ella.music.ui.components.LazyListScrollIndicator
 import com.ella.music.ui.components.SortDropdownItem
 import com.ella.music.ui.components.SortDropdownMenu
+import com.ella.music.ui.components.directionalSortDropdownItems
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.wallpaperContentOverlayColor
+import com.ella.music.ui.listmodel.SortDirection
 import com.ella.music.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 import com.ella.music.viewmodel.PlayerViewModel
@@ -168,15 +171,30 @@ fun FolderScreen(
                         )
                     }
                     SortDropdownMenu(
-                        items = FolderListSortMode.entries.map { mode ->
-                            SortDropdownItem(
-                                text = stringResource(mode.labelRes),
-                                selected = folderSortMode == mode,
-                                onClick = {
-                                    LibrarySortUiState.folderListSortIndex = mode.ordinal
-                                    scope.launch { mainViewModel.settingsManager.setFolderListSortIndex(mode.ordinal) }
-                                }
-                            )
+                        items = directionalSortDropdownItems(
+                            fields = FolderListSortField.entries.map { field ->
+                                DirectionalSortField(
+                                    field = field,
+                                    text = stringResource(field.labelRes),
+                                    defaultDirection = when (field) {
+                                        FolderListSortField.Name -> SortDirection.Ascending
+                                        FolderListSortField.DateModified,
+                                        FolderListSortField.SongCount,
+                                        FolderListSortField.AlbumCount,
+                                        FolderListSortField.Duration -> SortDirection.Descending
+                                    },
+                                    supportsAscending = field == FolderListSortField.Name || field == FolderListSortField.DateModified,
+                                    supportsDescending = true
+                                )
+                            },
+                            selectedField = folderSortMode.sortField(),
+                            selectedDirection = if (folderSortMode.isDescending()) SortDirection.Descending else SortDirection.Ascending,
+                            ascendingSummary = stringResource(R.string.common_sort_ascending),
+                            descendingSummary = stringResource(R.string.common_sort_descending)
+                        ) { field, direction ->
+                            val mode = field.toMode(direction == SortDirection.Descending)
+                            LibrarySortUiState.folderListSortIndex = mode.ordinal
+                            scope.launch { mainViewModel.settingsManager.setFolderListSortIndex(mode.ordinal) }
                         }
                     )
                 }
@@ -314,25 +332,9 @@ fun FolderScreen(
                         }
                     }
             }
-            val folderScrollKey = remember(folderSortMode) { folderSortMode.name }
-            val savedFolderScroll = remember(folderScrollKey) {
-                LibrarySortUiState.folderListScrollPositions[folderScrollKey]
-                    ?: (LibrarySortUiState.folderListFirstVisibleItemIndex to LibrarySortUiState.folderListFirstVisibleItemScrollOffset)
-            }
-            val listState = rememberLazyListState(
-                initialFirstVisibleItemIndex = savedFolderScroll.first,
-                initialFirstVisibleItemScrollOffset = savedFolderScroll.second
-            )
+            val listState = rememberLazyListState()
             LaunchedEffect(scrollToTopRequest) {
                 if (scrollToTopRequest > 0) listState.animateScrollToItem(0)
-            }
-            LaunchedEffect(folderScrollKey, listState) {
-                snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                    .collect { (index, offset) ->
-                        LibrarySortUiState.folderListFirstVisibleItemIndex = index
-                        LibrarySortUiState.folderListFirstVisibleItemScrollOffset = offset
-                        LibrarySortUiState.folderListScrollPositions[folderScrollKey] = index to offset
-                    }
             }
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
