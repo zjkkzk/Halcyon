@@ -1149,6 +1149,7 @@
     <string name="song_more_netease_song_id">NetEase 曲 ID：%1$s</string>
     <string name="song_more_view_netease_info">タップでネットイースの関連情報を表示</string>
     <string name="song_more_detail_format">フォーマット</string>
+    <string name="song_more_detail_bitrate">ビットレート</string>
     <string name="song_more_detail_duration">再生時間</string>
     <string name="song_more_detail_size">ファイルサイズ</string>
     <string name="song_more_detail_modified_time">更新日</string>

@@ -120,3 +120,12 @@ private fun detailedAudioInfo(info: AudioInfo, bitDepth: Int): String {
     }
     return parts.joinToString(" / ")
 }
+
+fun formatBitRate(bitRate: Int): String {
+    if (bitRate <= 0) return ""
+    return if (bitRate >= 1_000_000) {
+        String.format(Locale.US, "%.1f Mbps", bitRate / 1_000_000.0)
+    } else {
+        "${bitRate / 1000}kbps"
+    }
+}

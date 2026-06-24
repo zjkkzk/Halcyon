@@ -1147,6 +1147,7 @@
     <string name="song_more_netease_song_id">Идентификатор песни NetEase: %1$s</string>
     <string name="song_more_view_netease_info">Нажмите, чтобы просмотреть связанную информацию о NetEase</string>
     <string name="song_more_detail_format">Формат</string>
+    <string name="song_more_detail_bitrate">Битрейт</string>
     <string name="song_more_detail_duration">Продолжительность</string>
     <string name="song_more_detail_size">Размер</string>
     <string name="song_more_detail_modified_time">Измененное время</string>

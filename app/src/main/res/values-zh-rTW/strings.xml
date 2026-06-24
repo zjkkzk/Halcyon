@@ -1149,6 +1149,7 @@
     <string name="song_more_netease_song_id">網易雲音樂歌曲 ID：%1$s</string>
     <string name="song_more_view_netease_info">點一下檢視網易雲音樂關聯資訊</string>
     <string name="song_more_detail_format">格式</string>
+    <string name="song_more_detail_bitrate">比特率</string>
     <string name="song_more_detail_duration">長度</string>
     <string name="song_more_detail_size">大小</string>
     <string name="song_more_detail_modified_time">修改時間</string>

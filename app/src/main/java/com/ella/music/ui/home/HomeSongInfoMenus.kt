@@ -33,6 +33,7 @@ import com.ella.music.R
 import com.ella.music.data.NeteaseKeyInfo
 import com.ella.music.data.decodeNeteaseKey
 import com.ella.music.data.detailedAudioInfo
+import com.ella.music.data.formatBitRate
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
@@ -112,6 +113,7 @@ internal fun SongInfoMenu(
             )
         }
         SongInfoRow(stringResource(R.string.song_more_detail_format), audioInfo?.let { detailedAudioInfo(it) }.orEmpty())
+        SongInfoRow(stringResource(R.string.song_more_detail_bitrate), audioInfo?.let { formatBitRate(it.bitRate) }.orEmpty())
         SongInfoRow(stringResource(R.string.song_more_detail_duration), song.durationText)
         SongInfoRow(stringResource(R.string.song_more_detail_size), formatLibraryFileSize(song.fileSize))
         SongInfoRow(stringResource(R.string.song_more_detail_file_name), song.fileName.ifBlank { song.path.substringAfterLast('/') })

@@ -50,6 +50,7 @@ import com.ella.music.data.model.shiftedBy
 import com.ella.music.data.repository.MusicRepository
 import com.ella.music.data.webdav.WebDavClient
 import com.ella.music.data.webdav.WebDavConfig
+import com.ella.music.dsp.TenBandEqualizer
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -88,6 +89,7 @@ data class PlaybackModeExternalSnapshot(
     val repeatMode: Int
 )
 
+@OptIn(UnstableApi::class)
 class PlaybackService : MediaLibraryService() {
 
     companion object {
@@ -125,6 +127,7 @@ class PlaybackService : MediaLibraryService() {
     private var bluetoothReceiver: BluetoothAutoPlayReceiver? = null
     private var openedAudioEffectSessionId = -1
     private val audioEffectController = AudioEffectController()
+    private lateinit var equalizerAudioProcessor: EqualizerAudioProcessor
     private lateinit var oplusLyricHandler: OPlusLyricHandler
     @Volatile
     private var colorOsLockScreenLyricEnabled = false
@@ -222,14 +225,17 @@ class PlaybackService : MediaLibraryService() {
         val handleAudioFocus = runBlocking(Dispatchers.IO) {
             !settingsManager.audioFocusDisabled.first()
         }
-        val renderersFactory = DefaultRenderersFactory(this)
-            .setExtensionRendererMode(
+        val renderersFactory = EllaRenderersFactory(this).apply {
+            setExtensionRendererMode(
                 when (decoderMode) {
                     1 -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
                     2 -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
                     else -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
                 }
             )
+        }
+        equalizerAudioProcessor = EqualizerAudioProcessor()
+        renderersFactory.setEqualizerAudioProcessor(equalizerAudioProcessor)
         AppLogStore.info(this, TAG, "Decoder mode=${decoderMode.decoderModeLabel()}")
 
         val player = ExoPlayer.Builder(this, renderersFactory)
@@ -257,6 +263,14 @@ class PlaybackService : MediaLibraryService() {
         serviceScope.launch {
             settingsManager.audioEffectSettings.collect { settings ->
                 audioEffectController.apply(settings)
+                equalizerAudioProcessor.setSettings(
+                    EqualizerSettings(
+                        enabled = settings.eqEnabled,
+                        bandGainsDb = FloatArray(TenBandEqualizer.BAND_COUNT) { index ->
+                            settings.eqBandLevelsMb.getOrElse(index) { 0 } / 100f
+                        }
+                    )
+                )
             }
         }
         player.addListener(object : Player.Listener {

@@ -1311,6 +1311,7 @@
     <string name="song_more_netease_song_id">网易云歌曲 ID：%1$s</string>
     <string name="song_more_view_netease_info">点击查看网易云关联信息</string>
     <string name="song_more_detail_format">格式</string>
+    <string name="song_more_detail_bitrate">比特率</string>
     <string name="song_more_detail_duration">时长</string>
     <string name="song_more_detail_size">大小</string>
     <string name="song_more_detail_modified_time">修改时间</string>

@@ -1149,6 +1149,7 @@
     <string name="song_more_netease_song_id">NetEase 곡 ID: %1$s</string>
     <string name="song_more_view_netease_info">연결된 NetEase 정보를 보려면 탭하세요</string>
     <string name="song_more_detail_format">형식</string>
+    <string name="song_more_detail_bitrate">비트레이트</string>
     <string name="song_more_detail_duration">길이</string>
     <string name="song_more_detail_size">크기</string>
     <string name="song_more_detail_modified_time">수정된 시간</string>

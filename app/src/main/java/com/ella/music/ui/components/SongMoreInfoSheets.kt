@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.decodeNeteaseKey
 import com.ella.music.data.detailedAudioInfo
+import com.ella.music.data.formatBitRate
 import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.SongTagInfo
@@ -149,6 +150,7 @@ fun SongInfoSheet(
             )
         }
         SongInfoRow(stringResource(R.string.song_more_detail_format), audioInfo?.let { detailedAudioInfo(it) }.orEmpty())
+        SongInfoRow(stringResource(R.string.song_more_detail_bitrate), audioInfo?.let { formatBitRate(it.bitRate) }.orEmpty())
         SongInfoRow(stringResource(R.string.song_more_detail_duration), song.durationText)
         SongInfoRow(stringResource(R.string.song_more_detail_size), formatFileSize(song.fileSize))
         SongInfoRow(stringResource(R.string.song_more_detail_modified_time), song.dateModified.formatSongDateTime())

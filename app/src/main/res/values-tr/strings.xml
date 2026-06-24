@@ -1147,6 +1147,7 @@
     <string name="song_more_netease_song_id">NetEase şarkı kimliği: %1$s</string>
     <string name="song_more_view_netease_info">Bağlantılı NetEase bilgilerini görüntülemek için dokunun</string>
     <string name="song_more_detail_format">Biçim</string>
+    <string name="song_more_detail_bitrate">Bitrate</string>
     <string name="song_more_detail_duration">Süre</string>
     <string name="song_more_detail_size">Boyut</string>
     <string name="song_more_detail_modified_time">Değiştirilme zamanı</string>
