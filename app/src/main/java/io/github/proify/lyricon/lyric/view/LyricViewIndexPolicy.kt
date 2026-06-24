@@ -16,16 +16,18 @@ internal fun previewLyricViewIndexAt(
     lines: List<LyricViewLineWindow>
 ): Int {
     if (lines.isEmpty()) return -1
+    // 选择当前 active 行中 begin 最大（最晚开始）的那一行。
+    //
+    // 对重叠/嵌套对唱歌词（TTML 多 ttm:agent，如 v1/v1000），同一时刻可能有多行同时
+    // active：外层长行 ⊃ 内层短行。"最晚开始"对应"当前主唱的最新一行"，与
+    // LyricView.resolveActiveHighlightIndices 的高亮集合保持一致，且在嵌套内层行结束后
+    // 自然回到仍 active 的外层行，避免 currentIndex 与高亮行错位导致 scrollToCurrentLine
+    // 锚定到已结束的内层行而反复闪烁。
+    val active = pickActiveLineIndex(effectivePositionMs, lines)
+    if (active >= 0) return active
+    // 间奏段（无 active 行）：返回最后一个 begin<=pos 的行，停留在刚唱完的行上。
     for (index in lines.indices.reversed()) {
-        val line = lines[index]
-        if (effectivePositionMs >= line.begin && effectivePositionMs < line.end) {
-            return index
-        }
-    }
-    for (index in lines.indices.reversed()) {
-        if (lines[index].begin <= effectivePositionMs) {
-            return index
-        }
+        if (lines[index].begin <= effectivePositionMs) return index
     }
     return -1
 }
@@ -59,6 +61,34 @@ internal fun resolveLyricViewIndex(
 
     val monotonicPlayback = positionMs + POSITION_JITTER_TOLERANCE_MS >= previousPositionMs
     if (monotonicPlayback && currentIndex in lines.indices) {
+        val active = pickActiveLineIndex(positionMs, lines)
+        if (active >= 0) {
+            // 预览推进：当前 active 行接近结束时，提前推进到下一行，提升歌词跟随的流畅感。
+            //   仅当下一行尚未开始（pos < next.begin）且 pos+previewOffset 已越过 next.begin
+            //   时触发。重叠时段（多行同时 active）下一行通常已 active（pos >= next.begin），
+            //   条件不成立，不会预览跳走，保证嵌套重叠的稳定选择不被破坏。
+            val nextIndex = active + 1
+            if (nextIndex < lines.size) {
+                val nextBegin = lines[nextIndex].begin
+                if (positionMs < nextBegin &&
+                    positionMs + currentPreviewOffsetMs >= nextBegin
+                ) {
+                    return nextIndex
+                }
+            }
+            // 不回弹：若已经预览推进到 active 之后的行（currentIndex > active）且尚未真正进入
+            //   该行（pos < lines[currentIndex].begin），保持 currentIndex，避免在 active 行
+            //   end 之前因预览 offset 不足而反复弹回前一帧已预览到的行。
+            if (currentIndex > active && currentIndex < lines.size &&
+                positionMs < lines[currentIndex].begin
+            ) {
+                return currentIndex
+            }
+            return active
+        }
+
+        // 无 active 行（间奏段）：保留原有"从 currentIndex 单调推进到下一行 begin 附近"的停留逻辑，
+        // 避免间奏期 currentIndex 在相邻行之间反复跳动。
         var candidate = currentIndex
         while (candidate + 1 < lines.size) {
             val nextBegin = lines[candidate + 1].begin
@@ -69,4 +99,30 @@ internal fun resolveLyricViewIndex(
     }
 
     return previewLyricViewIndexAt(positionMs, lines)
+}
+
+/**
+ * 在所有 `begin <= positionMs < end` 的行中，返回 begin 最大（最晚开始）的那一行；
+ * 平手时取 index 更大者（更靠近列表尾部的行）。无 active 行时返回 -1。
+ *
+ * 选择"最晚开始"而非"index 最大"是因为歌词行的列表顺序（TTML 出现顺序）不一定与
+ * begin 时间顺序一致——多人对唱交错时，key 靠后的行 begin 可能更早。按 begin 选择
+ * 才能稳定地指向"当前正在唱的最新一行"。
+ */
+private fun pickActiveLineIndex(
+    positionMs: Long,
+    lines: List<LyricViewLineWindow>
+): Int {
+    var bestActive = -1
+    var bestBegin = Long.MIN_VALUE
+    for (index in lines.indices) {
+        val w = lines[index]
+        if (positionMs >= w.begin && positionMs < w.end) {
+            if (w.begin > bestBegin || (w.begin == bestBegin && index > bestActive)) {
+                bestBegin = w.begin
+                bestActive = index
+            }
+        }
+    }
+    return bestActive
 }
