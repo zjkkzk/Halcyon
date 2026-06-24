@@ -370,6 +370,14 @@ private fun transcodeAudioSegmentToAac(
         extractor.selectTrack(audioTrackIndex)
         extractor.seekTo(clipStartUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
 
+        // Force 16-bit PCM output from the decoder. Without this, high-res sources
+        // (24-bit FLAC, 32-bit float, etc.) may output PCM in a different bit depth,
+        // and if KEY_PCM_ENCODING isn't reported in the output format, pcmBytesPerFrame
+        // defaults to channels*2 (16-bit assumption) — causing PTS drift and pitch shift.
+        try {
+            sourceFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+        } catch (_: Exception) {}
+
         decoder = MediaCodec.createDecoderByType(sourceMime).apply {
             configure(sourceFormat, null, null, 0)
             start()

@@ -112,6 +112,7 @@ import com.ella.music.data.normalizedAudioFormat
 import com.ella.music.data.parser.LrcParser
 import com.ella.music.data.splitArtistNames
 import com.ella.music.data.tagIdentityKey
+import com.ella.music.data.model.AudioInfo
 import com.ella.music.data.model.LyricLine
 import com.ella.music.data.model.Song
 import com.ella.music.data.model.playlistIdentityKey
@@ -300,8 +301,8 @@ fun PlayerScreen(
     val songAnnotation = songPresentation.annotation
     val displayAnnotation = if (playerSettings.showSongAnnotation) songAnnotation else ""
     val neteaseInfo = songPresentation.neteaseInfo
-    val lyricVideoShareEnabled = remember(song?.path, song?.mimeType, audioInfo?.format) {
-        !isAppleLosslessLyricVideoShareUnsupported(song, audioInfo?.format)
+    val lyricVideoShareEnabled = remember(song?.path, song?.mimeType, audioInfo?.format, audioInfo?.sampleRate, audioInfo?.bitDepth) {
+        !isLyricVideoShareUnsupported(song, audioInfo)
     }
     var lyricShareInitialLine by remember { mutableStateOf<LyricLine?>(null) }
     fun openLyricSharePicker(line: LyricLine) {
@@ -793,15 +794,25 @@ fun PlayerScreen(
     }
 }
 
-private fun isAppleLosslessLyricVideoShareUnsupported(
+private fun isLyricVideoShareUnsupported(
     song: Song?,
-    audioFormat: String?
+    audioInfo: AudioInfo?
 ): Boolean {
-    if (normalizedAudioFormat(audioFormat.orEmpty()) == "ALAC") return true
+    // Apple Lossless (ALAC) — container/format not supported by the muxer pipeline
+    if (normalizedAudioFormat(audioInfo?.format.orEmpty()) == "ALAC") return true
 
     val mimeType = song?.mimeType.orEmpty().lowercase()
     if ("alac" in mimeType) return true
 
     val path = song?.path.orEmpty().lowercase()
-    return path.endsWith(".alac")
+    if (path.endsWith(".alac")) return true
+
+    // Master / Hi-Res 24-bit 192kHz+ audio — transcode pipeline produces pitch-shifted output
+    // due to PCM buffer size miscalculation at very high sample rates.
+    // Disable video sharing for these until the encoder is fixed.
+    val sampleRate = audioInfo?.sampleRate ?: 0
+    val bitDepth = audioInfo?.bitDepth ?: 0
+    if (sampleRate >= 192_000 && bitDepth >= 24) return true
+
+    return false
 }
