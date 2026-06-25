@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">ใช้เฉพาะตัวถอดรหัสของระบบ Android; รูปแบบที่ไม่รองรับจะเล่นไม่ได้</string>
     <string name="settings_audio_decoder_ffmpeg_summary">ใช้ตัวถอดรหัสส่วนขยาย FFmpeg ก่อน</string>
     <string name="settings_audio_decoder_auto_summary">เปลี่ยนไปใช้ FFmpeg เฉพาะเมื่อตัวถอดรหัสของระบบจัดการรูปแบบไม่ได้</string>
+    <string name="settings_usb_dac_mode">โหมดเฉพาะ USB DAC</string>
+    <string name="settings_usb_dac_mode_summary">เมื่อตรวจพบ USB DAC ให้ส่งเอาต์พุตสื่อไปยังอุปกรณ์นั้น</string>
+    <string name="settings_usb_dac_no_device">ไม่พบ USB DAC</string>
+    <string name="settings_usb_dac_connected">เชื่อมต่อกับ %1$s แล้ว</string>
+    <string name="settings_usb_dac_unsupported">ต้องการ Android 12 ขึ้นไป</string>
     <string name="settings_shuffle_mode_pseudo_random">สุ่มคิว</string>
     <string name="settings_shuffle_mode_true_random">สุ่มจริง</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">สุ่มคิวและพยายามไม่ให้เพลงซ้ำกันภายในหนึ่งรอบ</string>

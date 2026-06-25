@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.ella.music.R
+import com.ella.music.data.SettingsManager
 import com.ella.music.data.audioQualitySummary
 import com.ella.music.data.normalizedAudioFormat
 import com.ella.music.data.model.AudioInfo
@@ -36,6 +37,11 @@ import kotlin.math.min
 
 internal const val PLAYER_POSITION_BACKWARD_DRIFT_TOLERANCE_MS = 600L
 
+internal enum class PlayerLyricLayoutProfile {
+    Compact,
+    Wide
+}
+
 internal fun isUltraWideLandscapePlayerLayout(
     screenWidthDp: Int,
     screenHeightDp: Int
@@ -46,6 +52,76 @@ internal fun isUltraWideLandscapePlayerLayout(
     return screenWidthDp > screenHeightDp &&
         longSide.toFloat() / shortSide.toFloat() >= 2.45f
 }
+
+internal fun resolvePlayerLyricLayoutProfile(
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+    smallestScreenWidthDp: Int
+): PlayerLyricLayoutProfile {
+    val wideLandscapeCanvas = screenWidthDp > screenHeightDp && screenWidthDp >= 840
+    return if (
+        smallestScreenWidthDp >= 600 ||
+        isUltraWideLandscapePlayerLayout(screenWidthDp, screenHeightDp) ||
+        wideLandscapeCanvas
+    ) {
+        PlayerLyricLayoutProfile.Wide
+    } else {
+        PlayerLyricLayoutProfile.Compact
+    }
+}
+
+internal fun PlayerLyricLayoutProfile.primaryScaleRangePercent(): IntRange =
+    primaryScaleRangePercent(ultraWideLandscape = false)
+
+internal fun PlayerLyricLayoutProfile.primaryScaleRangePercent(
+    ultraWideLandscape: Boolean
+): IntRange =
+    when (this) {
+        PlayerLyricLayoutProfile.Compact -> SettingsManager.LYRIC_FONT_SCALE_MIN..SettingsManager.LYRIC_FONT_SCALE_PHONE_MAX
+        PlayerLyricLayoutProfile.Wide -> {
+            val max = if (ultraWideLandscape) {
+                SettingsManager.LYRIC_FONT_SCALE_ULTRA_WIDE_MAX
+            } else {
+                SettingsManager.LYRIC_FONT_SCALE_WIDE_MAX
+            }
+            SettingsManager.LYRIC_FONT_SCALE_MIN..max
+        }
+    }
+
+internal fun PlayerLyricLayoutProfile.secondaryScaleRangePercent(): IntRange =
+    secondaryScaleRangePercent(ultraWideLandscape = false)
+
+internal fun PlayerLyricLayoutProfile.secondaryScaleRangePercent(
+    ultraWideLandscape: Boolean
+): IntRange =
+    when (this) {
+        PlayerLyricLayoutProfile.Compact ->
+            SettingsManager.LYRIC_SECONDARY_FONT_SCALE_MIN..SettingsManager.LYRIC_SECONDARY_FONT_SCALE_PHONE_MAX
+        PlayerLyricLayoutProfile.Wide -> {
+            val max = if (ultraWideLandscape) {
+                SettingsManager.LYRIC_SECONDARY_FONT_SCALE_ULTRA_WIDE_MAX
+            } else {
+                SettingsManager.LYRIC_SECONDARY_FONT_SCALE_WIDE_MAX
+            }
+            SettingsManager.LYRIC_SECONDARY_FONT_SCALE_MIN..max
+        }
+    }
+
+internal fun PlayerLyricLayoutProfile.primaryTextSizeRangeSp(): IntRange =
+    when (this) {
+        PlayerLyricLayoutProfile.Compact ->
+            SettingsManager.LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MIN_SP..SettingsManager.LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MAX_SP
+        PlayerLyricLayoutProfile.Wide ->
+            SettingsManager.LYRIC_WIDE_PRIMARY_TEXT_SIZE_MIN_SP..SettingsManager.LYRIC_WIDE_PRIMARY_TEXT_SIZE_MAX_SP
+    }
+
+internal fun PlayerLyricLayoutProfile.secondaryTextSizeRangeSp(): IntRange =
+    when (this) {
+        PlayerLyricLayoutProfile.Compact ->
+            SettingsManager.LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MIN_SP..SettingsManager.LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MAX_SP
+        PlayerLyricLayoutProfile.Wide ->
+            SettingsManager.LYRIC_WIDE_SECONDARY_TEXT_SIZE_MIN_SP..SettingsManager.LYRIC_WIDE_SECONDARY_TEXT_SIZE_MAX_SP
+    }
 
 internal fun shouldIgnoreMinorPlaybackRegression(
     currentUiPositionMs: Long,

@@ -74,6 +74,8 @@ internal fun LandscapeCoverPlaybackOverlay(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     showTotalDuration: Boolean,
     queueExpanded: Boolean,
     playlist: List<Song>,

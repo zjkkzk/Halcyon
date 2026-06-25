@@ -140,6 +140,7 @@ class SettingsManager(private val context: Context) {
         val KEY_VIRTUALIZER_ENABLED = booleanPreferencesKey("audio_virtualizer_enabled")
         val KEY_VIRTUALIZER_STRENGTH = intPreferencesKey("audio_virtualizer_strength")
         val KEY_REVERB_PRESET = intPreferencesKey("audio_reverb_preset")
+        val KEY_USB_DAC_MODE = booleanPreferencesKey("usb_dac_mode")
         val KEY_DYNAMIC_COVER_ENABLED = booleanPreferencesKey("dynamic_cover_enabled")
         val KEY_DYNAMIC_COVER_CUSTOM_FOLDERS = stringPreferencesKey("dynamic_cover_custom_folders")
         val KEY_STARTUP_POSTER_ENABLED = booleanPreferencesKey("startup_poster_enabled")
@@ -213,6 +214,10 @@ class SettingsManager(private val context: Context) {
         val KEY_LYRIC_FONT_WEIGHT = intPreferencesKey("lyric_font_weight")
         val KEY_LYRIC_FONT_SCALE = intPreferencesKey("lyric_font_scale")
         val KEY_LYRIC_SECONDARY_FONT_SCALE = intPreferencesKey("lyric_secondary_font_scale")
+        val KEY_LYRIC_COMPACT_PRIMARY_TEXT_SIZE = intPreferencesKey("lyric_compact_primary_text_size")
+        val KEY_LYRIC_COMPACT_SECONDARY_TEXT_SIZE = intPreferencesKey("lyric_compact_secondary_text_size")
+        val KEY_LYRIC_WIDE_PRIMARY_TEXT_SIZE = intPreferencesKey("lyric_wide_primary_text_size")
+        val KEY_LYRIC_WIDE_SECONDARY_TEXT_SIZE = intPreferencesKey("lyric_wide_secondary_text_size")
         val KEY_LYRIC_FONT_ITALIC = booleanPreferencesKey("lyric_font_italic")
         val KEY_LYRIC_FONT_APPLY_TO_PAGE = booleanPreferencesKey("lyric_font_apply_to_page")
         val KEY_LYRIC_FONT_APPLY_TO_DESKTOP = booleanPreferencesKey("lyric_font_apply_to_desktop")
@@ -253,6 +258,28 @@ class SettingsManager(private val context: Context) {
         val KEY_FOLDER_PLAYLISTS = stringPreferencesKey("folder_playlists")
         val KEY_HOME_TILE_PIN_BUTTONS_VISIBLE = booleanPreferencesKey("home_tile_pin_buttons_visible")
         val KEY_NOTIFICATION_PERMISSION_PROMPT_HANDLED = booleanPreferencesKey("notification_permission_prompt_handled")
+
+        const val LYRIC_FONT_SCALE_MIN = 75
+        const val LYRIC_FONT_SCALE_PHONE_MAX = 125
+        const val LYRIC_FONT_SCALE_WIDE_MAX = 150
+        const val LYRIC_FONT_SCALE_ULTRA_WIDE_MAX = 175
+        const val LYRIC_SECONDARY_FONT_SCALE_MIN = 75
+        const val LYRIC_SECONDARY_FONT_SCALE_PHONE_MAX = 135
+        const val LYRIC_SECONDARY_FONT_SCALE_WIDE_MAX = 135
+        const val LYRIC_SECONDARY_FONT_SCALE_ULTRA_WIDE_MAX = 150
+
+        const val LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MIN_SP = 20
+        const val LYRIC_COMPACT_PRIMARY_TEXT_SIZE_DEFAULT_SP = 28
+        const val LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MAX_SP = 42
+        const val LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MIN_SP = 12
+        const val LYRIC_COMPACT_SECONDARY_TEXT_SIZE_DEFAULT_SP = 15
+        const val LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MAX_SP = 24
+        const val LYRIC_WIDE_PRIMARY_TEXT_SIZE_MIN_SP = 24
+        const val LYRIC_WIDE_PRIMARY_TEXT_SIZE_DEFAULT_SP = 30
+        const val LYRIC_WIDE_PRIMARY_TEXT_SIZE_MAX_SP = 54
+        const val LYRIC_WIDE_SECONDARY_TEXT_SIZE_MIN_SP = 12
+        const val LYRIC_WIDE_SECONDARY_TEXT_SIZE_DEFAULT_SP = 15
+        const val LYRIC_WIDE_SECONDARY_TEXT_SIZE_MAX_SP = 30
 
         val KEY_BLUETOOTH_LYRIC_ENABLED = booleanPreferencesKey("bluetooth_lyric_enabled")
         val KEY_BLUETOOTH_LYRIC_TRANSLATION = booleanPreferencesKey("bluetooth_lyric_translation")
@@ -318,6 +345,7 @@ class SettingsManager(private val context: Context) {
         const val APP_LANGUAGE_TH = "th"
         const val BOTTOM_DOCK_ITEM_HOME = "home"
         const val BOTTOM_DOCK_ITEM_LIBRARY = "library"
+        // Search stays as a fixed action pill outside the configurable dock tabs.
         const val BOTTOM_DOCK_ITEM_SEARCH = "search"
         const val BOTTOM_DOCK_ITEM_PLAYLISTS = "playlists"
         const val BOTTOM_DOCK_ITEM_FOLDER = "folder"
@@ -331,8 +359,8 @@ class SettingsManager(private val context: Context) {
         const val BOTTOM_DOCK_ITEM_COMPOSER = "composer"
         const val BOTTOM_DOCK_ITEM_LYRICIST = "lyricist"
         const val BOTTOM_DOCK_ITEM_ANALYTICS = "analytics"
-        const val MAX_BOTTOM_DOCK_ITEMS = 5
-        const val DEFAULT_BOTTOM_DOCK_ITEMS = "$BOTTOM_DOCK_ITEM_HOME,$BOTTOM_DOCK_ITEM_LIBRARY,$BOTTOM_DOCK_ITEM_SEARCH"
+        const val MAX_BOTTOM_DOCK_ITEMS = 4
+        const val DEFAULT_BOTTOM_DOCK_ITEMS = "$BOTTOM_DOCK_ITEM_HOME,$BOTTOM_DOCK_ITEM_LIBRARY,$BOTTOM_DOCK_ITEM_SETTINGS,$BOTTOM_DOCK_ITEM_PLAYLISTS"
         const val DESKTOP_LYRIC_STATUS_POSITION_LEFT = 0
         const val DESKTOP_LYRIC_STATUS_POSITION_CENTER = 1
         const val DESKTOP_LYRIC_STATUS_POSITION_RIGHT = 2
@@ -388,7 +416,6 @@ class SettingsManager(private val context: Context) {
         val BOTTOM_DOCK_ITEM_IDS = listOf(
             BOTTOM_DOCK_ITEM_HOME,
             BOTTOM_DOCK_ITEM_LIBRARY,
-            BOTTOM_DOCK_ITEM_SEARCH,
             BOTTOM_DOCK_ITEM_PLAYLISTS,
             BOTTOM_DOCK_ITEM_FOLDER,
             BOTTOM_DOCK_ITEM_FOLDER_TREE,
@@ -414,16 +441,33 @@ class SettingsManager(private val context: Context) {
         }
 
         fun normalizeBottomDockItems(value: String): String {
-            val requested = value
+            val rawItems = value
                 .split(',', '，', ';', '；', '\n')
                 .map { it.trim().lowercase(Locale.ROOT) }
+            val hadSearchSlot = rawItems.any { it == BOTTOM_DOCK_ITEM_SEARCH }
+            val requested = rawItems
+                .map { itemId ->
+                    if (itemId == BOTTOM_DOCK_ITEM_SEARCH) {
+                        BOTTOM_DOCK_ITEM_SETTINGS
+                    } else {
+                        itemId
+                    }
+                }
                 .filter { it in BOTTOM_DOCK_ITEM_IDS }
                 .distinct()
                 .take(MAX_BOTTOM_DOCK_ITEMS)
-            return requested
+            val defaults = DEFAULT_BOTTOM_DOCK_ITEMS.split(',')
+            val migrated = if (hadSearchSlot && requested.size < MAX_BOTTOM_DOCK_ITEMS) {
+                (requested + defaults)
+                    .distinct()
+                    .take(MAX_BOTTOM_DOCK_ITEMS)
+            } else {
+                requested
+            }
+            return migrated
                 .ifEmpty { DEFAULT_BOTTOM_DOCK_ITEMS.split(',') }
                 .joinToString(",")
-    }
+        }
     }
 
     private fun Int.coerceInOplusLyricMode(): Int =
@@ -624,6 +668,8 @@ class SettingsManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_VIRTUALIZER_STRENGTH] ?: 0 }
     val reverbPreset: Flow<Int> =
         context.dataStore.data.map { normalizeReverbPreset(it[KEY_REVERB_PRESET] ?: AudioEffectSettings.REVERB_PRESET_OFF) }
+    val usbDacMode: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_USB_DAC_MODE] ?: false }
 
     /** Combined audio-effect snapshot consumed by PlaybackService's AudioEffectController. */
     val audioEffectSettings: Flow<AudioEffectSettings> = combine(
@@ -777,8 +823,31 @@ class SettingsManager(private val context: Context) {
     val lyricFontName: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_NAME] ?: "" }
     val lyricFontPath: Flow<String> = context.dataStore.data.map { it[KEY_LYRIC_FONT_PATH] ?: "" }
     val lyricFontWeight: Flow<Int> = context.dataStore.data.map { it[KEY_LYRIC_FONT_WEIGHT] ?: 800 }
-    val lyricFontScale: Flow<Int> = context.dataStore.data.map { it[KEY_LYRIC_FONT_SCALE] ?: 100 }
-    val lyricSecondaryFontScale: Flow<Int> = context.dataStore.data.map { it[KEY_LYRIC_SECONDARY_FONT_SCALE] ?: 100 }
+    val lyricFontScale: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_FONT_SCALE] ?: 100).coerceIn(LYRIC_FONT_SCALE_MIN, LYRIC_FONT_SCALE_ULTRA_WIDE_MAX)
+    }
+    val lyricSecondaryFontScale: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_SECONDARY_FONT_SCALE] ?: 100).coerceIn(
+            LYRIC_SECONDARY_FONT_SCALE_MIN,
+            LYRIC_SECONDARY_FONT_SCALE_ULTRA_WIDE_MAX
+        )
+    }
+    val lyricCompactPrimaryTextSize: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_COMPACT_PRIMARY_TEXT_SIZE] ?: LYRIC_COMPACT_PRIMARY_TEXT_SIZE_DEFAULT_SP)
+            .coerceIn(LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MIN_SP, LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MAX_SP)
+    }
+    val lyricCompactSecondaryTextSize: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_COMPACT_SECONDARY_TEXT_SIZE] ?: LYRIC_COMPACT_SECONDARY_TEXT_SIZE_DEFAULT_SP)
+            .coerceIn(LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MIN_SP, LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MAX_SP)
+    }
+    val lyricWidePrimaryTextSize: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_WIDE_PRIMARY_TEXT_SIZE] ?: LYRIC_WIDE_PRIMARY_TEXT_SIZE_DEFAULT_SP)
+            .coerceIn(LYRIC_WIDE_PRIMARY_TEXT_SIZE_MIN_SP, LYRIC_WIDE_PRIMARY_TEXT_SIZE_MAX_SP)
+    }
+    val lyricWideSecondaryTextSize: Flow<Int> = context.dataStore.data.map {
+        (it[KEY_LYRIC_WIDE_SECONDARY_TEXT_SIZE] ?: LYRIC_WIDE_SECONDARY_TEXT_SIZE_DEFAULT_SP)
+            .coerceIn(LYRIC_WIDE_SECONDARY_TEXT_SIZE_MIN_SP, LYRIC_WIDE_SECONDARY_TEXT_SIZE_MAX_SP)
+    }
     val lyricFontItalic: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRIC_FONT_ITALIC] ?: false }
     val lyricFontApplyToPage: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRIC_FONT_APPLY_TO_PAGE] ?: true }
     val lyricFontApplyToDesktop: Flow<Boolean> = context.dataStore.data.map { it[KEY_LYRIC_FONT_APPLY_TO_DESKTOP] ?: true }
@@ -1183,6 +1252,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setReverbPreset(preset: Int) {
         context.dataStore.edit { it[KEY_REVERB_PRESET] = normalizeReverbPreset(preset) }
+    }
+
+    suspend fun setUsbDacMode(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_USB_DAC_MODE] = enabled }
     }
 
     private fun parseEqBands(raw: String?): List<Int> {
@@ -1610,11 +1683,44 @@ class SettingsManager(private val context: Context) {
     }
 
     suspend fun setLyricFontScale(scale: Int) {
-        context.dataStore.edit { it[KEY_LYRIC_FONT_SCALE] = scale.coerceIn(75, 130) }
+        context.dataStore.edit {
+            it[KEY_LYRIC_FONT_SCALE] = scale.coerceIn(LYRIC_FONT_SCALE_MIN, LYRIC_FONT_SCALE_ULTRA_WIDE_MAX)
+        }
     }
 
     suspend fun setLyricSecondaryFontScale(scale: Int) {
-        context.dataStore.edit { it[KEY_LYRIC_SECONDARY_FONT_SCALE] = scale.coerceIn(70, 150) }
+        context.dataStore.edit {
+            it[KEY_LYRIC_SECONDARY_FONT_SCALE] =
+                scale.coerceIn(LYRIC_SECONDARY_FONT_SCALE_MIN, LYRIC_SECONDARY_FONT_SCALE_ULTRA_WIDE_MAX)
+        }
+    }
+
+    suspend fun setLyricCompactPrimaryTextSize(sizeSp: Int) {
+        context.dataStore.edit {
+            it[KEY_LYRIC_COMPACT_PRIMARY_TEXT_SIZE] =
+                sizeSp.coerceIn(LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MIN_SP, LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MAX_SP)
+        }
+    }
+
+    suspend fun setLyricCompactSecondaryTextSize(sizeSp: Int) {
+        context.dataStore.edit {
+            it[KEY_LYRIC_COMPACT_SECONDARY_TEXT_SIZE] =
+                sizeSp.coerceIn(LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MIN_SP, LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MAX_SP)
+        }
+    }
+
+    suspend fun setLyricWidePrimaryTextSize(sizeSp: Int) {
+        context.dataStore.edit {
+            it[KEY_LYRIC_WIDE_PRIMARY_TEXT_SIZE] =
+                sizeSp.coerceIn(LYRIC_WIDE_PRIMARY_TEXT_SIZE_MIN_SP, LYRIC_WIDE_PRIMARY_TEXT_SIZE_MAX_SP)
+        }
+    }
+
+    suspend fun setLyricWideSecondaryTextSize(sizeSp: Int) {
+        context.dataStore.edit {
+            it[KEY_LYRIC_WIDE_SECONDARY_TEXT_SIZE] =
+                sizeSp.coerceIn(LYRIC_WIDE_SECONDARY_TEXT_SIZE_MIN_SP, LYRIC_WIDE_SECONDARY_TEXT_SIZE_MAX_SP)
+        }
     }
 
     suspend fun setLyricFontItalic(enabled: Boolean) {
@@ -2020,6 +2126,10 @@ class SettingsManager(private val context: Context) {
             setInt(KEY_LYRIC_FONT_WEIGHT)
             setInt(KEY_LYRIC_FONT_SCALE)
             setInt(KEY_LYRIC_SECONDARY_FONT_SCALE)
+            setInt(KEY_LYRIC_COMPACT_PRIMARY_TEXT_SIZE)
+            setInt(KEY_LYRIC_COMPACT_SECONDARY_TEXT_SIZE)
+            setInt(KEY_LYRIC_WIDE_PRIMARY_TEXT_SIZE)
+            setInt(KEY_LYRIC_WIDE_SECONDARY_TEXT_SIZE)
             setInt(KEY_SORT_LIBRARY_SONG)
             setInt(KEY_SORT_ALBUM_LIST)
             setInt(KEY_SORT_ARTIST_LIST)

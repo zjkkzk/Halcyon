@@ -278,7 +278,7 @@
     <string name="bottom_bar_glass_effect_blur">Gaussian Blur</string>
     <string name="bottom_bar_glass_effect_liquid">Liquid Glass</string>
     <string name="settings_bottom_dock_items">Bottom bar entries</string>
-    <string name="settings_bottom_dock_items_summary">Show up to 5 entries; search also takes one slot</string>
+    <string name="settings_bottom_dock_items_summary">Search stays fixed; you can configure 4 additional entries</string>
     <string name="settings_bottom_dock_slot">Bottom bar entry %1$d</string>
     <string name="settings_bottom_dock_item_none">Hidden</string>
     <string name="settings_theme_mode">Theme mode</string>
@@ -573,6 +573,11 @@
     <string name="settings_audio_decoder_system_summary">Use only the Android system decoder; unsupported formats will fail to play</string>
     <string name="settings_audio_decoder_ffmpeg_summary">Prefer the FFmpeg extension decoder</string>
     <string name="settings_audio_decoder_auto_summary">Fallback to FFmpeg only when the system decoder cannot handle the format</string>
+    <string name="settings_usb_dac_mode">USB DAC exclusive mode</string>
+    <string name="settings_usb_dac_mode_summary">Route media output to a USB DAC when one is detected</string>
+    <string name="settings_usb_dac_no_device">No USB DAC detected</string>
+    <string name="settings_usb_dac_connected">Connected to %1$s</string>
+    <string name="settings_usb_dac_unsupported">Requires Android 12 or later</string>
     <string name="settings_shuffle_mode_pseudo_random">Queue shuffle</string>
     <string name="settings_shuffle_mode_true_random">True random</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Shuffle the queue and try not to repeat songs within one round</string>
@@ -689,6 +694,13 @@
     <string name="settings_backup_webdav_download_failed">WebDAV backup restore failed</string>
     <string name="settings_backup_webdav_not_configured">Please configure a WebDAV server URL first</string>
     <string name="settings_backup_webdav_file_not_found">Backup file not found on the WebDAV server</string>
+    <string name="settings_backup_export_type_title">Select data to export</string>
+    <string name="settings_backup_import_type_title">Select data to restore</string>
+    <string name="settings_backup_type_select_all">Select all</string>
+    <string name="settings_backup_type_playlists">Playlists</string>
+    <string name="settings_backup_type_playlists_summary">Custom playlists and favorites</string>
+    <string name="common_export">Export</string>
+    <string name="common_import">Import</string>
     <string name="settings_editor_ask_every_time">Ask every time</string>
     <string name="settings_editor_builtin_custom_tag">Built-in metadata editor</string>
     <string name="settings_editor_lunabeat_metadata">LunaBeat (metadata editor)</string>

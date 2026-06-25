@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Nur den Android-Systemdecoder verwenden; nicht unterstützte Formate können nicht wiedergegeben werden</string>
     <string name="settings_audio_decoder_ffmpeg_summary">FFmpeg-Erweiterungsdecoder bevorzugen</string>
     <string name="settings_audio_decoder_auto_summary">Nur auf FFmpeg zurückfallen, wenn der Systemdecoder das Format nicht verarbeiten kann</string>
+    <string name="settings_usb_dac_mode">USB-DAC-Exklusivmodus</string>
+    <string name="settings_usb_dac_mode_summary">Medienausgabe auf ein erkanntes USB-DAC-Gerät leiten</string>
+    <string name="settings_usb_dac_no_device">Kein USB-DAC erkannt</string>
+    <string name="settings_usb_dac_connected">Verbunden mit %1$s</string>
+    <string name="settings_usb_dac_unsupported">Erfordert Android 12 oder höher</string>
     <string name="settings_shuffle_mode_pseudo_random">Warteschlange mischen</string>
     <string name="settings_shuffle_mode_true_random">Echt zufällig</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Warteschlange mischen und Wiederholungen innerhalb einer Runde möglichst vermeiden</string>

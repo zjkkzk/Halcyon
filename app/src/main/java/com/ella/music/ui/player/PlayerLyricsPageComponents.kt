@@ -84,8 +84,11 @@ internal fun LyricsPlayerMenuSheet(
     preferTtmlLyrics: Boolean?,
     lyricSourceMode: Int,
     lyricParserEngine: Int,
+    layoutProfile: PlayerLyricLayoutProfile,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     onDismiss: () -> Unit,
     onTogglePronunciation: () -> Unit,
     onToggleTranslation: () -> Unit,
@@ -97,6 +100,8 @@ internal fun LyricsPlayerMenuSheet(
     onLyricParserEngine: (Int) -> Unit,
     onFontScale: (Float) -> Unit,
     onSecondaryFontScale: (Float) -> Unit,
+    onPrimaryTextSize: (Float) -> Unit,
+    onSecondaryTextSize: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (!show) return
@@ -114,8 +119,11 @@ internal fun LyricsPlayerMenuSheet(
             preferTtmlLyrics = preferTtmlLyrics,
             lyricSourceMode = lyricSourceMode,
             lyricParserEngine = lyricParserEngine,
+            layoutProfile = layoutProfile,
             fontScale = fontScale,
             secondaryFontScale = secondaryFontScale,
+            primaryTextSizeSp = primaryTextSizeSp,
+            secondaryTextSizeSp = secondaryTextSizeSp,
             perspectiveEffect = perspectiveEffect,
             perspectiveYAngle = perspectiveYAngle,
             onTogglePronunciation = onTogglePronunciation,
@@ -128,6 +136,8 @@ internal fun LyricsPlayerMenuSheet(
             onLyricParserEngine = onLyricParserEngine,
             onFontScale = onFontScale,
             onSecondaryFontScale = onSecondaryFontScale,
+            onPrimaryTextSize = onPrimaryTextSize,
+            onSecondaryTextSize = onSecondaryTextSize,
             modifier = modifier
         )
     }

@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Android Android 시스템 디코더만 사용합니다. 지원되지 않는 형식은 재생되지 않습니다</string>
     <string name="settings_audio_decoder_ffmpeg_summary">FFmpeg 확장 디코더를 선호합니다</string>
     <string name="settings_audio_decoder_auto_summary">시스템 디코더가 형식을 처리할 수 없는 경우에만 FFmpeg로 대체</string>
+    <string name="settings_usb_dac_mode">USB DAC 전용 모드</string>
+    <string name="settings_usb_dac_mode_summary">USB DAC이 감지되면 미디어 출력을 해당 장치로 고정</string>
+    <string name="settings_usb_dac_no_device">USB DAC이 감지되지 않음</string>
+    <string name="settings_usb_dac_connected">%1$s에 연결됨</string>
+    <string name="settings_usb_dac_unsupported">Android 12 이상 필요</string>
     <string name="settings_shuffle_mode_pseudo_random">재생 대기열 섞기</string>
     <string name="settings_shuffle_mode_true_random">완전 무작위</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">재생 대기열을 섞고 한 라운드 내에서 곡을 반복하지 마세요</string>

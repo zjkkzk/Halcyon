@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Android システムデコーダーのみ使用します。未対応の形式は再生に失敗します</string>
     <string name="settings_audio_decoder_ffmpeg_summary">FFmpeg 拡張デコーダーを優先して使用します</string>
     <string name="settings_audio_decoder_auto_summary">システムデコーダーが対応できない場合のみ FFmpeg にフォールバックします</string>
+    <string name="settings_usb_dac_mode">USB DAC 独占モード</string>
+    <string name="settings_usb_dac_mode_summary">USB DAC を検出したときにメディア出力をそのデバイスに固定する</string>
+    <string name="settings_usb_dac_no_device">USB DAC が検出されていません</string>
+    <string name="settings_usb_dac_connected">%1$s に接続しました</string>
+    <string name="settings_usb_dac_unsupported">Android 12 以上が必要です</string>
     <string name="settings_shuffle_mode_pseudo_random">キューシャッフル</string>
     <string name="settings_shuffle_mode_true_random">真のランダム</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">キューをシャッフルして再生します。1周の中ではできるだけ重複を避けます</string>

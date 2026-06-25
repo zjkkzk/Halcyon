@@ -302,7 +302,8 @@ internal fun DottedValueSlider(
             (valueRange.endInclusive - valueRange.start)
         val stepped = if (steps > 0) {
             val stepSize = (valueRange.endInclusive - valueRange.start) / steps
-            (round(raw / stepSize) * stepSize).coerceIn(valueRange.start, valueRange.endInclusive)
+            val stepIndex = round((raw - valueRange.start) / stepSize)
+            (valueRange.start + stepIndex * stepSize).coerceIn(valueRange.start, valueRange.endInclusive)
         } else {
             raw
         }

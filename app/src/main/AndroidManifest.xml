@@ -26,6 +26,14 @@
         <package android:name="com.xjcheng.musictageditor" />
         <package android:name="com.andrewkhandr.aspectpro" />
         <package android:name="com.android.musicfx" />
+        <package android:name="com.miui.misound" />
+        <package android:name="com.miui.player" />
+        <package android:name="com.miui.audioeffect" />
+        <package android:name="com.xiaomi.misound" />
+        <package android:name="com.android.settings" />
+        <package android:name="com.coloros.audioeffect" />
+        <package android:name="com.oppo.audioeffect" />
+        <package android:name="com.vivo.audiofx" />
         <intent>
             <action android:name="android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL" />
         </intent>

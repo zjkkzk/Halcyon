@@ -146,12 +146,12 @@ internal fun FloatingBottomControls(
                 loadCoverArt = mainViewModel::getCoverArtBitmap,
                 backdrop = if (useGlass) backdrop else null,
                 glassEffect = glassEffect,
+                currentTab = tabs.firstOrNull { it.route == currentTabRoute },
                 currentTabRoute = currentTabRoute,
                 isSearchSelected = currentRoute.isSearchRoute(),
                 onOpenPlayer = onNavigatePlayer,
                 onPlayPause = { playerViewModel.togglePlayPause() },
                 onSkipNext = { playerViewModel.skipToNext() },
-                onNavigateTab = { onNavigate(it) },
                 onNavigateSearch = onNavigateSearch,
                 onExpand = onExpand
             )
@@ -192,53 +192,68 @@ internal fun FloatingBottomControls(
                     }
 
                     AnimatedVisibility(visible = showBottomBar) {
-                        if (useGlass && tabs.isNotEmpty()) {
-                            Box(
+                        if (useGlass) {
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val selectedBottomTabIndex = tabs
-                                    .indexOfFirst { currentTabRoute == it.route }
-                                    .takeIf { it >= 0 }
-                                LiquidGlassBottomBar(
-                                    backdrop = backdrop,
-                                    isBlurEnabled = true,
-                                    glassEffect = glassEffect,
-                                    selectedIndex = selectedBottomTabIndex,
-                                    itemCount = tabs.size,
-                                    onSelected = { index ->
-                                        tabs.getOrNull(index)?.let { onNavigate(it.route) }
-                                    }
-                                ) {
-                                    tabs.forEachIndexed { index, tab ->
-                                        LiquidGlassBottomBarItem(
-                                            selected = currentTabRoute == tab.route,
-                                            onClick = {},
+                                if (tabs.isNotEmpty()) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        val selectedBottomTabIndex = tabs
+                                            .indexOfFirst { currentTabRoute == it.route }
+                                            .takeIf { it >= 0 }
+                                        LiquidGlassBottomBar(
                                             backdrop = backdrop,
                                             isBlurEnabled = true,
-                                            showSelectedIndicator = glassEffect == BottomBarGlassEffect.LiquidGlass,
-                                            index = index,
-                                            icon = {
-                                                Icon(
-                                                    imageVector = tab.icon,
-                                                    contentDescription = tab.label,
-                                                    tint = if (currentTabRoute == tab.route) MiuixTheme.colorScheme.primary
-                                                    else MiuixTheme.colorScheme.onSurface,
-                                                    modifier = Modifier.size(26.dp)
-                                                )
-                                            },
-                                            label = {
-                                                top.yukonga.miuix.kmp.basic.Text(
-                                                    text = tab.label,
-                                                    fontSize = 11.sp,
-                                                    color = if (currentTabRoute == tab.route) MiuixTheme.colorScheme.primary
-                                                    else MiuixTheme.colorScheme.onSurface
+                                            glassEffect = glassEffect,
+                                            selectedIndex = selectedBottomTabIndex,
+                                            itemCount = tabs.size,
+                                            onSelected = { index ->
+                                                tabs.getOrNull(index)?.let { onNavigate(it.route) }
+                                            }
+                                        ) {
+                                            tabs.forEachIndexed { index, tab ->
+                                                LiquidGlassBottomBarItem(
+                                                    selected = currentTabRoute == tab.route,
+                                                    onClick = {},
+                                                    backdrop = backdrop,
+                                                    isBlurEnabled = true,
+                                                    showSelectedIndicator = glassEffect == BottomBarGlassEffect.LiquidGlass,
+                                                    index = index,
+                                                    icon = {
+                                                        Icon(
+                                                            imageVector = tab.icon,
+                                                            contentDescription = tab.label,
+                                                            tint = if (currentTabRoute == tab.route) MiuixTheme.colorScheme.primary
+                                                            else MiuixTheme.colorScheme.onSurface,
+                                                            modifier = Modifier.size(26.dp)
+                                                        )
+                                                    },
+                                                    label = {
+                                                        top.yukonga.miuix.kmp.basic.Text(
+                                                            text = tab.label,
+                                                            fontSize = 11.sp,
+                                                            color = if (currentTabRoute == tab.route) MiuixTheme.colorScheme.primary
+                                                            else MiuixTheme.colorScheme.onSurface
+                                                        )
+                                                    }
                                                 )
                                             }
-                                        )
+                                        }
                                     }
                                 }
+                                BottomDockActionPill(
+                                    icon = MiuixIcons.Basic.Search,
+                                    label = stringResource(R.string.common_search),
+                                    selected = currentRoute.isSearchRoute(),
+                                    onClick = onNavigateSearch,
+                                    backdrop = backdrop,
+                                    glassEffect = glassEffect,
+                                    modifier = Modifier.size(64.dp)
+                                )
                             }
                         }
                     }
@@ -342,19 +357,19 @@ private fun CompactBottomDock(
     loadCoverArt: ((Song) -> android.graphics.Bitmap?)?,
     backdrop: com.kyant.backdrop.Backdrop?,
     glassEffect: BottomBarGlassEffect,
+    currentTab: BottomDockTab?,
     currentTabRoute: String?,
     isSearchSelected: Boolean,
     onOpenPlayer: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
-    onNavigateTab: (String) -> Unit,
     onNavigateSearch: () -> Unit,
     onExpand: () -> Unit
 ) {
     val showCompactLyrics = LocalConfiguration.current.smallestScreenWidthDp >= 600
     val isHomeSelected = currentTabRoute == Screen.Home.route
-    val leftIcon = if (isHomeSelected) MiuixIcons.Regular.Music else MiuixIcons.Regular.Playlist
-    val leftLabel = if (isHomeSelected) stringResource(R.string.tab_home) else stringResource(R.string.tab_library)
+    val leftIcon = currentTab?.icon ?: if (isHomeSelected) MiuixIcons.Regular.Music else MiuixIcons.Regular.Playlist
+    val leftLabel = currentTab?.label ?: if (isHomeSelected) stringResource(R.string.tab_home) else stringResource(R.string.tab_library)
     Row(
         modifier = Modifier
             .fillMaxWidth()

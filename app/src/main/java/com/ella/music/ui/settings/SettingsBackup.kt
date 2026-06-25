@@ -77,25 +77,39 @@ fun BackupSettingsScreen(
             output.flush()
         } ?: error(context.getString(R.string.settings_backup_open_failed))
     }
-    suspend fun buildApplicationBackupJson(): JSONObject = withContext(Dispatchers.IO) {
+    suspend fun buildApplicationBackupJson(selectedTypes: Set<BackupType> = BackupType.entries.toSet()): JSONObject = withContext(Dispatchers.IO) {
+        val filteredSettings = settingsManager.exportSettingsJson().filterBackupSettings(selectedTypes)
         JSONObject()
             .put("version", 1)
             .put("exportedAt", System.currentTimeMillis())
-            .put("settings", settingsManager.exportSettingsJson())
-            .put("playlists", playlistStore.exportJson())
-            .put("playback", playbackStatsStore.exportJson(librarySongs))
-            .put("aiChat", exportAiChatBackupJson(context))
+            .apply {
+                if (filteredSettings.length() > 0) put("settings", filteredSettings)
+                if (BackupType.Playlists in selectedTypes) put("playlists", playlistStore.exportJson())
+                if (BackupType.PlaybackStats in selectedTypes) put("playback", playbackStatsStore.exportJson(librarySongs))
+                if (BackupType.AiConfigAndChat in selectedTypes) put("aiChat", exportAiChatBackupJson(context))
+            }
     }
-    suspend fun buildBackupJson(): String {
-        return buildApplicationBackupJson().toString(2)
+    suspend fun buildBackupJson(selectedTypes: Set<BackupType> = BackupType.entries.toSet()): String {
+        return buildApplicationBackupJson(selectedTypes).toString(2)
     }
+    var showExportTypeSheet by remember { mutableStateOf(false) }
+    var showImportTypeSheet by remember { mutableStateOf(false) }
+    var pendingExportTypes by remember { mutableStateOf<Set<BackupType>?>(null) }
+    var pendingImportRoot by remember { mutableStateOf<JSONObject?>(null) }
+    var exportTypeSelection by remember { mutableStateOf(BackupType.entries.toSet()) }
+    var importTypeSelection by remember { mutableStateOf(BackupType.entries.toSet()) }
     val settingsExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        if (uri == null) {
+            pendingExportTypes = null
+            return@rememberLauncherForActivityResult
+        }
+        val types = pendingExportTypes ?: BackupType.entries.toSet()
+        pendingExportTypes = null
         backupScope.launch {
             runCatching {
-                val backup = buildApplicationBackupJson()
+                val backup = buildApplicationBackupJson(types)
                 writeBackupText(uri, backup.toString(2))
             }.onSuccess {
                 Toast.makeText(context, context.getString(R.string.settings_backup_export_success), Toast.LENGTH_SHORT).show()
@@ -126,7 +140,10 @@ fun BackupSettingsScreen(
     val settingsImportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        if (uri == null) {
+            pendingImportRoot = null
+            return@rememberLauncherForActivityResult
+        }
         backupScope.launch {
             runCatching {
                 val text = withContext(Dispatchers.IO) {
@@ -142,16 +159,36 @@ fun BackupSettingsScreen(
                     }
                     return@runCatching
                 }
-                settingsManager.restoreSettingsJson(root.optJSONObject("settings") ?: root)
-                val playlistPayload = root.optJSONObject("playlists")
-                    ?: root.takeIf { it.has("playlists") }
-                if (playlistPayload != null) {
-                    playlistStore.restoreJson(playlistPayload)
+                pendingImportRoot = root
+                showImportTypeSheet = true
+            }.onFailure {
+                Toast.makeText(context, context.getString(R.string.settings_backup_restore_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    fun restoreSelectedTypes(root: JSONObject, selectedTypes: Set<BackupType>) {
+        backupScope.launch {
+            runCatching {
+                val filteredSettings = (root.optJSONObject("settings") ?: root).filterBackupSettings(selectedTypes)
+                if (filteredSettings.length() > 0) {
+                    settingsManager.restoreSettingsJson(filteredSettings)
                 }
-                root.optJSONObject("playback")?.let { playbackStatsStore.restoreJson(it) }
-                root.optJSONObject("aiChat")?.let { restoreAiChatBackupJson(context, it) }
+                if (BackupType.Playlists in selectedTypes) {
+                    val playlistPayload = root.optJSONObject("playlists")
+                        ?: root.takeIf { it.has("playlists") }
+                    if (playlistPayload != null) {
+                        playlistStore.restoreJson(playlistPayload)
+                    }
+                }
+                if (BackupType.PlaybackStats in selectedTypes) {
+                    root.optJSONObject("playback")?.let { playbackStatsStore.restoreJson(it) }
+                }
+                if (BackupType.AiConfigAndChat in selectedTypes) {
+                    root.optJSONObject("aiChat")?.let { restoreAiChatBackupJson(context, it) }
+                }
             }.onSuccess {
                 Toast.makeText(context, context.getString(R.string.settings_backup_restore_success), Toast.LENGTH_SHORT).show()
+                pendingImportRoot = null
             }.onFailure {
                 Toast.makeText(context, context.getString(R.string.settings_backup_restore_failed), Toast.LENGTH_SHORT).show()
             }
@@ -256,13 +293,14 @@ fun BackupSettingsScreen(
                         title = stringResource(R.string.settings_backup_export_settings_title),
                         summary = stringResource(R.string.settings_backup_export_settings_summary),
                         onClick = {
-                            settingsExportLauncher.launch("halcyon_settings_${System.currentTimeMillis()}.json")
+                            showExportTypeSheet = true
                         }
                     )
                     ArrowPreference(
                         title = stringResource(R.string.settings_backup_restore_settings_title),
                         summary = stringResource(R.string.settings_backup_restore_settings_summary),
                         onClick = {
+                            pendingImportRoot = null
                             settingsImportLauncher.launch(arrayOf("application/json", "text/json", "text/*"))
                         }
                     )
@@ -452,4 +490,33 @@ fun BackupSettingsScreen(
             }
         )
     }
+
+    BackupTypeSelectionSheet(
+        show = showExportTypeSheet,
+        title = stringResource(R.string.settings_backup_export_type_title),
+        confirmText = stringResource(R.string.common_export),
+        onDismiss = { showExportTypeSheet = false },
+        initialSelected = exportTypeSelection,
+        onConfirm = { selectedTypes ->
+            exportTypeSelection = selectedTypes
+            pendingExportTypes = selectedTypes
+            settingsExportLauncher.launch("halcyon_settings_${System.currentTimeMillis()}.json")
+        }
+    )
+
+    BackupTypeSelectionSheet(
+        show = showImportTypeSheet,
+        title = stringResource(R.string.settings_backup_import_type_title),
+        confirmText = stringResource(R.string.common_import),
+        onDismiss = { showImportTypeSheet = false },
+        initialSelected = importTypeSelection,
+        onConfirm = { selectedTypes ->
+            importTypeSelection = selectedTypes
+            val root = pendingImportRoot
+            pendingImportRoot = null
+            if (root != null) {
+                restoreSelectedTypes(root, selectedTypes)
+            }
+        }
+    )
 }

@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Hanya menggunakan dekoder sistem Android; format yang tidak didukung akan gagal diputar</string>
     <string name="settings_audio_decoder_ffmpeg_summary">Utamakan dekoder ekstensi FFmpeg</string>
     <string name="settings_audio_decoder_auto_summary">Beralih ke FFmpeg hanya ketika dekoder sistem tidak dapat menangani format</string>
+    <string name="settings_usb_dac_mode">Mode Eksklusif USB DAC</string>
+    <string name="settings_usb_dac_mode_summary">Saat USB DAC terdeteksi, arahkan output media ke perangkat tersebut</string>
+    <string name="settings_usb_dac_no_device">USB DAC tidak terdeteksi</string>
+    <string name="settings_usb_dac_connected">Tersambung ke %1$s</string>
+    <string name="settings_usb_dac_unsupported">Memerlukan Android 12 atau lebih tinggi</string>
     <string name="settings_shuffle_mode_pseudo_random">Acak antrean</string>
     <string name="settings_shuffle_mode_true_random">Acak sejati</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Acak antrean dan usahakan tidak mengulang lagu dalam satu putaran</string>

@@ -95,7 +95,7 @@ class LyricIndexPolicyTest {
             LyricLine(
                 timeMs = 0L,
                 text = "",
-                words = listOf(LyricWord("Hello", 0L, 400L)),
+                words = listOf(LyricWord("Hello", 0L, 1_200L)),
                 isTtml = true
             )
         )

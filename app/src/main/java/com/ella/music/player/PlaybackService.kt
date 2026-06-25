@@ -64,6 +64,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -111,6 +112,13 @@ class PlaybackService : MediaLibraryService() {
         val externalPlaybackChangeEvent = MutableSharedFlow<PlaybackExternalSnapshot>(extraBufferCapacity = 8)
         val externalPlaybackModeEvent = MutableSharedFlow<PlaybackModeExternalSnapshot>(extraBufferCapacity = 4)
 
+        /**
+         * 自动解码模式下的临时覆盖。仅在 decoder_mode 为 Auto 且当前曲目为
+         * m4a/ALAC/AAC 时由 PlayerViewModel 设置为 ffmpeg-prefer（1）。
+         * Service 创建时优先使用该值，不持久化到 DataStore。
+         */
+        val decoderModeOverride = MutableStateFlow<Int?>(null)
+
         fun isXiaomiFamilyDevice(): Boolean {
             val manufacturer = android.os.Build.MANUFACTURER.orEmpty().lowercase()
             val brand = android.os.Build.BRAND.orEmpty().lowercase()
@@ -128,6 +136,7 @@ class PlaybackService : MediaLibraryService() {
     private var openedAudioEffectSessionId = -1
     private val audioEffectController = AudioEffectController()
     private lateinit var equalizerAudioProcessor: EqualizerAudioProcessor
+    private lateinit var usbAudioController: UsbAudioController
     private lateinit var oplusLyricHandler: OPlusLyricHandler
     @Volatile
     private var colorOsLockScreenLyricEnabled = false
@@ -145,6 +154,7 @@ class PlaybackService : MediaLibraryService() {
         setMediaNotificationProvider(notificationProvider)
         settingsManager = SettingsManager.getInstance(this)
         musicRepository = MusicRepository.getInstance(this)
+        usbAudioController = UsbAudioController.getInstance(this)
         oplusLyricHandler = OPlusLyricHandler(
             settingsManager,
             musicRepository,
@@ -217,10 +227,20 @@ class PlaybackService : MediaLibraryService() {
                 webDavConfig = config
             }
         }
+        serviceScope.launch {
+            settingsManager.usbDacMode.collect { _ ->
+                usbAudioController.applyUsbRoutingIfEnabled()
+            }
+        }
+        serviceScope.launch {
+            usbAudioController.preferredUsbDevice.collect { _ ->
+                usbAudioController.applyUsbRoutingIfEnabled()
+            }
+        }
         val dataSourceFactory = DefaultDataSource.Factory(this, httpDataSourceFactory)
 
         val decoderMode = runBlocking(Dispatchers.IO) {
-            settingsManager.decoderMode.first()
+            decoderModeOverride.value ?: settingsManager.decoderMode.first()
         }
         val handleAudioFocus = runBlocking(Dispatchers.IO) {
             !settingsManager.audioFocusDisabled.first()
@@ -395,6 +415,7 @@ class PlaybackService : MediaLibraryService() {
             release()
         }
         mediaSession = null
+        usbAudioController.clearUsbRouting()
         PlaybackAudioSession.clear()
         serviceScope.cancel()
         super.onDestroy()

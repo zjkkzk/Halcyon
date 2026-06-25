@@ -18,6 +18,10 @@ internal data class PlayerLyricFontState(
     val fontWeight: FontWeight,
     val fontScale: Float,
     val secondaryFontScale: Float,
+    val compactPrimaryTextSizeSp: Float,
+    val compactSecondaryTextSizeSp: Float,
+    val widePrimaryTextSizeSp: Float,
+    val wideSecondaryTextSizeSp: Float,
     val shareTypeface: Typeface?
 )
 
@@ -30,6 +34,18 @@ internal fun rememberPlayerLyricFontState(
     val lyricFontWeightValue by settingsManager.lyricFontWeight.collectAsState(initial = 800)
     val lyricFontScaleValue by settingsManager.lyricFontScale.collectAsState(initial = 100)
     val lyricSecondaryFontScaleValue by settingsManager.lyricSecondaryFontScale.collectAsState(initial = 100)
+    val lyricCompactPrimaryTextSizeValue by settingsManager.lyricCompactPrimaryTextSize.collectAsState(
+        initial = SettingsManager.LYRIC_COMPACT_PRIMARY_TEXT_SIZE_DEFAULT_SP
+    )
+    val lyricCompactSecondaryTextSizeValue by settingsManager.lyricCompactSecondaryTextSize.collectAsState(
+        initial = SettingsManager.LYRIC_COMPACT_SECONDARY_TEXT_SIZE_DEFAULT_SP
+    )
+    val lyricWidePrimaryTextSizeValue by settingsManager.lyricWidePrimaryTextSize.collectAsState(
+        initial = SettingsManager.LYRIC_WIDE_PRIMARY_TEXT_SIZE_DEFAULT_SP
+    )
+    val lyricWideSecondaryTextSizeValue by settingsManager.lyricWideSecondaryTextSize.collectAsState(
+        initial = SettingsManager.LYRIC_WIDE_SECONDARY_TEXT_SIZE_DEFAULT_SP
+    )
     val lyricShareUseLyricFont by settingsManager.lyricShareUseLyricFont.collectAsState(initial = false)
     val lyricFontApplyToPage by settingsManager.lyricFontApplyToPage.collectAsState(initial = true)
     val bundledDefaultLyricFontPath = remember(context) { ensureBundledMiSansSemiboldPath(context) }
@@ -68,8 +84,42 @@ internal fun rememberPlayerLyricFontState(
     val lyricFontWeight = remember(effectiveLyricFontWeightValue) {
         FontWeight(effectiveLyricFontWeightValue.coerceIn(100, 900))
     }
-    val lyricFontScale = remember(lyricFontScaleValue) { lyricFontScaleValue.coerceIn(75, 130) / 100f }
-    val lyricSecondaryFontScale = remember(lyricSecondaryFontScaleValue) { lyricSecondaryFontScaleValue.coerceIn(70, 150) / 100f }
+    val lyricFontScale = remember(lyricFontScaleValue) {
+        lyricFontScaleValue.coerceIn(
+            SettingsManager.LYRIC_FONT_SCALE_MIN,
+            SettingsManager.LYRIC_FONT_SCALE_ULTRA_WIDE_MAX
+        ) / 100f
+    }
+    val lyricSecondaryFontScale = remember(lyricSecondaryFontScaleValue) {
+        lyricSecondaryFontScaleValue.coerceIn(
+            SettingsManager.LYRIC_SECONDARY_FONT_SCALE_MIN,
+            SettingsManager.LYRIC_SECONDARY_FONT_SCALE_ULTRA_WIDE_MAX
+        ) / 100f
+    }
+    val lyricCompactPrimaryTextSize = remember(lyricCompactPrimaryTextSizeValue) {
+        lyricCompactPrimaryTextSizeValue.coerceIn(
+            SettingsManager.LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MIN_SP,
+            SettingsManager.LYRIC_COMPACT_PRIMARY_TEXT_SIZE_MAX_SP
+        ).toFloat()
+    }
+    val lyricCompactSecondaryTextSize = remember(lyricCompactSecondaryTextSizeValue) {
+        lyricCompactSecondaryTextSizeValue.coerceIn(
+            SettingsManager.LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MIN_SP,
+            SettingsManager.LYRIC_COMPACT_SECONDARY_TEXT_SIZE_MAX_SP
+        ).toFloat()
+    }
+    val lyricWidePrimaryTextSize = remember(lyricWidePrimaryTextSizeValue) {
+        lyricWidePrimaryTextSizeValue.coerceIn(
+            SettingsManager.LYRIC_WIDE_PRIMARY_TEXT_SIZE_MIN_SP,
+            SettingsManager.LYRIC_WIDE_PRIMARY_TEXT_SIZE_MAX_SP
+        ).toFloat()
+    }
+    val lyricWideSecondaryTextSize = remember(lyricWideSecondaryTextSizeValue) {
+        lyricWideSecondaryTextSizeValue.coerceIn(
+            SettingsManager.LYRIC_WIDE_SECONDARY_TEXT_SIZE_MIN_SP,
+            SettingsManager.LYRIC_WIDE_SECONDARY_TEXT_SIZE_MAX_SP
+        ).toFloat()
+    }
     val lyricShareTypeface = remember(lyricShareUseLyricFont, effectiveLyricFontPath, effectiveLyricFontWeightValue) {
         if (lyricShareUseLyricFont) {
             effectiveLyricFontPath.toPlayerLyricTypeface(effectiveLyricFontWeightValue)
@@ -87,6 +137,22 @@ internal fun rememberPlayerLyricFontState(
         fontWeight = lyricFontWeight,
         fontScale = lyricFontScale,
         secondaryFontScale = lyricSecondaryFontScale,
+        compactPrimaryTextSizeSp = lyricCompactPrimaryTextSize,
+        compactSecondaryTextSizeSp = lyricCompactSecondaryTextSize,
+        widePrimaryTextSizeSp = lyricWidePrimaryTextSize,
+        wideSecondaryTextSizeSp = lyricWideSecondaryTextSize,
         shareTypeface = lyricShareTypeface
     )
 }
+
+internal fun PlayerLyricFontState.primaryTextSizeSp(profile: PlayerLyricLayoutProfile): Float =
+    when (profile) {
+        PlayerLyricLayoutProfile.Wide -> widePrimaryTextSizeSp
+        PlayerLyricLayoutProfile.Compact -> compactPrimaryTextSizeSp
+    }
+
+internal fun PlayerLyricFontState.secondaryTextSizeSp(profile: PlayerLyricLayoutProfile): Float =
+    when (profile) {
+        PlayerLyricLayoutProfile.Wide -> wideSecondaryTextSizeSp
+        PlayerLyricLayoutProfile.Compact -> compactSecondaryTextSizeSp
+    }

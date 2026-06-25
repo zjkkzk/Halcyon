@@ -31,39 +31,56 @@ fun LyricLine.primaryEndMs(
 ): Long {
     val resolvedNextLineStartMs = nextLineStartMs ?: nextLine?.timeMs
     if (text.isBlank() && !backgroundText.isNullOrBlank()) {
-        return (backgroundEndMs
+        val backgroundOnlyEnd = (backgroundEndMs
             ?: backgroundWords.maxOfOrNull { it.endMs }
             ?: endMs
             ?: resolvedNextLineStartMs
             ?: (timeMs + fallbackDurationMs))
+        val cappedBackgroundOnlyEnd = if (
+            resolvedNextLineStartMs != null &&
+            backgroundOnlyEnd > resolvedNextLineStartMs
+        ) {
+            resolvedNextLineStartMs
+        } else {
+            backgroundOnlyEnd
+        }
+        return cappedBackgroundOnlyEnd
             .coerceAtLeast(timeMs + 1L)
     }
 
-    if (isTtml) {
-        val ttmlEnd = words.maxOfOrNull { it.endMs }
-            ?: endMs
-            ?: resolvedNextLineStartMs
-            ?: (timeMs + fallbackDurationMs)
-        return ttmlEnd.coerceAtLeast(timeMs + 1L)
+    val mainWordEndMs = words.maxOfOrNull { it.endMs }
+    val backgroundWordEndMs = backgroundWords.maxOfOrNull { it.endMs }
+    val backgroundTimedEndMs = listOfNotNull(backgroundEndMs, backgroundWordEndMs).maxOrNull()
+    val mainEnd = when {
+        mainWordEndMs != null && backgroundTimedEndMs != null -> maxOf(mainWordEndMs, backgroundTimedEndMs)
+        mainWordEndMs != null -> mainWordEndMs
+        backgroundTimedEndMs != null -> backgroundTimedEndMs
+        else -> endMs
     }
-
-    val mainEnd = words.maxOfOrNull { it.endMs } ?: endMs
     val cappedEnd = when {
         resolvedNextLineStartMs == null -> mainEnd
         mainEnd == null -> resolvedNextLineStartMs
-        mainEnd > resolvedNextLineStartMs && !preservesPrimaryOverlapWith(nextLine) -> resolvedNextLineStartMs
+        mainEnd > resolvedNextLineStartMs &&
+            !preservesPrimaryOverlapWith(
+                nextLine = nextLine,
+                sungEndMs = mainWordEndMs ?: backgroundTimedEndMs ?: mainEnd
+            ) -> resolvedNextLineStartMs
         else -> mainEnd
     }
     return (cappedEnd ?: timeMs + fallbackDurationMs).coerceAtLeast(timeMs + 1L)
 }
 
-private fun LyricLine.preservesPrimaryOverlapWith(nextLine: LyricLine?): Boolean {
+private fun LyricLine.preservesPrimaryOverlapWith(
+    nextLine: LyricLine?,
+    sungEndMs: Long
+): Boolean {
+    val nextLineStartMs = nextLine?.timeMs ?: return false
+    if (sungEndMs <= nextLineStartMs) return false
     val currentAgent = agent?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: return false
-    val nextAgent = nextLine?.agent?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: return false
+    val nextAgent = nextLine.agent?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: return false
     if (currentAgent == nextAgent) return false
     return (currentAgent == "v1" && nextAgent == "v2") ||
-        (currentAgent == "v2" && nextAgent == "v1") ||
-        (isTtml && nextLine.isTtml)
+        (currentAgent == "v2" && nextAgent == "v1")
 }
 
 fun List<LyricLine>.shiftedBy(offsetMs: Long): List<LyricLine> {

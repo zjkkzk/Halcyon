@@ -76,7 +76,7 @@ internal fun List<LyricLine>.toLyriconSong(
             end = end,
             isAlignedRight = line.agent.equals("v2", ignoreCase = true),
             text = line.text.ifBlank { "♪" },
-            words = line.words.toLyriconWords().ifEmpty { null },
+            words = line.displaySmoothPrimaryWords(),
             secondary = line.displaySmoothSecondaryBlockText(),
             secondaryWords = line.displaySmoothSecondaryWords(),
             translation = line.displayTranslationText(),
@@ -122,17 +122,18 @@ private fun LyricLine.displaySmoothSecondaryBlockText(): String? {
     }
 }
 
+private fun LyricLine.displaySmoothPrimaryWords(): List<LyriconWord>? =
+    words
+        .withLineSpacing(text)
+        .toLyriconWords()
+        .ifEmpty { null }
+
 private fun LyricLine.displaySmoothSecondaryWords(): List<LyriconWord>? {
     return backgroundWords
-        .mapNotNull { word ->
-            val normalizedText = word.text.normalizeBackgroundAsideText()
-            if (normalizedText.isBlank() || word.endMs <= word.startMs) return@mapNotNull null
-            LyriconWord(
-                begin = word.startMs,
-                end = word.endMs,
-                text = normalizedText
-            )
+        .withLineSpacing(backgroundText.orEmpty()) { text ->
+            text.normalizeBackgroundWordText()
         }
+        .toLyriconWords()
         .ifEmpty { null }
 }
 
@@ -189,5 +190,50 @@ private fun String.normalizeBackgroundAsideText(): String =
         .replace(Regex("""\s*[）)]+$"""), "")
         .replace(Regex("""[ \t\r\n]+"""), " ")
         .trim()
+
+private fun String.normalizeBackgroundWordText(): String {
+    val trailingWhitespace = takeLastWhile { it.isWhitespace() }
+        .replace(Regex("""[ \t\r\n]+"""), " ")
+    val core = trim()
+        .replace(Regex("""^[（(]+\s*"""), "")
+        .replace(Regex("""\s*[）)]+$"""), "")
+        .replace(Regex("""[ \t\r\n]+"""), " ")
+        .trim()
+    return if (core.isBlank()) "" else core + trailingWhitespace
+}
+
+private fun List<LyricWord>.withLineSpacing(
+    lineText: String,
+    normalizeText: (String) -> String = { it }
+): List<LyricWord> {
+    if (isEmpty()) return this
+    if (lineText.isBlank() || !lineText.any { it.isWhitespace() }) {
+        return map { word -> word.copy(text = normalizeText(word.text)) }
+    }
+
+    val result = mutableListOf<LyricWord>()
+    var cursor = 0
+
+    forEachIndexed { index, word ->
+        val start = lineText.indexOf(word.text, startIndex = cursor)
+        if (start < 0) {
+            result += word.copy(text = normalizeText(word.text))
+            return@forEachIndexed
+        }
+
+        val end = start + word.text.length
+        val nextText = getOrNull(index + 1)?.text
+        val nextStart = if (nextText != null) lineText.indexOf(nextText, startIndex = end) else -1
+        val suffix = when {
+            nextStart > end -> lineText.substring(end, nextStart)
+            nextText == null && end < lineText.length -> lineText.substring(end)
+            else -> ""
+        }
+        result += word.copy(text = normalizeText(word.text + suffix))
+        cursor = end + suffix.length
+    }
+
+    return result
+}
 
 private const val SMOOTH_SECONDARY_TRANSLATION_SEPARATOR = "\u000B"

@@ -523,6 +523,11 @@
     <string name="settings_audio_decoder_system_summary">Используйте только системный декодер Android; неподдерживаемые форматы не будут воспроизводиться</string>
     <string name="settings_audio_decoder_ffmpeg_summary">Предпочитайте декодер расширения FFmpeg.</string>
     <string name="settings_audio_decoder_auto_summary">Возврат к FFmpeg только в том случае, если системный декодер не может обработать формат.</string>
+    <string name="settings_usb_dac_mode">Эксклюзивный режим USB DAC</string>
+    <string name="settings_usb_dac_mode_summary">При обнаружении USB DAC направлять вывод мультимедиа на это устройство</string>
+    <string name="settings_usb_dac_no_device">USB DAC не обнаружен</string>
+    <string name="settings_usb_dac_connected">Подключено к %1$s</string>
+    <string name="settings_usb_dac_unsupported">Требуется Android 12 или новее</string>
     <string name="settings_shuffle_mode_pseudo_random">Перетасовка очереди</string>
     <string name="settings_shuffle_mode_true_random">Настоящий случайный</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Перетасуйте очередь и постарайтесь не повторять песни в течение одного раунда.</string>

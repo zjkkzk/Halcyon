@@ -50,12 +50,15 @@ internal fun LyricsPlayerPage(
     preferTtmlLyrics: Boolean?,
     lyricSourceMode: Int,
     lyricParserEngine: Int,
+    layoutProfile: PlayerLyricLayoutProfile,
     fontFamily: FontFamily?,
     fontPath: String,
     fontWeight: FontWeight,
     italic: Boolean,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     perspectiveEffect: Boolean,
     perspectiveYAngle: Int,
     lyricTextAlign: Int,
@@ -88,6 +91,8 @@ internal fun LyricsPlayerPage(
     onLyricFormatPreference: (Boolean) -> Unit,
     onLyricParserEngine: (Int) -> Unit,
     onArtist: () -> Unit,
+    onPrimaryTextSize: (Float) -> Unit,
+    onSecondaryTextSize: (Float) -> Unit,
     enableSwipeDismiss: Boolean,
     backEnabled: Boolean = true,
     useBlurBackground: Boolean,
@@ -196,7 +201,9 @@ internal fun LyricsPlayerPage(
                         fontWeight = fontWeight,
                         italic = italic,
                         lyricTextAlign = lyricTextAlign,
+                        primaryTextSizeSp = primaryTextSizeSp,
                         secondaryFontScale = secondaryFontScale,
+                        secondaryTextSizeSp = secondaryTextSizeSp,
                         contentColor = palette.onBackground,
                         // Keep far lines sharp over a busy custom wallpaper so they stay readable.
                         nonCurrentLineBlurEnabled = !useCustomPlayerBackground,
@@ -234,8 +241,11 @@ internal fun LyricsPlayerPage(
             preferTtmlLyrics = preferTtmlLyrics,
             lyricSourceMode = lyricSourceMode,
             lyricParserEngine = lyricParserEngine,
+            layoutProfile = layoutProfile,
             fontScale = fontScale,
             secondaryFontScale = secondaryFontScale,
+            primaryTextSizeSp = primaryTextSizeSp,
+            secondaryTextSizeSp = secondaryTextSizeSp,
             onDismiss = { lyricMenuExpanded = false },
             onTogglePronunciation = {
                 lyricMenuExpanded = false
@@ -267,6 +277,8 @@ internal fun LyricsPlayerPage(
             },
             onFontScale = onFontScale,
             onSecondaryFontScale = onSecondaryFontScale,
+            onPrimaryTextSize = onPrimaryTextSize,
+            onSecondaryTextSize = onSecondaryTextSize,
             modifier = Modifier.fillMaxWidth()
         )
     }

@@ -32,6 +32,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,6 +81,22 @@ class ExoPlayerManager(private val context: Context) {
         val song: Song
     )
 
+    private sealed interface PendingDecoderAction {
+        data class SetPlaylist(
+            val songs: List<Song>,
+            val startIndex: Int,
+            val honorShuffle: Boolean
+        ) : PendingDecoderAction
+
+        data class PlayResolvedVirtual(
+            val songs: List<Song>,
+            val currentIndex: Int,
+            val resolvedSong: Song
+        ) : PendingDecoderAction
+
+        data class PlayQueueIndex(val index: Int) : PendingDecoderAction
+    }
+
     private val _playlist = MutableStateFlow<List<Song>>(emptyList())
     val playlistFlow: StateFlow<List<Song>> = _playlist.asStateFlow()
     private var playerListener: Player.Listener? = null
@@ -89,6 +107,7 @@ class ExoPlayerManager(private val context: Context) {
     private var virtualPlaylistCurrentIndex: Int? = null
     private var playWhenConnected = false
     private var pendingPlaylist: PendingPlaylist? = null
+    private var pendingDecoderAction: PendingDecoderAction? = null
     private var reorderingPlaylistForShuffle = false
     private var playlistBeforeShuffle: List<Song>? = null
     private var pendingShuffleReorder = false
@@ -101,12 +120,17 @@ class ExoPlayerManager(private val context: Context) {
 
     private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val artworkRepository = MusicRepository.getInstance(context)
+    private val settingsManager = SettingsManager.getInstance(context)
     private val notificationArtworkCache = object : LruCache<String, ByteArray>(4 * 1024) {
         override fun sizeOf(key: String, value: ByteArray): Int = value.size / 1024
     }
     private val missingNotificationArtworkKeys = mutableSetOf<String>()
     private var notificationArtworkJob: Job? = null
     private var currentSongRefreshJob: Job? = null
+    private var decoderRecoveryJob: Job? = null
+    private var autoDecoderRetrySongKey: String? = null
+    @Volatile
+    private var decoderModeSetting = DECODER_MODE_SYSTEM
     private var artworkAppliedSongKey: String? = null
     private var sessionMetadataSongKey: String? = null
     private var bluetoothMetadataPatchState = MediaNotificationLyricPatchPolicy.onCleared()
@@ -114,6 +138,11 @@ class ExoPlayerManager(private val context: Context) {
 
     init {
         _shuffleEnabled.value = loadAppShuffleEnabled()
+        persistenceScope.launch {
+            settingsManager.decoderMode.collect { mode ->
+                decoderModeSetting = mode.coerceIn(DECODER_MODE_SYSTEM, DECODER_MODE_AUTO)
+            }
+        }
     }
 
     fun connect() {
@@ -167,24 +196,27 @@ class ExoPlayerManager(private val context: Context) {
 
     private fun activeController(): MediaController? = mediaController?.takeIf { it.isConnected }
 
-    suspend fun recreatePlaybackService() {
-        val resumePlayback = _isPlaying.value
-        savePlaybackQueue(force = true)
-        savePlaybackState(force = true)
-        playWhenConnected = resumePlayback
-        AppLogStore.info(context, "PlayerDecoder", "Recreate playback service for decoder change")
+    fun isConnected(): Boolean = mediaController?.isConnected == true
 
-        disconnect()
-        context.stopService(Intent(context, PlaybackService::class.java))
-        playlist.clear()
-        _playlist.value = emptyList()
-        notificationArtworkJob?.cancel()
-        notificationArtworkJob = null
-        sessionMetadataSongKey = null
-        artworkAppliedSongKey = null
-        clearBluetoothMetadataPatchState()
-        delay(650)
-        connect()
+    suspend fun recreatePlaybackService(resumePlayback: Boolean = _isPlaying.value) {
+        withContext(Dispatchers.Main.immediate) {
+            savePlaybackQueue(force = true)
+            savePlaybackState(force = true)
+            playWhenConnected = resumePlayback
+            AppLogStore.info(context, "PlayerDecoder", "Recreate playback service for decoder change")
+
+            disconnect()
+            context.stopService(Intent(context, PlaybackService::class.java))
+            playlist.clear()
+            _playlist.value = emptyList()
+            notificationArtworkJob?.cancel()
+            notificationArtworkJob = null
+            sessionMetadataSongKey = null
+            artworkAppliedSongKey = null
+            clearBluetoothMetadataPatchState()
+            delay(650)
+            connect()
+        }
     }
 
     private fun setupListener() {
@@ -228,6 +260,13 @@ class ExoPlayerManager(private val context: Context) {
 
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
                 if (reorderingPlaylistForShuffle) return
+                // Metadata-only patches (bluetooth/notification lyrics, notification artwork,
+                // base session metadata) replace the current item's MediaMetadata via
+                // replaceMediaItem without changing the actual playback queue. These trigger
+                // onTimelineChanged with SOURCE_UPDATE, but the real playback state (isPlaying,
+                // position, queue, current song) is unchanged. Skip the full refresh to avoid
+                // spurious StateFlow emissions that flicker the lyrics page.
+                if (mediaController?.currentMediaItem?.isMetadataOnlyPatch() == true) return
                 refreshStateFromController()
             }
 
@@ -268,17 +307,53 @@ class ExoPlayerManager(private val context: Context) {
                     "Playback failed code=${error.errorCodeName} song=${song?.title.orEmpty()} uri=${mediaController?.currentMediaItem?.localConfiguration?.uri}",
                     error
                 )
-                skipToNext()
+                decoderRecoveryJob?.cancel()
+                decoderRecoveryJob = persistenceScope.launch {
+                    val recovered = song?.let { tryRecoverAutoDecoderPlayback(it) } == true
+                    if (!recovered) {
+                        withContext(Dispatchers.Main.immediate) {
+                            skipToNext()
+                        }
+                    }
+                }
             }
         }
         mediaController?.addListener(playerListener!!)
 
-        val pending = pendingPlaylist
-        if (pending != null) {
-            pendingPlaylist = null
-            setPlaylist(pending.songs, pending.startIndex, honorShuffle = pending.honorShuffle)
-        } else {
-            restoreSavedQueueIfNeeded()
+        when (val pendingDecoder = pendingDecoderAction) {
+            is PendingDecoderAction.SetPlaylist -> {
+                pendingDecoderAction = null
+                setPlaylist(
+                    songs = pendingDecoder.songs,
+                    startIndex = pendingDecoder.startIndex,
+                    honorShuffle = pendingDecoder.honorShuffle
+                )
+            }
+
+            is PendingDecoderAction.PlayResolvedVirtual -> {
+                pendingDecoderAction = null
+                playResolvedFromVirtualQueue(
+                    songs = pendingDecoder.songs,
+                    currentIndex = pendingDecoder.currentIndex,
+                    resolvedSong = pendingDecoder.resolvedSong
+                )
+            }
+
+            is PendingDecoderAction.PlayQueueIndex -> {
+                pendingDecoderAction = null
+                restoreSavedQueueIfNeeded()
+                playQueueIndex(pendingDecoder.index)
+            }
+
+            null -> {
+                val pending = pendingPlaylist
+                if (pending != null) {
+                    pendingPlaylist = null
+                    setPlaylist(pending.songs, pending.startIndex, honorShuffle = pending.honorShuffle)
+                } else {
+                    restoreSavedQueueIfNeeded()
+                }
+            }
         }
         refreshStateFromController()
         if (playWhenConnected) {
@@ -303,6 +378,18 @@ class ExoPlayerManager(private val context: Context) {
 
     private fun setPlaylist(songs: List<Song>, startIndex: Int, honorShuffle: Boolean) {
         if (songs.isEmpty()) return
+        val requestedIndex = startIndex.coerceIn(songs.indices)
+        if (prepareAutoDecoderPlayback(
+                song = songs[requestedIndex],
+                action = PendingDecoderAction.SetPlaylist(
+                    songs = songs,
+                    startIndex = requestedIndex,
+                    honorShuffle = honorShuffle
+                )
+            )
+        ) {
+            return
+        }
         externalSnapshotGuard = null
         suppressExternalSnapshotsUntilMs = 0L
         AppLogStore.debug(context, "PlayerQueue", "setPlaylist size=${songs.size} start=$startIndex")
@@ -318,7 +405,6 @@ class ExoPlayerManager(private val context: Context) {
         // The whole queue is shipped to the playback service over Binder (~1MB transaction limit);
         // a 60k-song library overflows it and crashes with TransactionTooLargeException. For
         // pathologically large queues, play a window around the chosen song instead of everything.
-        val requestedIndex = startIndex.coerceIn(songs.indices)
         val prepared = preparePlaybackQueue(songs, requestedIndex, honorShuffle)
         val queueSongs = prepared.songs
         val safeIndex = prepared.startIndex
@@ -391,10 +477,21 @@ class ExoPlayerManager(private val context: Context) {
 
     fun playResolvedFromVirtualQueue(songs: List<Song>, currentIndex: Int, resolvedSong: Song) {
         if (songs.isEmpty()) return
+        val safeIndex = currentIndex.coerceIn(songs.indices)
+        if (prepareAutoDecoderPlayback(
+                song = resolvedSong,
+                action = PendingDecoderAction.PlayResolvedVirtual(
+                    songs = songs,
+                    currentIndex = safeIndex,
+                    resolvedSong = resolvedSong
+                )
+            )
+        ) {
+            return
+        }
         externalSnapshotGuard = null
         suppressExternalSnapshotsUntilMs = 0L
         AppLogStore.debug(context, "PlayerQueue", "playResolvedVirtual size=${songs.size} index=$currentIndex title=${resolvedSong.title}")
-        val safeIndex = currentIndex.coerceIn(songs.indices)
         virtualPlaylistCurrentIndex = safeIndex
         clearPendingShuffleReorder(disableNativeShuffle = true, clearOriginalOrder = true)
         resetPlayNextForwardStack()
@@ -559,6 +656,13 @@ class ExoPlayerManager(private val context: Context) {
 
     fun playQueueIndex(index: Int) {
         if (index !in playlist.indices) return
+        if (prepareAutoDecoderPlayback(
+                song = playlist[index],
+                action = PendingDecoderAction.PlayQueueIndex(index)
+            )
+        ) {
+            return
+        }
         externalSnapshotGuard = null
         suppressExternalSnapshotsUntilMs = 0L
         resetPlayNextForwardStack()
@@ -624,6 +728,7 @@ class ExoPlayerManager(private val context: Context) {
         suppressExternalSnapshotsUntilMs = SystemClock.elapsedRealtime() + CLEAR_EXTERNAL_SNAPSHOT_SUPPRESSION_MS
         currentSongRefreshJob?.cancel()
         currentSongRefreshJob = null
+        pendingDecoderAction = null
         virtualPlaylistCurrentIndex = null
         clearPendingShuffleReorder(disableNativeShuffle = true, clearOriginalOrder = true)
         resetPlayNextForwardStack()
@@ -639,6 +744,7 @@ class ExoPlayerManager(private val context: Context) {
         _duration.value = 0L
         _isPlaying.value = false
         _playbackState.value = Player.STATE_IDLE
+        autoDecoderRetrySongKey = null
         mediaController?.run {
             stop()
             clearMediaItems()
@@ -649,13 +755,7 @@ class ExoPlayerManager(private val context: Context) {
     fun playSong(song: Song) {
         val index = playlist.indexOfFirst { it.isSamePlaybackIdentity(song) }
         if (index >= 0) {
-            resetPlayNextForwardStack()
-            clearPendingShuffleReorder(disableNativeShuffle = true, clearOriginalOrder = false)
-            rememberCurrentSongResumePosition()
-            mediaController?.seekTo(index, resumePositionFor(playlist[index]))
-            mediaController?.play()
-            updateCurrentSong()
-            savePlaybackQueue(force = true)
+            playQueueIndex(index)
         } else {
             setPlaylist(listOf(song), 0)
         }
@@ -693,6 +793,18 @@ class ExoPlayerManager(private val context: Context) {
 
     fun skipToNext() {
         val controller = mediaController ?: return
+        val targetIndex = when {
+            controller.currentMediaItemIndex + 1 in playlist.indices -> controller.currentMediaItemIndex + 1
+            playlist.isNotEmpty() && controller.repeatMode != Player.REPEAT_MODE_OFF -> 0
+            else -> null
+        }
+        if (targetIndex != null && prepareAutoDecoderPlayback(
+                song = playlist[targetIndex],
+                action = PendingDecoderAction.PlayQueueIndex(targetIndex)
+            )
+        ) {
+            return
+        }
         rememberCurrentSongResumePosition()
         if (!performPendingShuffleReorder(trigger = "skipNext", seekToNextAfterReorder = true)) {
             controller.seekToNextMediaItem()
@@ -703,10 +815,22 @@ class ExoPlayerManager(private val context: Context) {
 
     fun skipToPrevious() {
         val controller = mediaController ?: return
+        val pendingTargetIndex = when {
+            controller.currentMediaItemIndex - 1 in playlist.indices -> controller.currentMediaItemIndex - 1
+            playlist.isNotEmpty() && controller.repeatMode != Player.REPEAT_MODE_OFF -> playlist.lastIndex
+            else -> null
+        }
+        if (pendingTargetIndex != null && prepareAutoDecoderPlayback(
+                song = playlist[pendingTargetIndex],
+                action = PendingDecoderAction.PlayQueueIndex(pendingTargetIndex)
+            )
+        ) {
+            return
+        }
         rememberCurrentSongResumePosition()
-        val targetIndex = (controller.currentMediaItemIndex - 1).takeIf { it in playlist.indices }
-        if (targetIndex != null) {
-            controller.seekTo(targetIndex, resumePositionFor(playlist[targetIndex]))
+        val previousIndex = (controller.currentMediaItemIndex - 1).takeIf { it in playlist.indices }
+        if (previousIndex != null) {
+            controller.seekTo(previousIndex, resumePositionFor(playlist[previousIndex]))
         } else {
             controller.seekToPreviousMediaItem()
         }
@@ -1230,6 +1354,7 @@ class ExoPlayerManager(private val context: Context) {
         _currentSong.value = restoredSong
         _duration.value = controller.duration.coerceAtLeast(0)
         if (!previousSong.isSamePlaybackIdentity(restoredSong)) {
+            autoDecoderRetrySongKey = null
             resetPlayNextForwardStack()
             notificationArtworkJob?.cancel()
             notificationArtworkJob = null
@@ -1262,6 +1387,50 @@ class ExoPlayerManager(private val context: Context) {
         val item = currentMediaItem ?: return false
         if (guard.mediaId != null && item.mediaId == guard.mediaId) return true
         return item.matchesSong(guard.song)
+    }
+
+    private fun prepareAutoDecoderPlayback(
+        song: Song,
+        action: PendingDecoderAction
+    ): Boolean {
+        if (!song.isM4aOrAppleLosslessOrAAC()) return false
+        if (decoderModeSetting != DECODER_MODE_AUTO) return false
+        if (PlaybackService.decoderModeOverride.value == DECODER_MODE_FFMPEG_PREFER) return false
+
+        PlaybackService.decoderModeOverride.value = DECODER_MODE_FFMPEG_PREFER
+        AppLogStore.info(
+            context,
+            "PlayerDecoder",
+            "Switch to FFmpeg before playing ${song.title}"
+        )
+
+        pendingDecoderAction = action
+        decoderRecoveryJob?.cancel()
+        decoderRecoveryJob = persistenceScope.launch {
+            recreatePlaybackService(resumePlayback = false)
+        }
+        return true
+    }
+
+    private suspend fun tryRecoverAutoDecoderPlayback(song: Song): Boolean {
+        if (!song.isM4aOrAppleLosslessOrAAC()) return false
+        if (settingsManager.decoderMode.first() != DECODER_MODE_AUTO) return false
+        if (PlaybackService.decoderModeOverride.value == DECODER_MODE_FFMPEG_PREFER) return false
+
+        val songKey = song.playbackStackKey()
+        if (autoDecoderRetrySongKey == songKey) return false
+
+        autoDecoderRetrySongKey = songKey
+        PlaybackService.decoderModeOverride.value = DECODER_MODE_FFMPEG_PREFER
+        AppLogStore.warn(
+            context,
+            "PlayerDecoder",
+            "Retry ${song.title} with FFmpeg after playback failure"
+        )
+        withContext(Dispatchers.Main.immediate) {
+            recreatePlaybackService(resumePlayback = true)
+        }
+        return true
     }
 
     private fun shufflePlaylistKeepingCurrent(): Boolean {
@@ -1757,5 +1926,25 @@ class ExoPlayerManager(private val context: Context) {
         const val KEY_QUEUE = "queue"
         const val KEY_STATE = "state"
         const val KEY_APP_SHUFFLE = "app_shuffle_enabled"
+        const val DECODER_MODE_SYSTEM = 0
+        const val DECODER_MODE_FFMPEG_PREFER = 1
+        const val DECODER_MODE_AUTO = 2
+    }
+}
+
+internal fun Song.isM4aOrAppleLosslessOrAAC(): Boolean {
+    val ext = path.substringAfterLast('.', "").lowercase()
+    val mime = mimeType.lowercase()
+    return when {
+        ext == "m4a" || ext == "mp4" || ext == "aac" -> true
+        ext == "alac" -> true
+        mime in setOf(
+            "audio/mp4",
+            "audio/x-m4a",
+            "audio/aac",
+            "audio/mp4a-latm",
+            "audio/alac"
+        ) -> true
+        else -> false
     }
 }

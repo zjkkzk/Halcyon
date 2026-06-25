@@ -18,6 +18,7 @@ import com.ella.music.data.repository.CoverUsage
 import com.ella.music.data.repository.MusicRepository
 import com.ella.music.player.DesktopLyricBridge
 import com.ella.music.player.ExoPlayerManager
+import com.ella.music.player.isM4aOrAppleLosslessOrAAC
 import com.ella.music.player.LyricGetterBridge
 import com.ella.music.player.LyriconBridge
 import com.ella.music.player.MediaNotificationLyricPatchPolicy
@@ -45,6 +46,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val LYRIC_POSITION_BACKWARD_DRIFT_TOLERANCE_MS = 600L
+
+private const val DECODER_MODE_SYSTEM = 0
+private const val DECODER_MODE_FFMPEG_PREFER = 1
+private const val DECODER_MODE_AUTO = 2
 
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
@@ -142,6 +147,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private var lyricOffsetOverrides = emptyMap<String, Long>()
     private var lyricBlacklistRules = emptyList<LyricBlacklistRule>()
     private var appliedDecoderMode: Int? = null
+    private var appliedDecoderModeOverride: Int? = null
     private var appliedAudioFocusDisabled: Boolean? = null
     private var appliedLyricSourceMode: Int? = null
     private var previousButtonAction = SettingsManager.PREVIOUS_BUTTON_PREVIOUS
@@ -171,6 +177,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         initPreviousButtonAction()
         initResumePlaybackPosition()
         initDecoderMode()
+        observeAutoDecoderMode()
         initAudioFocusMode()
         initReplayGain()
         initLyricSourceMode()
@@ -436,8 +443,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 if (appliedDecoderMode == mode) return@collect
                 appliedDecoderMode = mode
+                if (mode != DECODER_MODE_AUTO) {
+                    PlaybackService.decoderModeOverride.value = null
+                    appliedDecoderModeOverride = null
+                }
                 playerManager.recreatePlaybackService()
                 AppLogStore.info(getApplication(), "PlayerDecoder", "Decoder mode changed to $mode")
+            }
+        }
+    }
+
+    private fun observeAutoDecoderMode() {
+        viewModelScope.launch {
+            currentSong.collect { song ->
+                if (appliedDecoderMode != DECODER_MODE_AUTO) return@collect
+                PlaybackService.decoderModeOverride.value?.let { currentOverride ->
+                    if (currentOverride != appliedDecoderModeOverride) {
+                        appliedDecoderModeOverride = currentOverride
+                    }
+                }
+                val desiredOverride = if (song != null && song.isM4aOrAppleLosslessOrAAC()) DECODER_MODE_FFMPEG_PREFER else null
+                if (desiredOverride == appliedDecoderModeOverride) return@collect
+                if (desiredOverride == DECODER_MODE_FFMPEG_PREFER) {
+                    appliedDecoderModeOverride = DECODER_MODE_FFMPEG_PREFER
+                    PlaybackService.decoderModeOverride.value = DECODER_MODE_FFMPEG_PREFER
+                    if (playerManager.isConnected()) {
+                        playerManager.recreatePlaybackService()
+                        AppLogStore.info(
+                            getApplication(),
+                            "PlayerDecoder",
+                            "Auto decoder switched to FFmpeg for ${song?.title}"
+                        )
+                    }
+                }
             }
         }
     }
@@ -1167,6 +1205,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             settingsManager.setDecoderMode(safeMode)
             if (appliedDecoderMode != safeMode) {
                 appliedDecoderMode = safeMode
+                PlaybackService.decoderModeOverride.value = null
+                appliedDecoderModeOverride = null
                 playerManager.recreatePlaybackService()
                 AppLogStore.info(getApplication(), "PlayerDecoder", "Decoder mode changed to $safeMode")
             }

@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Utiliser uniquement le décodeur système Android ; les formats non pris en charge ne pourront pas être lus</string>
     <string name="settings_audio_decoder_ffmpeg_summary">Préférer le décodeur d’extension FFmpeg</string>
     <string name="settings_audio_decoder_auto_summary">Basculer vers FFmpeg uniquement lorsque le décodeur système ne peut pas gérer le format</string>
+    <string name="settings_usb_dac_mode">Mode exclusif DAC USB</string>
+    <string name="settings_usb_dac_mode_summary">Rediriger la sortie média vers un DAC USB détecté</string>
+    <string name="settings_usb_dac_no_device">Aucun DAC USB détecté</string>
+    <string name="settings_usb_dac_connected">Connecté à %1$s</string>
+    <string name="settings_usb_dac_unsupported">Nécessite Android 12 ou ultérieur</string>
     <string name="settings_shuffle_mode_pseudo_random">Mélange de la file</string>
     <string name="settings_shuffle_mode_true_random">Vrai aléatoire</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Mélanger la file et essayer d’éviter les répétitions dans un même cycle</string>

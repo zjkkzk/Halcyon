@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.ella.music.R
 import com.ella.music.data.exception.WritePermissionRequiredException
 import com.ella.music.data.model.FAVORITES_PLAYLIST_ID
@@ -87,6 +88,7 @@ import com.ella.music.ui.components.createPlaylistOrShowDuplicateToast
 import com.ella.music.ui.components.ellaPageBackground
 import com.ella.music.ui.components.toFastIndexSection
 import com.ella.music.ui.components.wallpaperContentOverlayColor
+import com.ella.music.ui.settings.findComponentActivity
 import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.Job
@@ -129,6 +131,7 @@ fun FolderDetailScreen(
     val scanExcludeFolders by mainViewModel.settingsManager.scanExcludeFolders.collectAsState(initial = "")
     val blockedFolders = remember(scanExcludeFolders) { scanExcludeFolders.toFolderSettingList() }
     val scope = rememberCoroutineScope()
+    val saveScope = context.findComponentActivity()?.lifecycleScope ?: scope
     var searchQuery by remember { mutableStateOf("") }
     var searchExpanded by remember { mutableStateOf(false) }
     var sortExpanded by remember { mutableStateOf(false) }
@@ -142,10 +145,23 @@ fun FolderDetailScreen(
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var pendingSystemDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var folderToBlock by remember { mutableStateOf<String?>(null) }
-    val sortIndex by mainViewModel.settingsManager.folderDetailSongSortIndex.collectAsState(initial = LibrarySortUiState.folderDetailSongSortIndex)
+    val persistedSortIndex by mainViewModel.settingsManager.folderDetailSongSortIndex.collectAsState(
+        initial = LibrarySortUiState.folderDetailSongSortIndex
+    )
+    val sortIndex = LibrarySortUiState.pendingFolderDetailSongSortIndex ?: persistedSortIndex
     val sortMode = FolderSongSortMode.entries.getOrElse(sortIndex) { FolderSongSortMode.Title }
-    LaunchedEffect(sortIndex) {
-        LibrarySortUiState.folderDetailSongSortIndex = sortIndex
+    LaunchedEffect(persistedSortIndex) {
+        val pendingSortIndex = LibrarySortUiState.pendingFolderDetailSongSortIndex
+        if (pendingSortIndex != null && persistedSortIndex != pendingSortIndex) return@LaunchedEffect
+        LibrarySortUiState.pendingFolderDetailSongSortIndex = null
+        LibrarySortUiState.folderDetailSongSortIndex = persistedSortIndex
+    }
+    fun updateSortMode(mode: FolderSongSortMode) {
+        val nextSortIndex = mode.ordinal
+        if (sortIndex == nextSortIndex) return
+        LibrarySortUiState.pendingFolderDetailSongSortIndex = nextSortIndex
+        LibrarySortUiState.folderDetailSongSortIndex = nextSortIndex
+        saveScope.launch { mainViewModel.settingsManager.setFolderDetailSongSortIndex(nextSortIndex) }
     }
     val normalizedFolderPath = remember(folderPath) { folderPath.normalizeFolderPath() }
     var scrollToTopRequest by remember { mutableStateOf(0) }
@@ -445,8 +461,7 @@ fun FolderDetailScreen(
                                 text = stringResource(mode.labelRes),
                                 selected = sortMode == mode,
                                 onClick = {
-                                    LibrarySortUiState.folderDetailSongSortIndex = mode.ordinal
-                                    scope.launch { mainViewModel.settingsManager.setFolderDetailSongSortIndex(mode.ordinal) }
+                                    updateSortMode(mode)
                                 }
                             )
                         }
@@ -478,8 +493,7 @@ fun FolderDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                LibrarySortUiState.folderDetailSongSortIndex = mode.ordinal
-                                scope.launch { mainViewModel.settingsManager.setFolderDetailSongSortIndex(mode.ordinal) }
+                                updateSortMode(mode)
                                 sortExpanded = false
                             }
                             .padding(vertical = 10.dp),

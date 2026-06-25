@@ -525,6 +525,11 @@
     <string name="settings_audio_decoder_system_summary">Chỉ sử dụng bộ giải mã hệ thống Android; các định dạng không được hỗ trợ sẽ không phát được</string>
     <string name="settings_audio_decoder_ffmpeg_summary">Thích bộ giải mã tiện ích mở rộng FFmpeg</string>
     <string name="settings_audio_decoder_auto_summary">Chỉ dự phòng về FFmpeg khi bộ giải mã hệ thống không thể xử lý định dạng</string>
+    <string name="settings_usb_dac_mode">Chế độ độc quyền USB DAC</string>
+    <string name="settings_usb_dac_mode_summary">Khi phát hiện USB DAC, hãy định tuyến đầu ra media đến thiết bị đó</string>
+    <string name="settings_usb_dac_no_device">Không phát hiện USB DAC</string>
+    <string name="settings_usb_dac_connected">Đã kết nối với %1$s</string>
+    <string name="settings_usb_dac_unsupported">Yêu cầu Android 12 trở lên</string>
     <string name="settings_shuffle_mode_pseudo_random">Xáo trộn hàng đợi</string>
     <string name="settings_shuffle_mode_true_random">Đúng ngẫu nhiên</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Xáo trộn hàng đợi và cố gắng không lặp lại các bài hát trong một vòng</string>

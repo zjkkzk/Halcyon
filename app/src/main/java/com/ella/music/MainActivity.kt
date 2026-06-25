@@ -725,11 +725,6 @@ fun EllaApp(
             label = stringResource(R.string.tab_library),
             icon = MiuixIcons.Regular.Playlist
         ),
-        SettingsManager.BOTTOM_DOCK_ITEM_SEARCH to BottomDockTab(
-            route = Screen.LibrarySearch.createRoute(),
-            label = stringResource(R.string.common_search),
-            icon = MiuixIcons.Basic.Search
-        ),
         SettingsManager.BOTTOM_DOCK_ITEM_PLAYLISTS to BottomDockTab(
             route = Screen.Playlists.createRoute(fromDock = true),
             label = stringResource(R.string.category_playlist),
@@ -762,7 +757,7 @@ fun EllaApp(
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_SETTINGS to BottomDockTab(
             route = Screen.Settings.createRoute(fromDock = true),
-            label = stringResource(R.string.settings),
+            label = stringResource(R.string.settings_other),
             icon = MiuixIcons.Regular.Settings
         ),
         SettingsManager.BOTTOM_DOCK_ITEM_YEAR to BottomDockTab(
@@ -798,7 +793,8 @@ fun EllaApp(
             listOfNotNull(
                 bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_HOME],
                 bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_LIBRARY],
-                bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_SEARCH]
+                bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_SETTINGS],
+                bottomDockSpecs[SettingsManager.BOTTOM_DOCK_ITEM_PLAYLISTS]
             )
         }
     val currentTabRoute = currentRoute.toCurrentTabRoute()
@@ -970,6 +966,12 @@ fun EllaApp(
                         showPlayerOverlay = false
                         playerDismissProgress = 0f
                         navController.navigate(Screen.MetadataCategoryDetail.createRoute(type, name))
+                    },
+                    onNavigateToEqualizer = {
+                        playerViewModel.setShowLyrics(false)
+                        showPlayerOverlay = false
+                        playerDismissProgress = 0f
+                        navController.navigate(Screen.Equalizer.createRoute())
                     },
                     onDismissProgressChange = { progress ->
                         playerDismissProgress = progress

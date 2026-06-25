@@ -30,6 +30,7 @@ import com.ella.music.viewmodel.MainViewModel
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 internal fun CoverPageContent(
@@ -67,11 +68,19 @@ internal fun CoverPageContent(
     miniLyricLine: LyricLine?,
     showLyricTranslation: Boolean,
     showLyricPronunciation: Boolean,
+    lyricPageKeepScreenOn: Boolean,
+    lyricFormatAvailability: MusicRepository.LyricFormatAvailability,
+    preferTtmlLyrics: Boolean?,
+    lyricSourceMode: Int,
+    lyricParserEngine: Int,
+    lyricLayoutProfile: PlayerLyricLayoutProfile,
     lyricFontFamily: FontFamily?,
     effectiveLyricFontPath: String,
     lyricFontWeight: FontWeight,
     lyricFontScale: Float,
     lyricSecondaryFontScale: Float,
+    lyricPrimaryTextSizeSp: Float,
+    lyricSecondaryTextSizeSp: Float,
     lyricPerspectiveEffect: Boolean,
     lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
@@ -115,6 +124,7 @@ internal fun CoverPageContent(
     onTagEditorSongChange: (Song?) -> Unit,
     onTagEditorKindChange: (TagEditorOptionKind) -> Unit,
     onLyricMatchSongChange: (Song?) -> Unit,
+    onOpenEqualizer: () -> Unit,
     onRequestDeleteSong: (Song) -> Unit,
     onNavigateToAlbum: (Long) -> Unit,
     onNavigateToArtist: (String) -> Unit,
@@ -181,11 +191,19 @@ internal fun CoverPageContent(
         miniLyricLine = miniLyricLine,
         showTranslation = showLyricTranslation,
         showPronunciation = showLyricPronunciation,
+        lyricPageKeepScreenOn = lyricPageKeepScreenOn,
+        lyricFormatAvailability = lyricFormatAvailability,
+        preferTtmlLyrics = preferTtmlLyrics,
+        lyricSourceMode = lyricSourceMode,
+        lyricParserEngine = lyricParserEngine,
+        lyricLayoutProfile = lyricLayoutProfile,
         fontFamily = lyricFontFamily,
         fontPath = effectiveLyricFontPath,
         fontWeight = lyricFontWeight,
         fontScale = lyricFontScale,
         secondaryFontScale = lyricSecondaryFontScale,
+        primaryTextSizeSp = lyricPrimaryTextSizeSp,
+        secondaryTextSizeSp = lyricSecondaryTextSizeSp,
         lyricPerspectiveEffect = lyricPerspectiveEffect,
         lyricPerspectiveYAngle = lyricPerspectiveYAngle,
         lyricTextAlign = lyricTextAlign,
@@ -218,6 +236,56 @@ internal fun CoverPageContent(
         onShowLyrics = onShowLyrics,
         onLyricLineClick = { line -> playerViewModel.seekTo(line.timeMs) },
         onLyricLineLongClick = openLyricSharePicker,
+        onTogglePronunciation = {
+            playerViewModel.setLyricPagePronunciation(!showLyricPronunciation)
+        },
+        onToggleTranslation = {
+            playerViewModel.setLyricPageTranslation(!showLyricTranslation)
+        },
+        onToggleLyricKeepScreenOn = {
+            scope.launch { settingsManager.setLyricPageKeepScreenOn(!lyricPageKeepScreenOn) }
+        },
+        onToggleLyricPerspectiveEffect = {
+            scope.launch { settingsManager.setLyricPerspectiveEffect(!lyricPerspectiveEffect) }
+        },
+        onLyricPerspectiveYAngle = { angle ->
+            scope.launch { settingsManager.setLyricPerspectiveYAngle(angle) }
+        },
+        onLyricSourceMode = { mode ->
+            playerViewModel.setLyricSourceMode(mode)
+        },
+        onLyricFormatPreference = { preferTtml ->
+            playerViewModel.setLyricFormatPreference(preferTtml)
+        },
+        onLyricParserEngine = { engine ->
+            scope.launch { settingsManager.setLyricParserEngine(engine) }
+        },
+        onLyricFontScale = { scale ->
+            scope.launch { settingsManager.setLyricFontScale((scale * 100f).roundToInt()) }
+        },
+        onLyricSecondaryFontScale = { scale ->
+            scope.launch { settingsManager.setLyricSecondaryFontScale((scale * 100f).roundToInt()) }
+        },
+        onLyricPrimaryTextSize = { sizeSp ->
+            scope.launch {
+                when (lyricLayoutProfile) {
+                    PlayerLyricLayoutProfile.Compact ->
+                        settingsManager.setLyricCompactPrimaryTextSize(sizeSp.roundToInt())
+                    PlayerLyricLayoutProfile.Wide ->
+                        settingsManager.setLyricWidePrimaryTextSize(sizeSp.roundToInt())
+                }
+            }
+        },
+        onLyricSecondaryTextSize = { sizeSp ->
+            scope.launch {
+                when (lyricLayoutProfile) {
+                    PlayerLyricLayoutProfile.Compact ->
+                        settingsManager.setLyricCompactSecondaryTextSize(sizeSp.roundToInt())
+                    PlayerLyricLayoutProfile.Wide ->
+                        settingsManager.setLyricWideSecondaryTextSize(sizeSp.roundToInt())
+                }
+            }
+        },
         onSeek = { fraction -> playerViewModel.seekTo((fraction * duration).toLong()) },
         onCyclePlaybackMode = { playerViewModel.cyclePlaybackMode() },
         onPrevious = { playerViewModel.skipToPrevious() },
@@ -332,6 +400,10 @@ internal fun CoverPageContent(
                 Toast.makeText(context, context.getString(R.string.player_no_song_playing), Toast.LENGTH_SHORT).show()
             }
         },
+        onOpenEqualizer = {
+            onMenuExpandedChange(false)
+            onOpenEqualizer()
+        },
         onDeleteSong = {
             val current = song
             if (current != null) {
@@ -431,11 +503,14 @@ internal fun LyricsPageContent(
     preferTtmlLyrics: Boolean?,
     lyricSourceMode: Int,
     lyricParserEngine: Int,
+    lyricLayoutProfile: PlayerLyricLayoutProfile,
     lyricFontFamily: FontFamily?,
     effectiveLyricFontPath: String,
     lyricFontWeight: FontWeight,
     lyricFontScale: Float,
     lyricSecondaryFontScale: Float,
+    lyricPrimaryTextSizeSp: Float,
+    lyricSecondaryTextSizeSp: Float,
     lyricPerspectiveEffect: Boolean,
     lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
@@ -478,12 +553,15 @@ internal fun LyricsPageContent(
         preferTtmlLyrics = preferTtmlLyrics,
         lyricSourceMode = lyricSourceMode,
         lyricParserEngine = lyricParserEngine,
+        layoutProfile = lyricLayoutProfile,
         fontFamily = lyricFontFamily,
         fontPath = effectiveLyricFontPath,
         fontWeight = lyricFontWeight,
         italic = false,
         fontScale = lyricFontScale,
         secondaryFontScale = lyricSecondaryFontScale,
+        primaryTextSizeSp = lyricPrimaryTextSizeSp,
+        secondaryTextSizeSp = lyricSecondaryTextSizeSp,
         perspectiveEffect = lyricPerspectiveEffect,
         perspectiveYAngle = lyricPerspectiveYAngle,
         lyricTextAlign = lyricTextAlign,
@@ -521,10 +599,30 @@ internal fun LyricsPageContent(
         },
         onToggleFavorite = { playerViewModel.toggleCurrentSongFavorite() },
         onFontScale = { scale ->
-            scope.launch { settingsManager.setLyricFontScale((scale * 100f).toInt()) }
+            scope.launch { settingsManager.setLyricFontScale((scale * 100f).roundToInt()) }
         },
         onSecondaryFontScale = { scale ->
-            scope.launch { settingsManager.setLyricSecondaryFontScale((scale * 100f).toInt()) }
+            scope.launch { settingsManager.setLyricSecondaryFontScale((scale * 100f).roundToInt()) }
+        },
+        onPrimaryTextSize = { sizeSp ->
+            scope.launch {
+                when (lyricLayoutProfile) {
+                    PlayerLyricLayoutProfile.Compact ->
+                        settingsManager.setLyricCompactPrimaryTextSize(sizeSp.roundToInt())
+                    PlayerLyricLayoutProfile.Wide ->
+                        settingsManager.setLyricWidePrimaryTextSize(sizeSp.roundToInt())
+                }
+            }
+        },
+        onSecondaryTextSize = { sizeSp ->
+            scope.launch {
+                when (lyricLayoutProfile) {
+                    PlayerLyricLayoutProfile.Compact ->
+                        settingsManager.setLyricCompactSecondaryTextSize(sizeSp.roundToInt())
+                    PlayerLyricLayoutProfile.Wide ->
+                        settingsManager.setLyricWideSecondaryTextSize(sizeSp.roundToInt())
+                }
+            }
         },
         onLyricSourceMode = { mode ->
             playerViewModel.setLyricSourceMode(mode)

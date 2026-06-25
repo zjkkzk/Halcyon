@@ -1230,7 +1230,12 @@ class LyricView @JvmOverloads constructor(
         }
     }
 
-    private fun isLineHighlighted(index: Int): Boolean = index == currentIndex || index in activeHighlightIndices
+    private fun isLineHighlighted(index: Int): Boolean =
+        isLyricViewLineHighlighted(
+            index = index,
+            currentIndex = currentIndex,
+            activeHighlightIndices = activeHighlightIndices
+        )
 
     private fun resolveActiveHighlightIndices(positionMs: Long): Set<Int> {
         if (lyricWindows.isEmpty()) return emptySet()
@@ -1952,7 +1957,11 @@ class LyricView @JvmOverloads constructor(
         words: List<LyricWord>,
         pos: Long,
     ): KaraokeCharProgress {
-        if (words.isEmpty() || pos < entry.begin) return KaraokeCharProgress(completedChars = 0)
+        if (words.isEmpty()) return KaraokeCharProgress(completedChars = 0)
+        // Use the words' own earliest begin as the activation bound so that secondary
+        // (background) words animate even when they start before the main line begin.
+        val beginBound = words.minOfOrNull { it.begin } ?: entry.begin
+        if (pos < beginBound) return KaraokeCharProgress(completedChars = 0)
 
         var charCursor = 0
         for (word in words) {
@@ -2024,8 +2033,13 @@ class LyricView @JvmOverloads constructor(
 
     private fun calculateSweepFraction(entry: LineEntry, pos: Long, words: List<LyricWord>, measurePaint: TextPaint): Float {
         if (words.isEmpty()) return 0f
-        if (pos < entry.begin) return 0f
-        if (pos >= entry.end) return 1f
+        // Use the words' own timing bounds instead of the line's begin/end so that secondary
+        // (background/accompaniment) words animate correctly even when they start before or
+        // end after the main lyric line. For primary words this is equivalent.
+        val beginBound = words.minOfOrNull { it.begin } ?: entry.begin
+        val endBound = words.maxOfOrNull { it.end } ?: entry.end
+        if (pos < beginBound) return 0f
+        if (pos >= endBound) return 1f
 
         var totalW = 0f
         for (word in words) totalW += measurePaint.measureText(word.text ?: "")
@@ -2198,3 +2212,9 @@ class LyricView @JvmOverloads constructor(
         scroller.abortAnimation()
     }
 }
+
+internal fun isLyricViewLineHighlighted(
+    index: Int,
+    currentIndex: Int,
+    activeHighlightIndices: Set<Int>
+): Boolean = index == currentIndex || index in activeHighlightIndices

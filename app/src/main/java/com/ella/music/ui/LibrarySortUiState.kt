@@ -2,6 +2,7 @@ package com.ella.music.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.ella.music.data.SettingsManager
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,7 @@ object LibrarySortUiState {
     var folderListFirstVisibleItemScrollOffset by mutableIntStateOf(0)
     val folderListScrollPositions = mutableMapOf<String, Pair<Int, Int>>()
     var folderDetailSongSortIndex by mutableIntStateOf(0)
+    var pendingFolderDetailSongSortIndex by mutableStateOf<Int?>(null)
     var folderPlaylistListSortIndex by mutableIntStateOf(2)
     var playlistListSortIndex by mutableIntStateOf(2)
 
@@ -51,8 +53,8 @@ object LibrarySortUiState {
         artistDetailAlbumSortIndex = settingsManager.artistDetailAlbumSortIndex.first()
         folderListSortIndex = settingsManager.folderListSortIndex.first()
         folderDetailSongSortIndex = settingsManager.folderDetailSongSortIndex.first()
+        pendingFolderDetailSongSortIndex = null
         folderPlaylistListSortIndex = settingsManager.folderPlaylistListSortIndex.first()
         playlistListSortIndex = settingsManager.playlistListSortIndex.first()
     }
 }
-

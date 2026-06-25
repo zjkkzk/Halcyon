@@ -1,6 +1,7 @@
 package com.ella.music.viewmodel
 
 import com.ella.music.data.model.LyricLine
+import com.ella.music.data.model.primaryEndMs
 
 internal const val LEADING_ZERO_LYRIC_SUPPRESSION_MS = 750L
 
@@ -18,7 +19,11 @@ internal fun currentLyricIndexAt(
 
     var index = -1
     for (i in lyrics.indices.reversed()) {
-        if (positionMs >= lyrics[i].timeMs && lyrics[i].hasVisibleLyricText()) {
+        val line = lyrics[i]
+        if (!line.hasVisibleLyricText()) continue
+        val nextLine = lyrics.getOrNull(i + 1)
+        val endMs = line.primaryEndMs(nextLine = nextLine)
+        if (positionMs >= line.timeMs && positionMs < endMs) {
             index = i
             break
         }

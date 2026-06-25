@@ -58,6 +58,8 @@ internal fun LandscapeLyricsOverlay(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     lyricTextAlign: Int,
     lyricPerspectiveEffect: Boolean,
     lyricPerspectiveYAngle: Int,
@@ -89,8 +91,6 @@ internal fun LandscapeLyricsOverlay(
     val rightPaneWeight = if (ultraWideLandscape) 0.72f else 0.67f
     val paneSpacer = if (ultraWideLandscape) 24.dp else 34.dp
     val coverMaxSize = if (ultraWideLandscape) 280.dp else 400.dp
-    val lyricPrimaryTextSize = if (ultraWideLandscape) 26f else 30f
-    val lyricSecondaryTextSize = if (ultraWideLandscape) 13f else 15f
     val lyricAnchorOffset = if (ultraWideLandscape) -0.03f else -0.06f
     val topButtonPaddingTop = if (ultraWideLandscape) 18.dp else 26.dp
     val topButtonSize = if (ultraWideLandscape) 48.dp else 56.dp
@@ -206,8 +206,8 @@ internal fun LandscapeLyricsOverlay(
                     fontPath = fontPath,
                     fontWeight = fontWeight,
                     lyricTextAlign = lyricTextAlign,
-                    primaryTextSizeSp = lyricPrimaryTextSize,
-                    secondaryTextSizeSp = lyricSecondaryTextSize,
+                    primaryTextSizeSp = primaryTextSizeSp,
+                    secondaryTextSizeSp = secondaryTextSizeSp,
                     anchorOffsetRatio = lyricAnchorOffset,
                     topContentPadding = if (ultraWideLandscape) 4.dp else 12.dp,
                     nonCurrentLineBlurEnabled = !lyricPerspectiveEffect,

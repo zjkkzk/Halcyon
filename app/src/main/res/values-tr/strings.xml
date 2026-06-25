@@ -523,6 +523,11 @@
     <string name="settings_audio_decoder_system_summary">Yalnızca Android sistem kod çözücüyü kullanın; desteklenmeyen formatlar oynatılamayacak</string>
     <string name="settings_audio_decoder_ffmpeg_summary">FFmpeg uzantı kod çözücüyü tercih edin</string>
     <string name="settings_audio_decoder_auto_summary">Yalnızca sistem kod çözücünün formatı işleyememesi durumunda FFmpeg\'e geri dönüş</string>
+    <string name="settings_usb_dac_mode">USB DAC özel modu</string>
+    <string name="settings_usb_dac_mode_summary">USB DAC algılandığında medya çıkışını bu cihaza yönlendirin</string>
+    <string name="settings_usb_dac_no_device">USB DAC algılanmadı</string>
+    <string name="settings_usb_dac_connected">%1$s bağlı</string>
+    <string name="settings_usb_dac_unsupported">Android 12 veya üstü gerekli</string>
     <string name="settings_shuffle_mode_pseudo_random">Sıra karıştırma</string>
     <string name="settings_shuffle_mode_true_random">Gerçek rastgele</string>
     <string name="settings_shuffle_mode_pseudo_random_summary">Sırayı karıştırın ve şarkıları bir turda tekrarlamamaya çalışın</string>

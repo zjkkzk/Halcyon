@@ -159,7 +159,20 @@ class TTMLParser(
         alignment: KaraokeAlignment?,
         translations: Map<String, String>
     ): KaraokeLine.AccompanimentKaraokeLine? {
-        val syllables = parseSyllablesFromChildren(bgSpan.children)
+        var syllables = parseSyllablesFromChildren(bgSpan.children)
+        val bgStart = bgSpan.attr("begin")?.parseAsTime()
+        val bgEnd = bgSpan.attr("end")?.parseAsTime()
+
+        // Fallback: x-bg span has no word-level child spans but carries its own begin/end + text.
+        // Create a single syllable so the background text is preserved and animates as one unit
+        // instead of being silently dropped.
+        if (syllables.isEmpty() && bgStart != null && bgEnd != null) {
+            val bgText = decodeXmlEntities(bgSpan.text).trim()
+            if (bgText.isNotEmpty()) {
+                syllables = listOf(KaraokeSyllable(content = bgText, start = bgStart, end = bgEnd))
+            }
+        }
+
         if (syllables.isEmpty()) return null
 
         val bgKey = bgSpan.attr("itunes:key", "key") ?: parentKey
@@ -175,8 +188,8 @@ class TTMLParser(
             syllables = syllables,
             translation = bgTranslation,
             alignment = alignment ?: KaraokeAlignment.Start,
-            start = bgSpan.attr("begin")?.parseAsTime() ?: syllables.first().start,
-            end = bgSpan.attr("end")?.parseAsTime() ?: syllables.last().end
+            start = bgStart ?: syllables.first().start,
+            end = bgEnd ?: syllables.last().end
         )
     }
 

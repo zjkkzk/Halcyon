@@ -1,6 +1,7 @@
 package com.ella.music.ui.player
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -17,16 +18,32 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ella.music.R
 import com.ella.music.data.model.Song
+import com.ella.music.data.repository.MusicRepository
 
 @Composable
 internal fun PlayerActionMenu(
     song: Song?,
+    showLyricsDisplayEntry: Boolean,
     speed: Float,
     pitch: Float,
     visualizerEnabled: Boolean,
     visualizerAvailable: Boolean,
     visualizerOpacity: Int,
     lyricOffsetMs: Long,
+    showPronunciation: Boolean,
+    showTranslation: Boolean,
+    lyricPageKeepScreenOn: Boolean,
+    lyricFormatAvailability: MusicRepository.LyricFormatAvailability,
+    preferTtmlLyrics: Boolean?,
+    lyricSourceMode: Int,
+    lyricParserEngine: Int,
+    lyricLayoutProfile: PlayerLyricLayoutProfile,
+    lyricFontScale: Float,
+    lyricSecondaryFontScale: Float,
+    lyricPrimaryTextSizeSp: Float,
+    lyricSecondaryTextSizeSp: Float,
+    lyricPerspectiveEffect: Boolean,
+    lyricPerspectiveYAngle: Int,
     metadataEditorId: String,
     lyricTimingEditorId: String,
     showPlayerKeepScreenOnAction: Boolean,
@@ -61,6 +78,18 @@ internal fun PlayerActionMenu(
     onSpeed: (Float) -> Unit,
     onPitch: (Float) -> Unit,
     onLyricOffset: (Long) -> Unit,
+    onTogglePronunciation: () -> Unit,
+    onToggleTranslation: () -> Unit,
+    onToggleLyricKeepScreenOn: () -> Unit,
+    onToggleLyricPerspectiveEffect: () -> Unit,
+    onLyricPerspectiveYAngle: (Int) -> Unit,
+    onLyricSourceMode: (Int) -> Unit,
+    onLyricFormatPreference: (Boolean) -> Unit,
+    onLyricParserEngine: (Int) -> Unit,
+    onLyricFontScale: (Float) -> Unit,
+    onLyricSecondaryFontScale: (Float) -> Unit,
+    onLyricPrimaryTextSize: (Float) -> Unit,
+    onLyricSecondaryTextSize: (Float) -> Unit,
     onVisualizerEnabled: (Boolean) -> Unit,
     onVisualizerOpacityChange: (Int) -> Unit,
     onPlayerKeepScreenOnChange: (Boolean) -> Unit,
@@ -100,6 +129,12 @@ internal fun PlayerActionMenu(
                 Spacer(modifier = Modifier.height(12.dp))
                 PlayerActionMenuGroup {
                     PlayerActionMenuItem(stringResource(R.string.player_landscape_lyrics), onLandscape)
+                    if (showLyricsDisplayEntry) {
+                        PlayerActionMenuItem(
+                            stringResource(R.string.player_lyrics_display),
+                            { page = PlayerActionSheetPage.LyricDisplay }
+                        )
+                    }
                     PlayerActionMenuItem(stringResource(R.string.song_more_view_spectrum), onSpectrum)
                     PlayerActionMenuItem(stringResource(R.string.song_more_set_rating), onSetRating)
                     PlayerActionMenuItem(stringResource(R.string.player_match_dynamic_cover), onMatchDynamicCover)
@@ -168,6 +203,40 @@ internal fun PlayerActionMenu(
                     onOpacityChange = onVisualizerOpacityChange
                 )
             }
+            PlayerActionSheetPage.LyricDisplay -> {
+                LyricActionMenu(
+                    showPronunciation = showPronunciation,
+                    showTranslation = showTranslation,
+                    keepScreenOn = lyricPageKeepScreenOn,
+                    lyricFormatAvailability = lyricFormatAvailability,
+                    preferTtmlLyrics = preferTtmlLyrics,
+                    lyricSourceMode = lyricSourceMode,
+                    lyricParserEngine = lyricParserEngine,
+                    layoutProfile = lyricLayoutProfile,
+                    fontScale = lyricFontScale,
+                    secondaryFontScale = lyricSecondaryFontScale,
+                    primaryTextSizeSp = lyricPrimaryTextSizeSp,
+                    secondaryTextSizeSp = lyricSecondaryTextSizeSp,
+                    perspectiveEffect = lyricPerspectiveEffect,
+                    perspectiveYAngle = lyricPerspectiveYAngle,
+                    onTogglePronunciation = onTogglePronunciation,
+                    onToggleTranslation = onToggleTranslation,
+                    onToggleKeepScreenOn = onToggleLyricKeepScreenOn,
+                    onTogglePerspectiveEffect = onToggleLyricPerspectiveEffect,
+                    onPerspectiveYAngle = onLyricPerspectiveYAngle,
+                    onLyricSourceMode = onLyricSourceMode,
+                    onLyricFormatPreference = onLyricFormatPreference,
+                    onLyricParserEngine = onLyricParserEngine,
+                    onFontScale = onLyricFontScale,
+                    onSecondaryFontScale = onLyricSecondaryFontScale,
+                    onPrimaryTextSize = onLyricPrimaryTextSize,
+                    onSecondaryTextSize = onLyricSecondaryTextSize,
+                    showSheetHeader = true,
+                    onBack = { page = PlayerActionSheetPage.Main },
+                    applyScrollableContainer = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -177,5 +246,6 @@ internal enum class PlayerActionSheetPage {
     Timer,
     Speed,
     LyricOffset,
-    Visualizer
+    Visualizer,
+    LyricDisplay
 }

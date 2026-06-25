@@ -154,14 +154,16 @@ fun PlayerScreen(
     onNavigateToAlbum: (Long) -> Unit = {},
     onNavigateToArtist: (String) -> Unit = {},
     onNavigateToMetadataCategory: (String, String) -> Unit = { _, _ -> },
+    onNavigateToEqualizer: () -> Unit = {},
     onDismissProgressChange: (Float) -> Unit = {},
     openToken: Int = 0,
     playerVisible: Boolean = true
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val uriHandler = LocalUriHandler.current
     val view = LocalView.current
-    val isLargeScreenDevice = LocalConfiguration.current.smallestScreenWidthDp >= 600
+    val isLargeScreenDevice = configuration.smallestScreenWidthDp >= 600
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val playerSettings = rememberPlayerScreenSettings(settingsManager)
@@ -176,8 +178,39 @@ fun PlayerScreen(
     val lyricFontFamily = lyricFontState.fontFamily
     val effectiveLyricFontPath = lyricFontState.fontPath
     val lyricFontWeight = lyricFontState.fontWeight
-    val lyricFontScale = lyricFontState.fontScale
-    val lyricSecondaryFontScale = lyricFontState.secondaryFontScale
+    val lyricLayoutProfile = remember(
+        configuration.screenWidthDp,
+        configuration.screenHeightDp,
+        configuration.smallestScreenWidthDp
+    ) {
+        resolvePlayerLyricLayoutProfile(
+            screenWidthDp = configuration.screenWidthDp,
+            screenHeightDp = configuration.screenHeightDp,
+            smallestScreenWidthDp = configuration.smallestScreenWidthDp
+        )
+    }
+    val lyricUltraWideScaleEnabled = remember(configuration.screenWidthDp, configuration.screenHeightDp) {
+        isUltraWideLandscapePlayerLayout(
+            screenWidthDp = configuration.screenWidthDp,
+            screenHeightDp = configuration.screenHeightDp
+        )
+    }
+    val lyricFontScaleRange = remember(lyricLayoutProfile, lyricUltraWideScaleEnabled) {
+        lyricLayoutProfile.primaryScaleRangePercent(lyricUltraWideScaleEnabled)
+    }
+    val lyricSecondaryFontScaleRange = remember(lyricLayoutProfile, lyricUltraWideScaleEnabled) {
+        lyricLayoutProfile.secondaryScaleRangePercent(lyricUltraWideScaleEnabled)
+    }
+    val lyricFontScale = lyricFontState.fontScale.coerceIn(
+        lyricFontScaleRange.first / 100f,
+        lyricFontScaleRange.last / 100f
+    )
+    val lyricSecondaryFontScale = lyricFontState.secondaryFontScale.coerceIn(
+        lyricSecondaryFontScaleRange.first / 100f,
+        lyricSecondaryFontScaleRange.last / 100f
+    )
+    val lyricPrimaryTextSizeSp = lyricFontState.primaryTextSizeSp(lyricLayoutProfile)
+    val lyricSecondaryTextSizeSp = lyricFontState.secondaryTextSizeSp(lyricLayoutProfile)
     val lyricShareTypeface = lyricFontState.shareTypeface
     val currentSong by playerViewModel.currentSong.collectAsState()
     val currentSongKey = remember(currentSong) { currentSong?.playlistIdentityKey() }
@@ -519,11 +552,19 @@ fun PlayerScreen(
                         miniLyricLine = miniLyricLine,
                         showLyricTranslation = showLyricTranslation,
                         showLyricPronunciation = showLyricPronunciation,
+                        lyricPageKeepScreenOn = lyricPageKeepScreenOn,
+                        lyricFormatAvailability = lyricFormatAvailability,
+                        preferTtmlLyrics = preferTtmlLyrics,
+                        lyricSourceMode = lyricSourceMode,
+                        lyricParserEngine = lyricParserEngine,
+                        lyricLayoutProfile = lyricLayoutProfile,
                         lyricFontFamily = lyricFontFamily,
                         effectiveLyricFontPath = effectiveLyricFontPath,
                         lyricFontWeight = lyricFontWeight,
                         lyricFontScale = lyricFontScale,
                         lyricSecondaryFontScale = lyricSecondaryFontScale,
+                        lyricPrimaryTextSizeSp = lyricPrimaryTextSizeSp,
+                        lyricSecondaryTextSizeSp = lyricSecondaryTextSizeSp,
                         lyricPerspectiveEffect = lyricPerspectiveEffect,
                         lyricPerspectiveYAngle = lyricPerspectiveYAngle,
                         lyricTextAlign = playerLyricTextAlign,
@@ -571,6 +612,7 @@ fun PlayerScreen(
                         onTagEditorSongChange = { uiState.tagEditorSong = it },
                         onTagEditorKindChange = { uiState.tagEditorKind = it },
                         onLyricMatchSongChange = { uiState.lyricMatchSong = it },
+                        onOpenEqualizer = onNavigateToEqualizer,
                         onRequestDeleteSong = ::requestDeleteSong,
                         onNavigateToAlbum = onNavigateToAlbum,
                         onNavigateToArtist = onNavigateToArtist,
@@ -599,11 +641,14 @@ fun PlayerScreen(
                         preferTtmlLyrics = preferTtmlLyrics,
                         lyricSourceMode = lyricSourceMode,
                         lyricParserEngine = lyricParserEngine,
+                        lyricLayoutProfile = lyricLayoutProfile,
                         lyricFontFamily = lyricFontFamily,
                         effectiveLyricFontPath = effectiveLyricFontPath,
                         lyricFontWeight = lyricFontWeight,
                         lyricFontScale = lyricFontScale,
                         lyricSecondaryFontScale = lyricSecondaryFontScale,
+                        lyricPrimaryTextSizeSp = lyricPrimaryTextSizeSp,
+                        lyricSecondaryTextSizeSp = lyricSecondaryTextSizeSp,
                         lyricPerspectiveEffect = lyricPerspectiveEffect,
                         lyricPerspectiveYAngle = lyricPerspectiveYAngle,
                         lyricTextAlign = playerLyricTextAlign,
@@ -687,6 +732,8 @@ fun PlayerScreen(
                 fontWeight = lyricFontWeight,
                 fontScale = lyricFontScale,
                 secondaryFontScale = lyricSecondaryFontScale,
+                primaryTextSizeSp = lyricPrimaryTextSizeSp,
+                secondaryTextSizeSp = lyricSecondaryTextSizeSp,
                 lyricTextAlign = playerLyricTextAlign,
                 lyricPerspectiveEffect = lyricPerspectiveEffect,
                 lyricPerspectiveYAngle = lyricPerspectiveYAngle,

@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
 import com.ella.music.data.repository.MusicRepository
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -63,8 +65,11 @@ internal fun LyricActionMenu(
     preferTtmlLyrics: Boolean?,
     lyricSourceMode: Int,
     lyricParserEngine: Int,
+    layoutProfile: PlayerLyricLayoutProfile,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     perspectiveEffect: Boolean,
     perspectiveYAngle: Int,
     onTogglePronunciation: () -> Unit,
@@ -77,14 +82,53 @@ internal fun LyricActionMenu(
     onLyricParserEngine: (Int) -> Unit,
     onFontScale: (Float) -> Unit,
     onSecondaryFontScale: (Float) -> Unit,
+    onPrimaryTextSize: (Float) -> Unit,
+    onSecondaryTextSize: (Float) -> Unit,
+    showSheetHeader: Boolean = false,
+    onBack: (() -> Unit)? = null,
+    applyScrollableContainer: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
+    val configuration = LocalConfiguration.current
+    val ultraWideLandscape = isUltraWideLandscapePlayerLayout(
+        screenWidthDp = configuration.screenWidthDp,
+        screenHeightDp = configuration.screenHeightDp
+    )
+    val fontScaleRange = layoutProfile.primaryScaleRangePercent(ultraWideLandscape)
+    val secondaryFontScaleRange = layoutProfile.secondaryScaleRangePercent(ultraWideLandscape)
+    val primaryTextSizeRange = layoutProfile.primaryTextSizeRangeSp()
+    val secondaryTextSizeRange = layoutProfile.secondaryTextSizeRangeSp()
+    val safeFontScale = fontScale.coerceIn(fontScaleRange.first / 100f, fontScaleRange.last / 100f)
+    val safeSecondaryFontScale = secondaryFontScale.coerceIn(
+        secondaryFontScaleRange.first / 100f,
+        secondaryFontScaleRange.last / 100f
+    )
+    val safePrimaryTextSize = primaryTextSizeSp.coerceIn(
+        primaryTextSizeRange.first.toFloat(),
+        primaryTextSizeRange.last.toFloat()
+    )
+    val safeSecondaryTextSize = secondaryTextSizeSp.coerceIn(
+        secondaryTextSizeRange.first.toFloat(),
+        secondaryTextSizeRange.last.toFloat()
+    )
+    val containerModifier = if (applyScrollableContainer) {
+        modifier
             .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
             .padding(horizontal = 18.dp, vertical = 10.dp)
+    } else {
+        modifier
+    }
+    Column(
+        modifier = containerModifier
     ) {
+        if (showSheetHeader) {
+            HalfSheetTitle(
+                title = stringResource(R.string.player_lyrics_display),
+                onBack = { onBack?.invoke() }
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+        }
         PlayerActionMenuItem(
             text = stringResource(if (showPronunciation) R.string.player_hide_pronunciation else R.string.player_show_pronunciation),
             onClick = onTogglePronunciation
@@ -122,6 +166,23 @@ internal fun LyricActionMenu(
         }
         Spacer(modifier = Modifier.height(10.dp))
         Text(
+            text = stringResource(R.string.player_lyric_font_scale),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+        )
+        DottedValueSlider(
+            value = safeFontScale,
+            valueRange = fontScaleRange.first / 100f..fontScaleRange.last / 100f,
+            steps = (fontScaleRange.last - fontScaleRange.first) / 5,
+            label = "${(safeFontScale * 100f).roundToInt()}%",
+            onValueChange = onFontScale,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(82.dp)
+        )
+        Text(
             text = stringResource(R.string.player_lyric_font_size),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
@@ -129,11 +190,28 @@ internal fun LyricActionMenu(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
         )
         DottedValueSlider(
-            value = fontScale.coerceIn(0.75f, 1.30f),
-            valueRange = 0.75f..1.30f,
-            steps = 11,
-            label = "${(fontScale.coerceIn(0.75f, 1.30f) * 100f).toInt()}%",
-            onValueChange = onFontScale,
+            value = safePrimaryTextSize,
+            valueRange = primaryTextSizeRange.first.toFloat()..primaryTextSizeRange.last.toFloat(),
+            steps = primaryTextSizeRange.last - primaryTextSizeRange.first,
+            label = "${safePrimaryTextSize.roundToInt()}sp",
+            onValueChange = onPrimaryTextSize,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(82.dp)
+        )
+        Text(
+            text = stringResource(R.string.player_lyric_secondary_font_scale),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+        )
+        DottedValueSlider(
+            value = safeSecondaryFontScale,
+            valueRange = secondaryFontScaleRange.first / 100f..secondaryFontScaleRange.last / 100f,
+            steps = (secondaryFontScaleRange.last - secondaryFontScaleRange.first) / 5,
+            label = "${(safeSecondaryFontScale * 100f).roundToInt()}%",
+            onValueChange = onSecondaryFontScale,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(82.dp)
@@ -146,11 +224,11 @@ internal fun LyricActionMenu(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
         )
         DottedValueSlider(
-            value = secondaryFontScale.coerceIn(0.70f, 1.50f),
-            valueRange = 0.70f..1.50f,
-            steps = 15,
-            label = "${(secondaryFontScale.coerceIn(0.70f, 1.50f) * 100f).toInt()}%",
-            onValueChange = onSecondaryFontScale,
+            value = safeSecondaryTextSize,
+            valueRange = secondaryTextSizeRange.first.toFloat()..secondaryTextSizeRange.last.toFloat(),
+            steps = secondaryTextSizeRange.last - secondaryTextSizeRange.first,
+            label = "${safeSecondaryTextSize.roundToInt()}sp",
+            onValueChange = onSecondaryTextSize,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(82.dp)

@@ -84,6 +84,8 @@ internal fun LandscapeCoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     lyricPerspectiveEffect: Boolean,
     lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
@@ -163,8 +165,8 @@ internal fun LandscapeCoverPlayerPage(
         hasLyrics -> 520.dp
         else -> 620.dp
     }
-    val lyricPrimaryTextSize = if (ultraWideLandscape) 24f else 28f
-    val lyricSecondaryTextSize = if (ultraWideLandscape) 13f else 14f
+    val lyricPrimaryTextSize = primaryTextSizeSp
+    val lyricSecondaryTextSize = secondaryTextSizeSp
     val lyricAnchorOffset = if (ultraWideLandscape) -0.03f else -0.08f
     val lyricTopPadding = if (ultraWideLandscape) 0.dp else 8.dp
 
@@ -192,6 +194,8 @@ internal fun LandscapeCoverPlayerPage(
             fontWeight = fontWeight,
             fontScale = fontScale,
             secondaryFontScale = secondaryFontScale,
+            primaryTextSizeSp = primaryTextSizeSp,
+            secondaryTextSizeSp = secondaryTextSizeSp,
             lyricPerspectiveEffect = lyricPerspectiveEffect,
             lyricPerspectiveYAngle = lyricPerspectiveYAngle,
             lyricTextAlign = lyricTextAlign,
@@ -521,6 +525,8 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
     fontWeight: FontWeight,
     fontScale: Float,
     secondaryFontScale: Float,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
     lyricPerspectiveEffect: Boolean,
     lyricPerspectiveYAngle: Int,
     lyricTextAlign: Int,
@@ -778,8 +784,8 @@ private fun CompactPhoneLandscapeCoverPlayerPage(
                             fontPath = fontPath,
                             fontWeight = fontWeight,
                             lyricTextAlign = lyricTextAlign,
-                            primaryTextSizeSp = 25f,
-                            secondaryTextSizeSp = 13f,
+                            primaryTextSizeSp = primaryTextSizeSp,
+                            secondaryTextSizeSp = secondaryTextSizeSp,
                             anchorOffsetRatio = -0.08f,
                             topContentPadding = 0.dp,
                             contentColor = palette.onBackground,

@@ -1,5 +1,6 @@
 package com.ella.music.ui.settings
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ella.music.R
 import com.ella.music.data.SettingsManager
+import com.ella.music.player.UsbAudioController
 import com.ella.music.ui.components.EllaSmallTopAppBar
 import com.ella.music.viewmodel.PlayerViewModel
 import kotlinx.coroutines.launch
@@ -61,6 +63,9 @@ fun AudioSettingsScreen(
     val decoderMode by settingsManager.decoderMode.collectAsState(initial = 2)
     val startupPlayMode by settingsManager.startupPlayMode.collectAsState(initial = SettingsManager.STARTUP_PLAY_OFF)
     val bluetoothAutoPlay by settingsManager.bluetoothAutoPlay.collectAsState(initial = false)
+    val usbDacMode by settingsManager.usbDacMode.collectAsState(initial = false)
+    val usbAudioController = remember { UsbAudioController.getInstance(context) }
+    val usbDevice by usbAudioController.preferredUsbDevice.collectAsState(initial = null)
     val decoderLabels = listOf(
         stringResource(R.string.settings_audio_decoder_system),
         stringResource(R.string.settings_audio_decoder_ffmpeg),
@@ -310,6 +315,33 @@ fun AudioSettingsScreen(
                         onSelectedIndexChange = { index ->
                             playerViewModel?.setDecoderMode(index)
                                 ?: scope.launch { settingsManager.setDecoderMode(index) }
+                        }
+                    )
+                    val currentUsbDevice = usbDevice
+                    SwitchPreference(
+                        title = stringResource(R.string.settings_usb_dac_mode),
+                        summary = when {
+                            Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> stringResource(R.string.settings_usb_dac_unsupported)
+                            currentUsbDevice == null -> stringResource(R.string.settings_usb_dac_no_device)
+                            else -> {
+                                val deviceName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                    currentUsbDevice.productName?.toString() ?: Build.MODEL
+                                } else {
+                                    Build.MODEL
+                                }
+                                stringResource(R.string.settings_usb_dac_connected, deviceName)
+                            }
+                        },
+                        checked = usbDacMode,
+                        onCheckedChange = {
+                            scope.launch {
+                                settingsManager.setUsbDacMode(it)
+                                if (it) {
+                                    usbAudioController.applyUsbRoutingIfEnabled()
+                                } else {
+                                    usbAudioController.clearUsbRouting()
+                                }
+                            }
                         }
                     )
                 }
